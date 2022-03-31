@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/pion/dtls/v2 v2.1.3
+	github.com/rainycape/dl v0.0.0-20151222075243-1b01514224a1
 	github.com/sirupsen/logrus v1.8.1
 	go.uber.org/goleak v1.1.12
 	gvisor.dev/gvisor v0.0.0-20220304203511-dac0d9f6942a
