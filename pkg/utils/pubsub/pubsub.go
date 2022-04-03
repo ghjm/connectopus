@@ -58,7 +58,9 @@ func (b *broker[T]) start() {
 			return
 		case msg := <-b.subChan:
 			subs[msg.data] = struct{}{}
-			msg.done()
+			if msg.done != nil {
+				msg.done()
+			}
 		case msg := <-b.unsubChan:
 			var fullCh chan T
 			for s := range subs {
@@ -73,13 +75,21 @@ func (b *broker[T]) start() {
 				delete(subs, fullCh)
 				close(fullCh)
 			}
-			msg.done()
+			if msg.done != nil {
+				msg.done()
+			}
 		case msg := <-b.publishChan:
-			wg := &sync.WaitGroup{}
-			wg.Add(len(subs))
+			var wg *sync.WaitGroup
+			usingWaitGroup := msg.done != nil
+			if usingWaitGroup {
+				wg = &sync.WaitGroup{}
+				wg.Add(len(subs))
+			}
 			for ch := range subs {
 				go func(ch chan T, msg T) {
-					defer wg.Done()
+					if usingWaitGroup {
+						defer wg.Done()
+					}
 					select {
 					case <-b.ctx.Done():
 						return
@@ -87,8 +97,12 @@ func (b *broker[T]) start() {
 					}
 				}(ch, msg.data)
 			}
-			wg.Wait()
-			msg.done()
+			if usingWaitGroup {
+				wg.Wait()
+			}
+			if msg.done != nil {
+				msg.done()
+			}
 		}
 	}
 }
@@ -113,7 +127,7 @@ func sendNoWait[T any](ctx context.Context, data T, ch chan chanMsg[T]) {
 		select {
 		case <-ctx.Done():
 			return
-		case ch <- chanMsg[T]{data: data, done: func() {}}:
+		case ch <- chanMsg[T]{data: data, done: nil}:
 		}
 	}()
 }

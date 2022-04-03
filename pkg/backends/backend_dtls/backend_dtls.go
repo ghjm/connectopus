@@ -34,7 +34,6 @@ func (b *dtlsBackend) WriteMessage(data []byte) error {
 }
 
 func (b *dtlsBackend) ReadMessage() ([]byte, error) {
-	//TODO: use a ring buffer here to avoid allocations on the fast path
 	p := make([]byte, b.mtu)
 	n, err := b.conn.Read(p)
 	return p[:n], err
@@ -59,7 +58,7 @@ func getDtlsConfig(ctx context.Context) *dtls.Config {
 			return []byte{0xAB, 0xC1, 0x23}, nil
 		},
 		PSKIdentityHint:      []byte("Connectopus DTLS"),
-		CipherSuites:         []dtls.CipherSuiteID{dtls.TLS_PSK_WITH_AES_128_CCM_8},
+		CipherSuites:         []dtls.CipherSuiteID{dtls.TLS_PSK_WITH_AES_128_GCM_SHA256},
 		ExtendedMasterSecret: dtls.RequireExtendedMasterSecret,
 		ConnectContextMaker: func() (context.Context, func()) {
 			return context.WithTimeout(ctx, 30*time.Second)

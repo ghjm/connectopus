@@ -1,4 +1,4 @@
-package netopus
+package proto
 
 import (
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -29,7 +29,7 @@ func TestType(t *testing.T) {
 			t.Errorf("message type %d detected wrong", mt)
 		}
 	}
-	b[0] = byte(MaxMsgType+1)
+	b[0] = byte(MaxMsgType +1)
 	if Msg(b).Type() != MsgTypeError {
 		t.Errorf("invalid message type did not produce error")
 	}
@@ -41,11 +41,33 @@ func TestInitMsg(t *testing.T) {
 	if err != nil {
 		t.Errorf("error marshaling InitMsg: %s", err)
 	}
-	im2, err := Msg(b).UnmarshalInitMsg()
+	im2, err := Msg(b).Unmarshal()
 	if err != nil {
 		t.Errorf("error unmarshaling InitMsg: %s", err)
 	}
 	if !reflect.DeepEqual(im, im2) {
 		t.Errorf("round trip error marshaling/unmarshaling InitMsg")
+	}
+}
+
+func TestRoutingUpdate(t *testing.T) {
+	r := &RoutingUpdate{
+		Origin:         net.ParseIP("FD00::1"),
+		Forwarder:      net.ParseIP("FD00::2"),
+		UpdateID:       1234,
+		UpdateEpoch:    5678,
+		UpdateSequence: 9012,
+		Connections:    []RoutingConnection{{net.ParseIP("FD00:1"), 1.0}},
+	}
+	b, err := r.Marshal()
+	if err != nil {
+		t.Errorf("error marshaling RoutingUpdate: %s", err)
+	}
+	r2, err := Msg(b).Unmarshal()
+	if err != nil {
+		t.Errorf("error unmarshaling RoutingUpdate: %s", err)
+	}
+	if !reflect.DeepEqual(r, r2) {
+		t.Errorf("round trip error marshaling/unmarshaling RoutingUpdate")
 	}
 }

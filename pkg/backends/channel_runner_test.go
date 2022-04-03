@@ -1,0 +1,103 @@
+package backends
+
+import (
+	"context"
+	"go.uber.org/goleak"
+	"os"
+	"testing"
+	"time"
+)
+
+var testMsg = "Hello, world!"
+
+// implements BackendConnection
+type testBackend struct {
+	ctx          context.Context
+	msgSent      bool
+	readDeadline time.Time
+	t            *testing.T
+	gotWrite     bool
+}
+
+func (b *testBackend) MTU() int {
+	return 1500
+}
+
+func (b *testBackend) WriteMessage(data []byte) error {
+	if string(data) != testMsg {
+		b.t.Errorf("invalid data written. expected %s, got %s", testMsg, data)
+	}
+	b.gotWrite = true
+	return nil
+}
+
+func (b *testBackend) ReadMessage() ([]byte, error) {
+	if !b.msgSent {
+		b.msgSent = true
+		return []byte(testMsg), nil
+	}
+	select {
+	case <-b.ctx.Done():
+	case <-time.After(b.readDeadline.Sub(time.Now())):
+	}
+	return nil, os.ErrDeadlineExceeded
+}
+
+func (b *testBackend) Close() error {
+	return nil
+}
+
+func (b *testBackend) SetReadDeadline(t time.Time) error {
+	b.readDeadline = t
+	return nil
+}
+
+func (b *testBackend) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+
+func TestChannelRunner(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	b := &testBackend{
+		ctx: ctx,
+		t:   t,
+	}
+	c := NewChannelRunner()
+
+	gotRead := false
+	go func() {
+		select {
+		case <-ctx.Done():
+		case msg := <-c.ReadChan():
+			if string(msg) != testMsg {
+				t.Errorf("invalid message: expected %s, got %s", testMsg, msg)
+			}
+			gotRead = true
+		}
+	}()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+		case c.WriteChan() <- []byte(testMsg):
+		}
+	}()
+
+	go c.RunProtocol(ctx, b)
+
+	startTime := time.Now()
+	for {
+		if (gotRead && b.gotWrite) || time.Now().Sub(startTime) > 5 * time.Second {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !gotRead {
+		t.Fatalf("did not read any data")
+	}
+	if !b.gotWrite {
+		t.Fatalf("did not write any data")
+	}
+}

@@ -4,14 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
+	"github.com/ghjm/connectopus/pkg/netopus/netstack"
+	"github.com/ghjm/connectopus/pkg/netopus/proto"
 	log "github.com/sirupsen/logrus"
-	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
-	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
-	"gvisor.dev/gvisor/pkg/tcpip/stack"
-	"gvisor.dev/gvisor/pkg/tcpip/transport/icmp"
-	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
-	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 	"math/rand"
 	"net"
 	"time"
@@ -40,8 +35,7 @@ type Netopus interface {
 type netopus struct {
 	ctx      context.Context
 	addr     net.IP
-	stack    *stack.Stack
-	endpoint *channel.Endpoint
+	stack    *netstack.NetStack
 }
 
 type protoSession struct {
@@ -60,44 +54,10 @@ func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
 		return nil, fmt.Errorf("address must be ipv6 from the unique local range (FC00::/7)")
 	}
 	n := &netopus{
-		ctx:  ctx,
-		addr: addr,
+		ctx:   ctx,
+		addr:  addr,
+		stack: netstack.NewStack(ctx, addr),
 	}
-
-	// create gVisor network stack
-	n.stack = stack.New(stack.Options{
-		NetworkProtocols:         []stack.NetworkProtocolFactory{ipv6.NewProtocol},
-		TransportProtocols:       []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol, icmp.NewProtocol6},
-		HandleLocal:              true,
-	})
-	n.endpoint = channel.New(16, 1500, tcpip.LinkAddress("11:11:11:11:11:11"))
-	n.stack.CreateNICWithOptions(1, n.endpoint, stack.NICOptions{
-		Name:     "1",
-		Disabled: false,
-	})
-	n.stack.AddProtocolAddress(1,
-		tcpip.ProtocolAddress{
-			Protocol:          ipv6.ProtocolNumber,
-			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(n.addr),
-				PrefixLen: 128,
-			},
-		},
-		stack.AddressProperties{
-			PEB:        0,
-			ConfigType: 0,
-			Deprecated: false,
-			Temporary:  false,
-		},
-	)
-
-	// clean up gVisor after context is cancelled
-	go func() {
-		<- ctx.Done()
-		n.endpoint.Close()
-		n.stack.Close()
-	}()
-
 	return n, nil
 }
 
@@ -118,7 +78,7 @@ func (p *protoSession) readLoop() {
 
 // sendInit sends an initialization message
 func (p *protoSession) sendInit() {
-	im, err := (&InitMsg{MyAddr: p.n.addr}).Marshal()
+	im, err := (&proto.InitMsg{MyAddr: p.n.addr}).Marshal()
 	if err == nil {
 		err = p.conn.WriteMessage(im)
 	}
@@ -136,14 +96,15 @@ func (p *protoSession) initLoop() {
 		case <-time.After(500 * time.Millisecond):
 			p.sendInit()
 		case data := <- p.readChan:
-			im, err := Msg(data).UnmarshalInitMsg()
+			msg, err := proto.Msg(data).Unmarshal()
 			if err != nil {
-				if err != ErrIncorrectMessageType {
-					log.Warnf("error unmarshaling init message: %s", err)
-				}
+				continue
 			}
-			p.remoteAddr = im.MyAddr
-			return
+			switch v := msg.(type) {
+			case *proto.InitMsg:
+				p.remoteAddr = v.MyAddr
+				return
+			}
 		}
 	}
 }
@@ -160,10 +121,6 @@ func (p *protoSession) mainLoop() {
 			_ = p.conn.WriteMessage([]byte("hello"))
 		}
 	}
-}
-
-// protoLoop is the main protocol loop
-func (p *protoSession) protoLoop() {
 }
 
 // RunProtocol runs the Netopus protocol over a given backend connection
