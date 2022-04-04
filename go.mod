@@ -3,6 +3,7 @@ module github.com/ghjm/connectopus
 go 1.18
 
 require (
+	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/pion/dtls/v2 v2.1.3
 	github.com/rainycape/dl v0.0.0-20151222075243-1b01514224a1
 	github.com/sirupsen/logrus v1.8.1

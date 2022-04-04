@@ -89,7 +89,7 @@ func TestChannelRunner(t *testing.T) {
 
 	startTime := time.Now()
 	for {
-		if (gotRead && b.gotWrite) || time.Now().Sub(startTime) > 5 * time.Second {
+		if (gotRead && b.gotWrite) || time.Now().Sub(startTime) > 5*time.Second {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

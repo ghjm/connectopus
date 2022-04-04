@@ -32,9 +32,9 @@ func NewStack(ctx context.Context, addr net.IP) *NetStack {
 		recvBroker: pubsub.NewBroker[[]byte](ctx),
 	}
 	ns.Stack = stack.New(stack.Options{
-		NetworkProtocols:         []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
-		TransportProtocols:       []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol, icmp.NewProtocol6},
-		HandleLocal:              true,
+		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
+		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol, icmp.NewProtocol6},
+		HandleLocal:        true,
 	})
 	ns.Endpoint = channel.New(16, 1500, tcpip.LinkAddress("11:11:11:11:11:11"))
 	ns.Stack.CreateNICWithOptions(1, ns.Endpoint, stack.NICOptions{
@@ -43,7 +43,7 @@ func NewStack(ctx context.Context, addr net.IP) *NetStack {
 	})
 	ns.Stack.AddProtocolAddress(1,
 		tcpip.ProtocolAddress{
-			Protocol:          ipv6.ProtocolNumber,
+			Protocol: ipv6.ProtocolNumber,
 			AddressWithPrefix: tcpip.AddressWithPrefix{
 				Address:   tcpip.Address(addr),
 				PrefixLen: 128,

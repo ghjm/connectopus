@@ -33,9 +33,9 @@ type Netopus interface {
 
 // netopus implements Netopus
 type netopus struct {
-	ctx      context.Context
-	addr     net.IP
-	stack    *netstack.NetStack
+	ctx   context.Context
+	addr  net.IP
+	stack *netstack.NetStack
 }
 
 type protoSession struct {
@@ -95,7 +95,7 @@ func (p *protoSession) initLoop() {
 			return
 		case <-time.After(500 * time.Millisecond):
 			p.sendInit()
-		case data := <- p.readChan:
+		case data := <-p.readChan:
 			msg, err := proto.Msg(data).Unmarshal()
 			if err != nil {
 				continue
@@ -115,9 +115,9 @@ func (p *protoSession) mainLoop() {
 		select {
 		case <-p.ctx.Done():
 			return
-		case data := <- p.readChan:
+		case data := <-p.readChan:
 			fmt.Printf("%s received data: %s\n", p.n.addr.String(), data)
-		case <- time.After(time.Duration(500 + rand.Int31n(500)) * time.Millisecond):
+		case <-time.After(time.Duration(500+rand.Int31n(500)) * time.Millisecond):
 			_ = p.conn.WriteMessage([]byte("hello"))
 		}
 	}

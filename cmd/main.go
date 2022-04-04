@@ -37,5 +37,5 @@ func main() {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
 	}
-	select{}
+	select {}
 }

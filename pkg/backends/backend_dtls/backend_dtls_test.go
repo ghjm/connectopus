@@ -25,9 +25,8 @@ func TestBackendDtls(t *testing.T) {
 	go func() {
 		n1.WriteChan() <- []byte("hello")
 	}()
-	data := <- n2.ReadChan()
+	data := <-n2.ReadChan()
 	if string(data) != "hello" {
 		t.Fatalf("incorrect data received")
 	}
 }
-

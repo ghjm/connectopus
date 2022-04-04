@@ -10,11 +10,11 @@ import (
 func makeTestRunner() (func(), func() []time.Time) {
 	times := make([]time.Time, 0)
 	return func() {
-		times = append(times, time.Now())
-	},
-	func() []time.Time {
-		return times
-	}
+			times = append(times, time.Now())
+		},
+		func() []time.Time {
+			return times
+		}
 }
 
 func TestTimeRunner(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func runTest(t *testing.T, mods... func(*PublishModifier)) {
+func runTest(t *testing.T, mods ...func(*PublishModifier)) {
 	testmsg := "hello"
 	numSubs := 100 // must be even
 	numToSend := 100
@@ -22,7 +22,7 @@ func runTest(t *testing.T, mods... func(*PublishModifier)) {
 	recv := sync.Map{}
 	sendToBroker := func(numSubsInUse int) {
 		wg := &sync.WaitGroup{}
-		wg.Add(numSubs+1)
+		wg.Add(numSubs + 1)
 		for i := 0; i < numSubs; i++ {
 			go func(id int, wg *sync.WaitGroup, c <-chan string) {
 				defer wg.Done()
@@ -77,10 +77,10 @@ func runTest(t *testing.T, mods... func(*PublishModifier)) {
 	}
 	sendToBroker(numSubs)
 	recv = sync.Map{}
-	for i := numSubs/2; i < numSubs; i++ {
+	for i := numSubs / 2; i < numSubs; i++ {
 		b.Unsubscribe(subCh[i])
 	}
-	sendToBroker(numSubs/2)
+	sendToBroker(numSubs / 2)
 }
 
 func TestPubSub(t *testing.T) {
@@ -88,4 +88,3 @@ func TestPubSub(t *testing.T) {
 	runTest(t)
 	runTest(t, NoWait)
 }
-

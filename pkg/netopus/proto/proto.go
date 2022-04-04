@@ -13,12 +13,13 @@ type Msg []byte
 
 // MsgType enumerates the types of Netopus protocol messages
 type MsgType int
+
 const (
 	MsgTypeError MsgType = -1
 	MsgTypeData          = 0
-	MsgTypeInit = 1
-	MsgTypeRoute = 2
-	MaxMsgType = 2
+	MsgTypeInit          = 1
+	MsgTypeRoute         = 2
+	MaxMsgType           = 2
 )
 
 // InitMsg is a message type sent at connection initialization time
@@ -51,7 +52,7 @@ func (m Msg) Type() MsgType {
 	}
 	b := m[0]
 	switch {
-	case b>>4 == 6:  // Data packets are just unmodified IPv6 packets
+	case b>>4 == 6: // Data packets are just unmodified IPv6 packets
 		return MsgTypeData
 	case b <= MaxMsgType:
 		return MsgType(m[0])

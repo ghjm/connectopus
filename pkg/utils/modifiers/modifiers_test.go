@@ -19,7 +19,7 @@ func mod2(s string) func(mt *modsTest) {
 	}
 }
 
-func testMods(mods... func(*modsTest)) *modsTest {
+func testMods(mods ...func(*modsTest)) *modsTest {
 	mt := &modsTest{}
 	ProcessMods(mt, mods)
 	return mt

@@ -118,7 +118,7 @@ func TestNetstackSubscribe(t *testing.T) {
 	}
 	startTime := time.Now()
 	for {
-		if gotData || time.Now().Sub(startTime) > 5 * time.Second {
+		if gotData || time.Now().Sub(startTime) > 5*time.Second {
 			break
 		}
 		err = udpConn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
@@ -179,8 +179,8 @@ func TestNetstackInject(t *testing.T) {
 	}()
 
 	// Construct and inject a UDP packet
-	packet := make([]byte, header.IPv6MinimumSize + header.UDPMinimumSize + len(testStr))
-	copy(packet[header.IPv6MinimumSize + header.UDPMinimumSize:], testStr)
+	packet := make([]byte, header.IPv6MinimumSize+header.UDPMinimumSize+len(testStr))
+	copy(packet[header.IPv6MinimumSize+header.UDPMinimumSize:], testStr)
 	ip := header.IPv6(packet)
 	ip.Encode(&header.IPv6Fields{
 		PayloadLength:     uint16(header.UDPMinimumSize + len(testStr)),
@@ -203,7 +203,7 @@ func TestNetstackInject(t *testing.T) {
 
 	startTime := time.Now()
 	for {
-		if gotData || time.Now().Sub(startTime) > 5 * time.Second {
+		if gotData || time.Now().Sub(startTime) > 5*time.Second {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

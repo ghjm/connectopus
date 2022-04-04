@@ -112,7 +112,7 @@ func sendAndWaitForDone[T any](ctx context.Context, data T, ch chan chanMsg[T]) 
 	select {
 	case <-ctx.Done():
 		return false
-	case ch <- chanMsg[T]{data: data, done: func() { doneCh<-struct{}{} }}:
+	case ch <- chanMsg[T]{data: data, done: func() { doneCh <- struct{}{} }}:
 	}
 	select {
 	case <-ctx.Done():

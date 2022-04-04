@@ -34,9 +34,9 @@ func (b *pairBackend) WriteMessage(data []byte) error {
 	}
 	select {
 	case b.sendChan <- data:
-	case <- b.ctx.Done():
+	case <-b.ctx.Done():
 		return os.ErrClosed
-	case <- time.After(b.writeDeadline.Sub(time.Now())):
+	case <-time.After(b.writeDeadline.Sub(time.Now())):
 		return os.ErrDeadlineExceeded
 	}
 	return nil
@@ -49,10 +49,10 @@ func (b *pairBackend) ReadMessage() ([]byte, error) {
 	}
 	var data []byte
 	select {
-	case data = <- b.readChan:
-	case <- b.ctx.Done():
+	case data = <-b.readChan:
+	case <-b.ctx.Done():
 		return nil, os.ErrClosed
-	case <- time.After(b.readDeadline.Sub(time.Now())):
+	case <-time.After(b.readDeadline.Sub(time.Now())):
 		return nil, os.ErrDeadlineExceeded
 	}
 	return data, nil

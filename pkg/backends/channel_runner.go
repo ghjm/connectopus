@@ -7,7 +7,7 @@ import (
 )
 
 type channelRunner struct {
-	readChan chan []byte
+	readChan  chan []byte
 	writeChan chan []byte
 }
 
@@ -45,7 +45,7 @@ func (p *channelRunner) RunProtocol(ctx context.Context, conn BackendConnection)
 			select {
 			case <-protoCtx.Done():
 				return
-			case p.readChan<-data:
+			case p.readChan <- data:
 			}
 		}
 	}()

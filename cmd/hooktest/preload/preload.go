@@ -31,7 +31,7 @@ func getaddrinfo(node C.c_char_r_ptr_t, service C.c_char_r_ptr_t, hints C.c_addr
 	nodeStr := C.GoString(node)
 	var ret int
 	if strings.EqualFold(nodeStr, "example.com") {
-		m := C.malloc(C.sizeof_struct_addrinfo+C.sizeof_struct_sockaddr_in)
+		m := C.malloc(C.sizeof_struct_addrinfo + C.sizeof_struct_sockaddr_in)
 		ai := C.c_addrinfo_ptr_t(m)
 		ai.ai_family = C.AF_INET
 		ai.ai_socktype = C.SOCK_STREAM

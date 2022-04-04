@@ -22,7 +22,7 @@ var ErrInvalidState = fmt.Errorf("invalid state")
 
 func New[S comparable, E any]() FSM[S, E] {
 	m := &fsm[S, E]{
-		states:   make(StateMap[S, E]),
+		states: make(StateMap[S, E]),
 	}
 	return m
 }

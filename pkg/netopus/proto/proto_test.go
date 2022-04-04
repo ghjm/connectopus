@@ -16,8 +16,8 @@ func TestType(t *testing.T) {
 		PayloadLength:     0,
 		TransportProtocol: 0,
 		HopLimit:          0,
-		SrcAddr: tcpip.Address(net.IPv6loopback),
-		DstAddr: tcpip.Address(net.IPv6loopback),
+		SrcAddr:           tcpip.Address(net.IPv6loopback),
+		DstAddr:           tcpip.Address(net.IPv6loopback),
 		ExtensionHeaders:  nil,
 	})
 	if Msg(b).Type() != MsgTypeData {
@@ -29,7 +29,7 @@ func TestType(t *testing.T) {
 			t.Errorf("message type %d detected wrong", mt)
 		}
 	}
-	b[0] = byte(MaxMsgType +1)
+	b[0] = byte(MaxMsgType + 1)
 	if Msg(b).Type() != MsgTypeError {
 		t.Errorf("invalid message type did not produce error")
 	}

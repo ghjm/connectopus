@@ -33,9 +33,9 @@ func RunDialer(ctx context.Context, pr ProtocolRunner, dialer ConnFunc) {
 	var nextTimeout time.Duration
 	for {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return
-		case <- time.After(nextTimeout):
+		case <-time.After(nextTimeout):
 		}
 		time.AfterFunc(nextTimeout, func() {})
 		time.Sleep(nextTimeout)

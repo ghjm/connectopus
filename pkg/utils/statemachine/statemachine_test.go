@@ -20,7 +20,13 @@ func TestFSM(t *testing.T) {
 	err = m2.Initialize("foo", StateMap[string, int]{
 		"foo": func(e int) string { return "bar" },
 		"bar": func(e int) string { return "bad" },
-		"bad": func(e int) string { if e == 1 { return "evil" } else { return "foo" } },
+		"bad": func(e int) string {
+			if e == 1 {
+				return "evil"
+			} else {
+				return "foo"
+			}
+		},
 	})
 	if err != nil {
 		t.Fatal("did not initialize")
