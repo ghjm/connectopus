@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 	"github.com/ghjm/connectopus/pkg/utils/timerunner"
 	priorityQueue "github.com/jupp0r/go-priority-queue"
 	"math"
@@ -26,7 +27,7 @@ type Router interface {
 type router struct {
 	myNode     string
 	nodes      map[string]map[string]float32
-	policy     map[string]string
+	policy     syncrovar.SyncroVar[map[string]string]
 	updateChan chan nodeUpdate
 	removeChan chan string
 	updateWait time.Duration
@@ -43,7 +44,6 @@ func New(ctx context.Context, myNode string, updateWait time.Duration) Router {
 	r := &router{
 		myNode:     myNode,
 		nodes:      make(map[string]map[string]float32),
-		policy:     make(map[string]string),
 		updateChan: make(chan nodeUpdate),
 		removeChan: make(chan string),
 		updateWait: updateWait,
@@ -120,10 +120,17 @@ func (r *router) recalculate() {
 			p = prev[p]
 		}
 	}
-	r.policy = newPolicy
+	r.policy.Set(newPolicy)
 }
 
 func (r *router) NextHop(dest string) string {
-	hop, _ := r.policy[dest]
+	hop := ""
+	r.policy.WorkWithReadOnly(func(policy *map[string]string) {
+		if policy == nil {
+			hop = ""
+		} else {
+			hop, _ = (*policy)[dest]
+		}
+	})
 	return hop
 }

@@ -3,6 +3,7 @@ package netstack
 import (
 	"context"
 	"fmt"
+	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 	"go.uber.org/goleak"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
@@ -43,6 +44,7 @@ func TestNetstack(t *testing.T) {
 		}
 		_, _ = c.Write([]byte(testStr))
 		_ = c.Close()
+		_ = li.Close()
 	}()
 
 	// Connect using TCP
@@ -73,7 +75,7 @@ func TestNetstackSubscribe(t *testing.T) {
 	remoteIP := net.ParseIP("FD00::2")
 	ns := NewStack(ctx, localIP)
 
-	gotData := false
+	gotData := syncrovar.SyncroVar[bool]{}
 	go func() {
 		subCh := ns.SubscribePackets()
 		defer ns.UnsubscribePackets(subCh)
@@ -95,7 +97,7 @@ func TestNetstackSubscribe(t *testing.T) {
 				if string(u.Payload()) != testStr {
 					t.Errorf("incorrect payload data received")
 				}
-				gotData = true
+				gotData.Set(true)
 			}
 		}
 	}()
@@ -118,7 +120,7 @@ func TestNetstackSubscribe(t *testing.T) {
 	}
 	startTime := time.Now()
 	for {
-		if gotData || time.Now().Sub(startTime) > 5*time.Second {
+		if gotData.Get() || time.Now().Sub(startTime) > 5*time.Second {
 			break
 		}
 		err = udpConn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
@@ -134,10 +136,9 @@ func TestNetstackSubscribe(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if !gotData {
+	if !gotData.Get() {
 		t.Fatalf("did not receive any data")
 	}
-
 }
 
 func TestNetstackInject(t *testing.T) {
@@ -157,7 +158,7 @@ func TestNetstackInject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DialUDP error %s", err)
 	}
-	var gotData bool
+	gotData := syncrovar.SyncroVar[bool]{}
 	go func() {
 		buf := make([]byte, 1500)
 		for {
@@ -174,7 +175,7 @@ func TestNetstackInject(t *testing.T) {
 			if string(buf[:n]) != testStr {
 				t.Errorf("incorrect payload: expected %s but got %s", testStr, buf[:n])
 			}
-			gotData = true
+			gotData.Set(true)
 		}
 	}()
 
@@ -203,12 +204,12 @@ func TestNetstackInject(t *testing.T) {
 
 	startTime := time.Now()
 	for {
-		if gotData || time.Now().Sub(startTime) > 5*time.Second {
+		if gotData.Get() || time.Now().Sub(startTime) > 5*time.Second {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if !gotData {
+	if !gotData.Get() {
 		t.Fatalf("did not receive any data")
 	}
 }

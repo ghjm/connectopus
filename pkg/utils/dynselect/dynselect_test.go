@@ -1,6 +1,7 @@
 package dynselect
 
 import (
+	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -34,13 +35,13 @@ func TestDynselectSend(t *testing.T) {
 	AddSend(s, ch2, struct{}{}, func() {
 		ft.ShouldCall()
 	})
-	exited := false
+	exited := syncrovar.SyncroVar[bool]{}
 	go func() {
 		s.Select()
-		exited = true
+		exited.Set(true)
 	}()
 	_ = <-ch2
-	if !exited || !ft.Result(1) {
+	if !exited.Get() || !ft.Result(1) {
 		t.Errorf("select call did not produce expected result")
 	}
 }
@@ -56,13 +57,13 @@ func TestDynselectRecv(t *testing.T) {
 	AddSend(s, ch2, struct{}{}, func() {
 		ft.ShouldNotCall()
 	})
-	exited := false
+	exited := syncrovar.SyncroVar[bool]{}
 	go func() {
 		s.Select()
-		exited = true
+		exited.Set(true)
 	}()
 	ch1 <- struct{}{}
-	if !exited || !ft.Result(1) {
+	if !exited.Get() || !ft.Result(1) {
 		t.Errorf("select call did not produce expected result")
 	}
 }
@@ -81,13 +82,13 @@ func TestDynselectDefault(t *testing.T) {
 	AddDefault(s, func() {
 		ft.ShouldCall()
 	})
-	exited := false
+	exited := syncrovar.SyncroVar[bool]{}
 	go func() {
 		s.Select()
-		exited = true
+		exited.Set(true)
 	}()
 	time.Sleep(time.Millisecond)
-	if !exited || !ft.Result(1) {
+	if !exited.Get() || !ft.Result(1) {
 		t.Errorf("select call did not produce expected result")
 	}
 }

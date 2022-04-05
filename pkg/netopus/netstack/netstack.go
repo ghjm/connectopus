@@ -36,7 +36,7 @@ func NewStack(ctx context.Context, addr net.IP) *NetStack {
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol, icmp.NewProtocol6},
 		HandleLocal:        true,
 	})
-	ns.Endpoint = channel.New(16, 1500, tcpip.LinkAddress("11:11:11:11:11:11"))
+	ns.Endpoint = channel.New(16, 1500, "AAAAAA")
 	ns.Stack.CreateNICWithOptions(1, ns.Endpoint, stack.NICOptions{
 		Name:     "1",
 		Disabled: false,
@@ -94,7 +94,7 @@ func NewStack(ctx context.Context, addr net.IP) *NetStack {
 				curPos += v.Size()
 			}
 			op.DecRef()
-			if err != nil && err != io.EOF {
+			if err != nil {
 				continue
 			}
 			ns.recvBroker.Publish(packet, pubsub.NoWait)
@@ -106,15 +106,14 @@ func NewStack(ctx context.Context, addr net.IP) *NetStack {
 
 // InjectPacket injects a single packet into the network stack.  The data must be a valid IPv6 packet.
 func (ns *NetStack) InjectPacket(packet []byte) {
-	buf := buffer.NewView(len(packet))
-	copy(buf[:], packet)
 	pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
-		Data: buf.ToVectorisedView(),
+		Data: buffer.View(packet).ToVectorisedView(),
 	})
 	ns.Endpoint.InjectInbound(ipv6.ProtocolNumber, pkt)
+	pkt.DecRef()
 }
 
-// SubscribePackets establishes a channel that will receive all incoming packets.
+// SubscribePackets establishes a channel that will receive outgoing packets from the stack.
 func (ns *NetStack) SubscribePackets() <-chan []byte {
 	return ns.recvBroker.Subscribe()
 }

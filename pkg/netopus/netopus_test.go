@@ -4,20 +4,26 @@ import (
 	"context"
 	"github.com/ghjm/connectopus/pkg/backends/backend_pair"
 	"go.uber.org/goleak"
+	"io/ioutil"
 	"net"
+	"sync"
 	"testing"
 	"time"
 )
 
+var testStr = "Hello, world!"
+
 func TestNetopus(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	n1, err := NewNetopus(ctx, net.ParseIP("FD00::1"))
+	n1addr := net.ParseIP("FD00::1")
+	n1, err := NewNetopus(ctx, n1addr)
 	if err != nil {
 		t.Fatalf("netopus initialization error %s", err)
 	}
-	n2, err := NewNetopus(ctx, net.ParseIP("FD00::2"))
+	n2addr := net.ParseIP("FD00::2")
+	n2, err := NewNetopus(ctx, n2addr)
 	if err != nil {
 		t.Fatalf("netopus initialization error %s", err)
 	}
@@ -25,5 +31,167 @@ func TestNetopus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pair backend error %s", err)
 	}
-	time.Sleep(2 * time.Second)
+
+	// Wait for connection
+	checkConn := func(n Netopus) bool {
+		tr := n.(*netopus).sessions.BeginTransaction()  //TODO: fix this after implementing netopus.Status()
+		defer tr.EndTransaction()
+		m := *tr.RawMap()
+		if len(m) == 0 {
+			return false
+		}
+		for _, v := range m {
+			if v.connected.Get() {
+				return true
+			}
+		}
+		return false
+	}
+	connGood := false
+	for i := 0; i < 10; i++ {
+		if checkConn(n1) && checkConn(n2) {
+			connGood = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !connGood {
+		t.Fatalf("Netopus instances didn't connect")
+	}
+
+	// Start TCP listener
+	li, err := n1.ListenTCP(1234)
+	if err != nil {
+		t.Fatalf("listen TCP error: %s", err)
+	}
+	go func() {
+		defer func() {
+			_ = li.Close()
+		}()
+		for {
+			sc, err := li.Accept()
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				t.Errorf("accept error: %s", err)
+				return
+			}
+			go func() {
+				_, _ = sc.Write([]byte(testStr))
+				_ = sc.Close()
+			}()
+		}
+	}()
+
+	// Start UDP listener
+	ulc, err := n1.DialUDP(2345, nil, 0)
+	if err != nil {
+		t.Fatalf("UDP listener error: %s", err)
+	}
+	go func() {
+		defer func() {
+			_ = ulc.Close()
+		}()
+		for {
+			buf := make([]byte, 1500)
+			_, addr, err := ulc.ReadFrom(buf)
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				t.Errorf("UDP read error: %s", err)
+				return
+			}
+			go func() {
+				n, err := ulc.WriteTo([]byte(testStr), addr)
+				if err != nil {
+					t.Errorf("UDP write error: %s", err)
+					return
+				}
+				if n != len(testStr) {
+					t.Errorf("UDP expected to write %d bytes but wrote %d", len(testStr), n)
+				}
+			}()
+		}
+	}()
+
+	// Set up wait group
+	nConns := 10
+	wg := sync.WaitGroup{}
+	wg.Add(2 * nConns)
+
+	// Connect using TCP
+	for i := 0; i < nConns; i++ {
+		go func() {
+			dctx, dcancel := context.WithTimeout(ctx, 2*time.Second)
+			defer func() {
+				dcancel()
+				wg.Done()
+			}()
+			c, err := n2.DialContextTCP(dctx, n1addr, 1234)
+			if err != nil {
+				t.Errorf("dial TCP error: %s", err)
+				return
+			}
+			if dctx.Err() != nil {
+				t.Errorf("dial context: %s", dctx.Err())
+				return
+			}
+			b, err := ioutil.ReadAll(c)
+			if err != nil {
+				t.Errorf("read TCP error: %s", err)
+				return
+			}
+			err = c.Close()
+			if err != nil {
+				t.Errorf("close TCP error: %s", err)
+				return
+			}
+			if string(b) != testStr {
+				t.Errorf("incorrect data received: expected %s but got %s", testStr, b)
+				return
+			}
+		}()
+	}
+
+	// Connect using UDP
+	for i := 0; i < nConns; i++ {
+		go func() {
+			defer func() {
+				wg.Done()
+			}()
+			udc, err := n2.DialUDP(0, n1addr, 2345)
+			if err != nil {
+				t.Errorf("dial UDP error: %s", err)
+				return
+			}
+			if ctx.Err() != nil {
+				return
+			}
+			_, err = udc.Write([]byte("ping"))
+			if err != nil {
+				t.Errorf("UDP write error: %s", err)
+				return
+			}
+			b := make([]byte, 1500)
+			n, err := udc.Read(b)
+			if err != nil {
+				t.Errorf("UDP read error: %s", err)
+				return
+			}
+			if n != len(testStr) || string(b[:n]) != testStr {
+				t.Errorf("UDP read data incorrect: expected %s, got %s", testStr, b[:n])
+				return
+			}
+			err = udc.Close()
+			if err != nil {
+				t.Errorf("close UDP error: %s", err)
+				return
+			}
+		}()
+	}
+
+	// Wait for completion
+	wg.Wait()
 }

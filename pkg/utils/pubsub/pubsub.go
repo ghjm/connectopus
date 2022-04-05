@@ -49,12 +49,18 @@ func NewBroker[T any](ctx context.Context) Broker[T] {
 
 func (b *broker[T]) start() {
 	subs := make(map[chan T]struct{})
+	closeLock := sync.Mutex{}
+	defer func() {
+		closeLock.Lock()
+		for ch := range subs {
+			close(ch)
+		}
+		subs = nil
+		closeLock.Unlock()
+	}()
 	for {
 		select {
 		case <-b.ctx.Done():
-			for ch := range subs {
-				close(ch)
-			}
 			return
 		case msg := <-b.subChan:
 			subs[msg.data] = struct{}{}
@@ -79,30 +85,26 @@ func (b *broker[T]) start() {
 				msg.done()
 			}
 		case msg := <-b.publishChan:
-			var wg *sync.WaitGroup
-			usingWaitGroup := msg.done != nil
-			if usingWaitGroup {
-				wg = &sync.WaitGroup{}
+			func() {
+				closeLock.Lock()
+				defer closeLock.Unlock()
+				wg := &sync.WaitGroup{}
 				wg.Add(len(subs))
-			}
-			for ch := range subs {
-				go func(ch chan T, msg T) {
-					if usingWaitGroup {
+				for ch := range subs {
+					go func(ch chan T, msg T) {
 						defer wg.Done()
-					}
-					select {
-					case <-b.ctx.Done():
-						return
-					case ch <- msg:
-					}
-				}(ch, msg.data)
-			}
-			if usingWaitGroup {
+						select {
+						case <-b.ctx.Done():
+							return
+						case ch <- msg:
+						}
+					}(ch, msg.data)
+				}
 				wg.Wait()
-			}
-			if msg.done != nil {
-				msg.done()
-			}
+				if msg.done != nil {
+					msg.done()
+				}
+			}()
 		}
 	}
 }

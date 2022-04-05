@@ -2,6 +2,7 @@ package backends
 
 import (
 	"context"
+	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 	"go.uber.org/goleak"
 	"os"
 	"testing"
@@ -16,7 +17,7 @@ type testBackend struct {
 	msgSent      bool
 	readDeadline time.Time
 	t            *testing.T
-	gotWrite     bool
+	gotWrite     syncrovar.SyncroVar[bool]
 }
 
 func (b *testBackend) MTU() int {
@@ -27,7 +28,7 @@ func (b *testBackend) WriteMessage(data []byte) error {
 	if string(data) != testMsg {
 		b.t.Errorf("invalid data written. expected %s, got %s", testMsg, data)
 	}
-	b.gotWrite = true
+	b.gotWrite.Set(true)
 	return nil
 }
 
@@ -52,7 +53,7 @@ func (b *testBackend) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
-func (b *testBackend) SetWriteDeadline(t time.Time) error {
+func (b *testBackend) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -61,12 +62,12 @@ func TestChannelRunner(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	b := &testBackend{
-		ctx: ctx,
-		t:   t,
+		ctx:      ctx,
+		t:        t,
 	}
 	c := NewChannelRunner()
 
-	gotRead := false
+	gotRead := syncrovar.SyncroVar[bool]{}
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -74,7 +75,7 @@ func TestChannelRunner(t *testing.T) {
 			if string(msg) != testMsg {
 				t.Errorf("invalid message: expected %s, got %s", testMsg, msg)
 			}
-			gotRead = true
+			gotRead.Set(true)
 		}
 	}()
 
@@ -89,15 +90,15 @@ func TestChannelRunner(t *testing.T) {
 
 	startTime := time.Now()
 	for {
-		if (gotRead && b.gotWrite) || time.Now().Sub(startTime) > 5*time.Second {
+		if (gotRead.Get() && b.gotWrite.Get()) || time.Now().Sub(startTime) > 5*time.Second {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if !gotRead {
+	if !gotRead.Get() {
 		t.Fatalf("did not read any data")
 	}
-	if !b.gotWrite {
+	if !b.gotWrite.Get() {
 		t.Fatalf("did not write any data")
 	}
 }

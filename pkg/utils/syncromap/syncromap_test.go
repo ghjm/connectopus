@@ -9,19 +9,19 @@ func TestSyncromap(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
 	s := NewMap[string, int]()
-	s.Store("foo", 1)
-	v, ok := s.Load("foo")
+	s.Set("foo", 1)
+	v, ok := s.Get("foo")
 	if v != 1 || ok != true {
 		t.Fail()
 	}
 	tr := s.BeginTransaction()
-	v, ok = tr.Load("foo")
+	v, ok = tr.Get("foo")
 	if v != 1 || ok != true {
 		t.Fail()
 	}
-	tr.Store("foo", v+1)
+	tr.Set("foo", v+1)
 	tr.EndTransaction()
-	v, ok = s.Load("foo")
+	v, ok = s.Get("foo")
 	if v != 2 || ok != true {
 		t.Fail()
 	}
