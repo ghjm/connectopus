@@ -2,10 +2,14 @@ package netopus
 
 import (
 	"context"
+	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends/backend_pair"
+	"github.com/ghjm/connectopus/pkg/utils"
+	log "github.com/sirupsen/logrus"
 	"go.uber.org/goleak"
-	"io/ioutil"
+	"io"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -15,7 +19,9 @@ var testStr = "Hello, world!"
 
 func TestNetopus(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	log.SetLevel(log.DebugLevel)
+	log.SetOutput(os.Stdout)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	n1addr := net.ParseIP("FD00::1")
 	n1, err := NewNetopus(ctx, n1addr)
@@ -27,6 +33,7 @@ func TestNetopus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("netopus initialization error %s", err)
 	}
+
 	err = backend_pair.RunPair(ctx, n1, n2, 1500)
 	if err != nil {
 		t.Fatalf("pair backend error %s", err)
@@ -79,6 +86,7 @@ func TestNetopus(t *testing.T) {
 			}
 			go func() {
 				_, _ = sc.Write([]byte(testStr))
+				//_ = sc.(*gonet.TCPConn).CloseWrite()
 				_ = sc.Close()
 			}()
 		}
@@ -95,6 +103,10 @@ func TestNetopus(t *testing.T) {
 		}()
 		for {
 			buf := make([]byte, 1500)
+			if err != nil {
+				t.Errorf("Error setting read deadline: %s", err)
+				return
+			}
 			_, addr, err := ulc.ReadFrom(buf)
 			if ctx.Err() != nil {
 				return
@@ -117,28 +129,25 @@ func TestNetopus(t *testing.T) {
 	}()
 
 	// Set up wait group
-	nConns := 10
+	nConns := 10  //TODO: This fails with larger connection counts.  See https://github.com/google/gvisor/issues/7379
 	wg := sync.WaitGroup{}
-	wg.Add(2 * nConns)
+	wg.Add(2*nConns)
 
 	// Connect using TCP
 	for i := 0; i < nConns; i++ {
-		go func() {
-			dctx, dcancel := context.WithTimeout(ctx, 2*time.Second)
+		go func(id int) {
 			defer func() {
-				dcancel()
 				wg.Done()
 			}()
-			c, err := n2.DialContextTCP(dctx, n1addr, 1234)
+			c, err := n2.DialContextTCP(ctx, n1addr, 1234)
 			if err != nil {
 				t.Errorf("dial TCP error: %s", err)
 				return
 			}
-			if dctx.Err() != nil {
-				t.Errorf("dial context: %s", dctx.Err())
+			if ctx.Err() != nil {
 				return
 			}
-			b, err := ioutil.ReadAll(c)
+			b, err := io.ReadAll(c)
 			if err != nil {
 				t.Errorf("read TCP error: %s", err)
 				return
@@ -152,12 +161,12 @@ func TestNetopus(t *testing.T) {
 				t.Errorf("incorrect data received: expected %s but got %s", testStr, b)
 				return
 			}
-		}()
+		}(i)
 	}
 
 	// Connect using UDP
 	for i := 0; i < nConns; i++ {
-		go func() {
+		go func(id int) {
 			defer func() {
 				wg.Done()
 			}()
@@ -169,13 +178,26 @@ func TestNetopus(t *testing.T) {
 			if ctx.Err() != nil {
 				return
 			}
-			_, err = udc.Write([]byte("ping"))
-			if err != nil {
-				t.Errorf("UDP write error: %s", err)
-				return
-			}
+			pingCtx, pingCancel := context.WithCancel(ctx)
+			go func() {
+				for {
+					_, err := udc.Write([]byte("ping"))
+					if err != nil && pingCtx.Err() == nil {
+						t.Errorf("UDP write error: %s", err)
+						return
+					}
+					select {
+					case <-pingCtx.Done():
+						return
+					case <-time.After(time.Second):
+					}
+				}
+			}()
 			b := make([]byte, 1500)
+			timeCancel := utils.LogTime(ctx, fmt.Sprintf("UDP read #%d", id), time.Second)
 			n, err := udc.Read(b)
+			timeCancel()
+			pingCancel()
 			if err != nil {
 				t.Errorf("UDP read error: %s", err)
 				return
@@ -189,7 +211,7 @@ func TestNetopus(t *testing.T) {
 				t.Errorf("close UDP error: %s", err)
 				return
 			}
-		}()
+		}(i)
 	}
 
 	// Wait for completion

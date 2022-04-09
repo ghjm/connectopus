@@ -24,7 +24,10 @@ func TestNetstack(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	localIP := net.ParseIP("FD00::1")
-	ns := NewStack(ctx, localIP)
+	ns, err := NewStack(ctx, localIP)
+	if err != nil {
+		t.Fatalf("error initializing stack: %s", err)
+	}
 
 	// Start TCP listener
 	tcpFA := tcpip.FullAddress{
@@ -73,7 +76,10 @@ func TestNetstackSubscribe(t *testing.T) {
 	defer cancel()
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns := NewStack(ctx, localIP)
+	ns, err := NewStack(ctx, localIP)
+	if err != nil {
+		t.Fatalf("error initializing stack: %s", err)
+	}
 
 	gotData := syncrovar.SyncroVar[bool]{}
 	go func() {
@@ -147,7 +153,10 @@ func TestNetstackInject(t *testing.T) {
 	defer cancel()
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns := NewStack(ctx, localIP)
+	ns, err := NewStack(ctx, localIP)
+	if err != nil {
+		t.Fatalf("error initializing stack: %s", err)
+	}
 
 	udpFA := tcpip.FullAddress{
 		NIC:  1,
@@ -200,7 +209,10 @@ func TestNetstackInject(t *testing.T) {
 	xsum = header.Checksum([]byte(testStr), xsum)
 	u.SetChecksum(^u.CalculateChecksum(xsum))
 
-	ns.InjectPacket(packet)
+	err = ns.SendPacket(packet)
+	if err != nil && ctx.Err() == nil {
+		t.Fatalf("error injecting packet: %s", err)
+	}
 
 	startTime := time.Now()
 	for {

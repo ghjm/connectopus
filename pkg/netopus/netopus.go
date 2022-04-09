@@ -57,6 +57,7 @@ type protoSession struct {
 	readChan   chan proto.Msg
 	remoteAddr net.IP
 	connected  syncrovar.SyncroVar[bool]
+	connStart  time.Time
 }
 
 // NewNetopus constructs and returns a new network node on a given address
@@ -64,10 +65,14 @@ func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
 	if len(addr) != net.IPv6len || !addr.IsPrivate() {
 		return nil, fmt.Errorf("address must be ipv6 from the unique local range (FC00::/7)")
 	}
+	stack, err := netstack.NewStack(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
 	n := &netopus{
 		ctx:      ctx,
 		addr:     addr,
-		stack:    netstack.NewStack(ctx, addr),
+		stack:    stack,
 		router:   router.New(ctx, string(addr), 50*time.Millisecond),
 		sessions: syncromap.NewMap[int, *protoSession](),
 	}
@@ -78,12 +83,11 @@ func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
 func (p *protoSession) backendReadLoop() {
 	for {
 		data, err := p.conn.ReadMessage()
-		if err != nil {
-			if p.ctx.Err() == nil {
-				log.Warnf("protocol read error: %s", err)
-				p.cancel()
-			}
+		if p.ctx.Err() != nil {
 			return
+		}
+		if err != nil {
+			log.Warnf("protocol read error: %s", err)
 		}
 		select {
 		case <-p.ctx.Done():
@@ -92,10 +96,9 @@ func (p *protoSession) backendReadLoop() {
 	}
 }
 
-// stackReadLoop reads packets from the stack and processes them
-func (p *protoSession) stackReadLoop() {
+// netStackReadLoop reads packets from the netstack and processes them
+func (p *protoSession) netStackReadLoop() {
 	readChan := p.n.stack.SubscribePackets()
-	defer p.n.stack.UnsubscribePackets(readChan)
 	for {
 		select {
 		case <-p.ctx.Done():
@@ -103,11 +106,10 @@ func (p *protoSession) stackReadLoop() {
 		case packet := <-readChan:
 			err := p.n.SendPacket(packet)
 			if err != nil {
-				if p.ctx.Err() == nil {
-					log.Warnf("protocol write error: %s", err)
-					p.cancel()
+				if p.ctx.Err() != nil {
+					return
 				}
-				return
+				log.Warnf("protocol write error: %s", err)
 			}
 		}
 	}
@@ -121,6 +123,7 @@ func (p *protoSession) sendInit() {
 	}
 	if err != nil {
 		log.Warnf("error sending init message: %s", err)
+		return
 	}
 }
 
@@ -140,6 +143,7 @@ func (p *protoSession) initSelect() {
 		switch v := msg.(type) {
 		case *proto.InitMsg:
 			p.remoteAddr = v.MyAddr
+			p.connStart = time.Now()
 			p.connected.Set(true)
 			return
 		}
@@ -148,7 +152,6 @@ func (p *protoSession) initSelect() {
 
 // mainSelect runs one instance of the main loop when the connection is established
 func (p *protoSession) mainSelect() {
-	startTime := time.Now()
 	select {
 	case <-p.ctx.Done():
 		return
@@ -167,8 +170,8 @@ func (p *protoSession) mainSelect() {
 			}
 		case proto.RoutingUpdate:
 		case proto.InitMsg:
-			if time.Now().Sub(startTime) > 2*time.Second {
-				// the remote side doesn't think we're connected, so re-run the init process
+			if time.Now().Sub(p.connStart) > 2*time.Second {
+				// The remote side doesn't think we're connected, so re-run the init process
 				p.connected.Set(false)
 			}
 		}
@@ -213,7 +216,7 @@ func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnecti
 	}
 	defer n.sessions.Delete(sessID)
 	go p.backendReadLoop()
-	go p.stackReadLoop()
+	go p.netStackReadLoop()
 	go p.protoLoop()
 	<-protoCtx.Done()
 }
@@ -225,7 +228,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 	}
 	dest := header.IPv6(packet).DestinationAddress()
 	if dest == tcpip.Address(n.addr) {
-		n.stack.InjectPacket(packet)
+		return n.stack.SendPacket(packet)
 	} else {
 		var nextHopConn *protoSession
 		func() {
@@ -239,7 +242,13 @@ func (n *netopus) SendPacket(packet []byte) error {
 			}
 		}()
 		if nextHopConn != nil {
-			return nextHopConn.conn.WriteMessage(packet)
+			go func() {
+				err := nextHopConn.conn.WriteMessage(packet)
+				if err != nil && n.ctx.Err() == nil {
+					log.Warnf("packet write error: %s", err)
+				}
+			}()
+			return nil
 		}
 	}
 	return nil

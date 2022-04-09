@@ -1,6 +1,7 @@
 package dynselect
 
 import (
+	"context"
 	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,20 @@ func (t *funcTester) Result(desired int32) bool {
 	return t.good == desired && t.bad == 0
 }
 
+func waitForExit(exited *syncrovar.SyncroVar[bool]) bool {
+	sctx, scancel := context.WithTimeout(context.Background(), time.Second)
+	defer scancel()
+	for {
+		time.Sleep(time.Millisecond)
+		if exited.Get() {
+			return true
+		}
+		if sctx.Err() != nil {
+			return false
+		}
+	}
+}
+
 func TestDynselectSend(t *testing.T) {
 	ch1 := make(chan struct{})
 	ch2 := make(chan struct{})
@@ -40,8 +55,11 @@ func TestDynselectSend(t *testing.T) {
 		s.Select()
 		exited.Set(true)
 	}()
-	_ = <-ch2
-	if !exited.Get() || !ft.Result(1) {
+	<-ch2
+	if !waitForExit(&exited) {
+		t.Errorf("select call did not return")
+	}
+	if !ft.Result(1) {
 		t.Errorf("select call did not produce expected result")
 	}
 }
@@ -63,7 +81,10 @@ func TestDynselectRecv(t *testing.T) {
 		exited.Set(true)
 	}()
 	ch1 <- struct{}{}
-	if !exited.Get() || !ft.Result(1) {
+	if !waitForExit(&exited) {
+		t.Errorf("select call did not return")
+	}
+	if !ft.Result(1) {
 		t.Errorf("select call did not produce expected result")
 	}
 }
@@ -87,8 +108,10 @@ func TestDynselectDefault(t *testing.T) {
 		s.Select()
 		exited.Set(true)
 	}()
-	time.Sleep(time.Millisecond)
-	if !exited.Get() || !ft.Result(1) {
+	if !waitForExit(&exited) {
+		t.Errorf("select call did not return")
+	}
+	if !ft.Result(1) {
 		t.Errorf("select call did not produce expected result")
 	}
 }
