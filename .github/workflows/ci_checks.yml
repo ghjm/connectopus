@@ -24,6 +24,9 @@ jobs:
       - name: Run linters
         uses: golangci/golangci-lint-action@v2
 
+      - name: Check formatting
+        run: gofmt -l .
+
       - name: Run tests
         run: go test ./... -count=1 -race
 
