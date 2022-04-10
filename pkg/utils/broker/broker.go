@@ -20,10 +20,10 @@ type Broker[T any] interface {
 
 // broker implements Broker
 type broker[T any] struct {
-	ctx        context.Context
-	publishCh  chan T
-	subCh      chan chan T
-	unSubCh    chan (<- chan T)
+	ctx       context.Context
+	publishCh chan T
+	subCh     chan chan T
+	unSubCh   chan (<-chan T)
 }
 
 // NewBroker starts a new broker.
@@ -63,8 +63,8 @@ func (b *broker[T]) run() {
 
 func (b *broker[T]) Publish(msg T) {
 	select {
-		case <-b.ctx.Done():
-		case b.publishCh <- msg:
+	case <-b.ctx.Done():
+	case b.publishCh <- msg:
 	}
 }
 

@@ -107,9 +107,9 @@ func TestBroker(t *testing.T) {
 	}
 	sendToBroker(numSubs)
 	recv = sync.Map{}
-	for i := numSubs/2; i < numSubs; i++ {
+	for i := numSubs / 2; i < numSubs; i++ {
 		b.Unsubscribe(subCh[i])
 	}
-	sendToBroker(numSubs/2)
+	sendToBroker(numSubs / 2)
 	cancel()
 }

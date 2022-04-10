@@ -62,8 +62,8 @@ func TestChannelRunner(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	b := &testBackend{
-		ctx:      ctx,
-		t:        t,
+		ctx: ctx,
+		t:   t,
 	}
 	c := NewChannelRunner()
 

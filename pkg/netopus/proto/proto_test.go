@@ -53,7 +53,6 @@ func TestInitMsg(t *testing.T) {
 func TestRoutingUpdate(t *testing.T) {
 	r := &RoutingUpdate{
 		Origin:         net.ParseIP("FD00::1"),
-		Forwarder:      net.ParseIP("FD00::2"),
 		UpdateID:       1234,
 		UpdateEpoch:    5678,
 		UpdateSequence: 9012,

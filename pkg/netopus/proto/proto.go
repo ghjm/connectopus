@@ -29,12 +29,11 @@ type InitMsg struct {
 
 // RoutingUpdate is a message type carrying routing information
 type RoutingUpdate struct {
-	Forwarder      net.IP
 	Origin         net.IP
 	UpdateID       uint64
 	UpdateEpoch    uint64
 	UpdateSequence uint64
-	Connections    []RoutingConnection
+	Connections    RoutingConnections
 }
 
 // RoutingConnection is the information of a single connection in a routing update
@@ -42,6 +41,9 @@ type RoutingConnection struct {
 	Peer net.IP
 	Cost float32
 }
+
+// RoutingConnections is a slice of RoutingConnection
+type RoutingConnections []RoutingConnection
 
 var ErrUnknownMessageType = fmt.Errorf("unknown message type")
 
@@ -107,4 +109,13 @@ func (m *RoutingUpdate) Marshal() ([]byte, error) {
 		return nil, err
 	}
 	return d, nil
+}
+
+// GetConnMap gets a map of connection costs, suitable for use in router.UpdateNode
+func (rc RoutingConnections) GetConnMap() map[string]float32 {
+	m := make(map[string]float32)
+	for _, c := range rc {
+		m[c.Peer.String()] = 1.0
+	}
+	return m
 }

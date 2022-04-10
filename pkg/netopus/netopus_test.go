@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends/backend_pair"
-	"github.com/ghjm/connectopus/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/goleak"
 	"io"
@@ -15,59 +14,97 @@ import (
 	"time"
 )
 
-var testStr = "Hello, world!"
+// NodeSpec defines a node (Netopus instance) in a mesh
+type NodeSpec struct {
+	Address net.IP
+	Conns   []string
+}
 
-func TestNetopus(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	log.SetLevel(log.DebugLevel)
-	log.SetOutput(os.Stdout)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	n1addr := net.ParseIP("FD00::1")
-	n1, err := NewNetopus(ctx, n1addr)
-	if err != nil {
-		t.Fatalf("netopus initialization error %s", err)
-	}
-	n2addr := net.ParseIP("FD00::2")
-	n2, err := NewNetopus(ctx, n2addr)
-	if err != nil {
-		t.Fatalf("netopus initialization error %s", err)
-	}
+// ConnSpec defines a connection between two named nodes
+type ConnSpec struct {
+	N1 string
+	N2 string
+}
 
-	err = backend_pair.RunPair(ctx, n1, n2, 1500)
-	if err != nil {
-		t.Fatalf("pair backend error %s", err)
-	}
-
-	// Wait for connection
-	checkConn := func(n Netopus) bool {
-		tr := n.(*netopus).sessions.BeginTransaction()  //TODO: fix this after implementing netopus.Status()
-		defer tr.EndTransaction()
-		m := *tr.RawMap()
-		if len(m) == 0 {
-			return false
-		}
-		for _, v := range m {
-			if v.connected.Get() {
-				return true
+// MakeMesh constructs Netopus instances and backends, according to a spec
+func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Netopus, error) {
+	connections := make([]ConnSpec, 0)
+	for node, spec := range meshSpec {
+		for _, conn := range spec.Conns {
+			remNode, ok := meshSpec[conn]
+			if !ok {
+				return nil, fmt.Errorf("node %s connects to non-existing node %s", node, conn)
+			}
+			found := false
+			for _, remConn := range remNode.Conns {
+				if remConn == node {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return nil, fmt.Errorf("node %s connects to %s with no reverse connection", node, conn)
+			}
+			found = false
+			for _, b := range connections {
+				if (b.N1 == node && b.N2 == conn) || (b.N1 == conn && b.N2 == node) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				connections = append(connections, ConnSpec{N1: node, N2: conn})
 			}
 		}
-		return false
 	}
-	connGood := false
-	for i := 0; i < 10; i++ {
-		if checkConn(n1) && checkConn(n2) {
-			connGood = true
+	mesh := make(map[string]Netopus)
+	for node, spec := range meshSpec {
+		n, err := NewNetopus(ctx, spec.Address)
+		if err != nil {
+			return nil, err
+		}
+		mesh[node] = n
+	}
+	for _, conn := range connections {
+		err := backend_pair.RunPair(ctx, mesh[conn.N1], mesh[conn.N2], 1500)
+		if err != nil {
+			return nil, err
+		}
+	}
+	startTime := time.Now()
+	for _, conn := range connections {
+		allGood := true
+		for n, c := range map[string]string{conn.N1: conn.N2, conn.N2: conn.N1} {
+			good := false
+			mesh[n].(*netopus).sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
+				for _, v := range s.sessions {
+					if v.connected.Get() && v.remoteAddr.Equal(meshSpec[c].Address) {
+						good = true
+						return
+					}
+				}
+			})
+			if !good {
+				allGood = false
+				break
+			}
+		}
+		if allGood {
 			break
+		}
+		if time.Now().Sub(startTime) > 5*time.Second {
+			return nil, fmt.Errorf("timeout initializing mesh")
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if !connGood {
-		t.Fatalf("Netopus instances didn't connect")
-	}
+	return mesh, nil
+}
 
+var testStr = "Hello, world!"
+
+func testStack(ctx context.Context, t *testing.T, server Netopus, serverAddr net.IP, client Netopus) {
 	// Start TCP listener
-	li, err := n1.ListenTCP(1234)
+	li, err := server.ListenTCP(1234)
 	if err != nil {
 		t.Fatalf("listen TCP error: %s", err)
 	}
@@ -93,7 +130,7 @@ func TestNetopus(t *testing.T) {
 	}()
 
 	// Start UDP listener
-	ulc, err := n1.DialUDP(2345, nil, 0)
+	ulc, err := server.DialUDP(2345, nil, 0)
 	if err != nil {
 		t.Fatalf("UDP listener error: %s", err)
 	}
@@ -129,9 +166,9 @@ func TestNetopus(t *testing.T) {
 	}()
 
 	// Set up wait group
-	nConns := 10  //TODO: This fails with larger connection counts.  See https://github.com/google/gvisor/issues/7379
+	nConns := 10 //TODO: This fails with larger connection counts.  See https://github.com/google/gvisor/issues/7379
 	wg := sync.WaitGroup{}
-	wg.Add(2*nConns)
+	wg.Add(2 * nConns)
 
 	// Connect using TCP
 	for i := 0; i < nConns; i++ {
@@ -139,7 +176,7 @@ func TestNetopus(t *testing.T) {
 			defer func() {
 				wg.Done()
 			}()
-			c, err := n2.DialContextTCP(ctx, n1addr, 1234)
+			c, err := client.DialContextTCP(ctx, serverAddr, 1234)
 			if err != nil {
 				t.Errorf("dial TCP error: %s", err)
 				return
@@ -170,7 +207,7 @@ func TestNetopus(t *testing.T) {
 			defer func() {
 				wg.Done()
 			}()
-			udc, err := n2.DialUDP(0, n1addr, 2345)
+			udc, err := client.DialUDP(0, serverAddr, 2345)
 			if err != nil {
 				t.Errorf("dial UDP error: %s", err)
 				return
@@ -194,9 +231,7 @@ func TestNetopus(t *testing.T) {
 				}
 			}()
 			b := make([]byte, 1500)
-			timeCancel := utils.LogTime(ctx, fmt.Sprintf("UDP read #%d", id), time.Second)
 			n, err := udc.Read(b)
-			timeCancel()
 			pingCancel()
 			if err != nil {
 				t.Errorf("UDP read error: %s", err)
@@ -216,4 +251,34 @@ func TestNetopus(t *testing.T) {
 
 	// Wait for completion
 	wg.Wait()
+}
+
+func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh map[string]Netopus) {
+	testStack(ctx, t, mesh["server"], spec["server"].Address, mesh["client"])
+}
+
+func runTest(t *testing.T, test func(context.Context, *testing.T, map[string]NodeSpec, map[string]Netopus),
+	spec map[string]NodeSpec) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	mesh, err := MakeMesh(ctx, spec)
+	if err != nil {
+		t.Fatalf("mesh initialization error %s", err)
+	}
+	test(ctx, t, spec, mesh)
+}
+
+func TestNetopus(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	log.SetLevel(log.DebugLevel)
+	log.SetOutput(os.Stdout)
+	//runTest(t, stackTest, map[string]NodeSpec{
+	//	"server": { net.ParseIP("FD00::1"), []string{"client"} },
+	//	"client": { net.ParseIP("FD00::2"), []string{"server"} },
+	//})
+	runTest(t, stackTest, map[string]NodeSpec{
+		"server": {net.ParseIP("FD00::1"), []string{"3"}},
+		"client": {net.ParseIP("FD00::2"), []string{"3"}},
+		"3":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
+	})
 }

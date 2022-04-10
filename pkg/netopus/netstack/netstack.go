@@ -41,8 +41,8 @@ func NewStack(ctx context.Context, addr net.IP) (*NetStack, error) {
 		HandleLocal:        true,
 	})
 	ns.Endpoint, err = fdbased.New(&fdbased.Options{
-		FDs:        []int{fds[0]},
-		MTU:        1500,
+		FDs: []int{fds[0]},
+		MTU: 1500,
 		ClosedFunc: func(err tcpip.Error) {
 			if err != nil {
 				log.Errorf("netstack closed with error: %s", err)
@@ -83,7 +83,7 @@ func NewStack(ctx context.Context, addr net.IP) (*NetStack, error) {
 		_ = syscall.Close(ns.fds[0])
 		_ = syscall.Close(ns.fds[1])
 	}()
-	
+
 	// Send incoming packets to subscribed receivers
 	go func() {
 		for {

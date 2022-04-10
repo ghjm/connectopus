@@ -11,9 +11,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 	log "github.com/sirupsen/logrus"
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
-	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
 	"math/rand"
 	"net"
 	"time"
@@ -33,7 +31,7 @@ type Gonet interface {
 	DialUDP(uint16, net.IP, uint16) (UDPConn, error)
 }
 
-// UDPConn works the same as net.UDPConn
+// UDPConn is the netopus equivalent to net.UDPConn
 type UDPConn interface {
 	net.Conn
 	net.PacketConn
@@ -41,16 +39,27 @@ type UDPConn interface {
 
 // netopus implements Netopus
 type netopus struct {
-	ctx      context.Context
-	addr     net.IP
-	stack    *netstack.NetStack
-	router   router.Router
-	sessions syncromap.SyncroMap[int, *protoSession]
+	ctx           context.Context
+	addr          net.IP
+	stack         *netstack.NetStack
+	router        router.Router[string]
+	sessionInfo   syncrovar.SyncroVar[sessInfo]
+	epoch         uint64
+	sequence      syncrovar.SyncroVar[uint64]
+	seenUpdates   syncromap.SyncroMap[uint64, time.Time]
+	knownNodeInfo syncromap.SyncroMap[string, nodeInfo]
+}
+
+// sessInfo stores information about sessions
+type sessInfo struct {
+	sessions     map[uint64]*protoSession
+	nodeSessions map[string]uint64
 }
 
 // protoSession represents one running session of a protocol
 type protoSession struct {
 	n          *netopus
+	id         uint64
 	ctx        context.Context
 	cancel     context.CancelFunc
 	conn       backends.BackendConnection
@@ -58,6 +67,12 @@ type protoSession struct {
 	remoteAddr net.IP
 	connected  syncrovar.SyncroVar[bool]
 	connStart  time.Time
+}
+
+// nodeInfo represents known information about a node
+type nodeInfo struct {
+	epoch    uint64
+	sequence uint64
 }
 
 // NewNetopus constructs and returns a new network node on a given address
@@ -70,12 +85,20 @@ func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
 		return nil, err
 	}
 	n := &netopus{
-		ctx:      ctx,
-		addr:     addr,
-		stack:    stack,
-		router:   router.New(ctx, string(addr), 50*time.Millisecond),
-		sessions: syncromap.NewMap[int, *protoSession](),
+		ctx:           ctx,
+		addr:          addr,
+		stack:         stack,
+		router:        router.New(ctx, addr.String(), 50*time.Millisecond),
+		sessionInfo:   syncrovar.SyncroVar[sessInfo]{},
+		epoch:         uint64(time.Now().UnixNano()),
+		sequence:      syncrovar.SyncroVar[uint64]{},
+		seenUpdates:   syncromap.NewMap[uint64, time.Time](),
+		knownNodeInfo: syncromap.NewMap[string, nodeInfo](),
 	}
+	n.sessionInfo.WorkWith(func(s *sessInfo) {
+		s.sessions = make(map[uint64]*protoSession)
+		s.nodeSessions = make(map[string]uint64)
+	})
 	return n, nil
 }
 
@@ -145,6 +168,10 @@ func (p *protoSession) initSelect() {
 			p.remoteAddr = v.MyAddr
 			p.connStart = time.Now()
 			p.connected.Set(true)
+			p.n.sessionInfo.WorkWith(func(s *sessInfo) {
+				s.nodeSessions[p.remoteAddr.String()] = p.id
+			})
+			p.n.sendRoutingUpdate()
 			return
 		}
 	}
@@ -155,24 +182,30 @@ func (p *protoSession) mainSelect() {
 	select {
 	case <-p.ctx.Done():
 		return
+	case <-time.After(time.Second):
+		p.n.sendRoutingUpdate()
 	case data := <-p.readChan:
-		msg, err := data.Unmarshal()
+		msgAny, err := data.Unmarshal()
 		if err != nil {
 			log.Warnf("packet unmarshaling error: %s", err)
 			return
 		}
-		switch msg.(type) {
+		switch msg := msgAny.(type) {
 		case []byte:
 			err = p.n.SendPacket(data)
 			if err != nil {
 				log.Warnf("packet sending error: %s", err)
 				return
 			}
-		case proto.RoutingUpdate:
-		case proto.InitMsg:
+		case *proto.RoutingUpdate:
+			if p.n.handleRoutingUpdate(msg) {
+				p.n.flood(data, &p.remoteAddr)
+			}
+		case *proto.InitMsg:
 			if time.Now().Sub(p.connStart) > 2*time.Second {
 				// The remote side doesn't think we're connected, so re-run the init process
 				p.connected.Set(false)
+				p.n.router.RemoveNode(p.remoteAddr.String())
 			}
 		}
 	}
@@ -199,22 +232,32 @@ func (p *protoSession) protoLoop() {
 func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnection) {
 	protoCtx, protoCancel := context.WithCancel(ctx)
 	defer protoCancel()
-	p := protoSession{
-		n:         n,
-		ctx:       protoCtx,
-		cancel:    protoCancel,
-		conn:      conn,
-		readChan:  make(chan proto.Msg),
+	p := &protoSession{
+		n:        n,
+		ctx:      protoCtx,
+		cancel:   protoCancel,
+		conn:     conn,
+		readChan: make(chan proto.Msg),
 	}
-	var sessID int
-	for {
-		sessID = rand.Int()
-		err := n.sessions.Create(sessID, &p)
-		if err == nil {
+	n.sessionInfo.WorkWith(func(s *sessInfo) {
+		for {
+			p.id = rand.Uint64()
+			_, ok := s.sessions[p.id]
+			if ok {
+				continue
+			}
+			s.sessions[p.id] = p
 			break
 		}
-	}
-	defer n.sessions.Delete(sessID)
+	})
+	defer n.sessionInfo.WorkWith(func(s *sessInfo) {
+		delete(s.sessions, p.id)
+		for k, v := range s.nodeSessions {
+			if v == p.id {
+				delete(s.nodeSessions, k)
+			}
+		}
+	})
 	go p.backendReadLoop()
 	go p.netStackReadLoop()
 	go p.protoLoop()
@@ -229,84 +272,110 @@ func (n *netopus) SendPacket(packet []byte) error {
 	dest := header.IPv6(packet).DestinationAddress()
 	if dest == tcpip.Address(n.addr) {
 		return n.stack.SendPacket(packet)
-	} else {
-		var nextHopConn *protoSession
-		func() {
-			st := n.sessions.BeginTransaction()
-			defer st.EndTransaction()
-			for _, conn := range *st.RawMap() {
-				if conn.connected.Get() && tcpip.Address(conn.remoteAddr) == dest {
-					nextHopConn = conn
-					break
-				}
-			}
-		}()
-		if nextHopConn != nil {
-			go func() {
-				err := nextHopConn.conn.WriteMessage(packet)
-				if err != nil && n.ctx.Err() == nil {
-					log.Warnf("packet write error: %s", err)
-				}
-			}()
-			return nil
-		}
 	}
+	nextHop := n.router.NextHop(dest.String())
+	if nextHop == "" {
+		return fmt.Errorf("no route to host")
+	}
+	var nextHopSess *protoSession
+	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
+		id, ok := s.nodeSessions[nextHop]
+		if ok {
+			nextHopSess = s.sessions[id]
+		}
+	})
+	if nextHopSess == nil || !nextHopSess.connected.Get() {
+		return fmt.Errorf("no connection to next hop %s", nextHop)
+	}
+	go func() {
+		err := nextHopSess.conn.WriteMessage(packet)
+		if err != nil && n.ctx.Err() == nil {
+			log.Warnf("packet write error: %s", err)
+		}
+	}()
 	return nil
 }
 
-// DialTCP dials a TCP connection over the Netopus network
-func (n *netopus) DialTCP(addr net.IP, port uint16) (net.Conn, error) {
-	return gonet.DialTCP(
-		n.stack.Stack,
-		tcpip.FullAddress{
-			NIC:  1,
-			Addr: tcpip.Address(addr),
-			Port: port,
-		},
-		ipv6.ProtocolNumber)
-}
-
-// DialContextTCP dials a TCP connection over the Netopus network, using a context
-func (n *netopus) DialContextTCP(ctx context.Context, addr net.IP, port uint16) (net.Conn, error) {
-	return gonet.DialContextTCP(ctx,
-		n.stack.Stack,
-		tcpip.FullAddress{
-			NIC:  1,
-			Addr: tcpip.Address(addr),
-			Port: port,
-		},
-		ipv6.ProtocolNumber)
-}
-
-// ListenTCP opens a TCP listener over the Netopus network
-func (n *netopus) ListenTCP(port uint16) (net.Listener, error) {
-	return gonet.ListenTCP(
-		n.stack.Stack,
-		tcpip.FullAddress{
-			NIC:  1,
-			Addr: tcpip.Address(n.addr),
-			Port: port,
-		},
-		ipv6.ProtocolNumber)
-}
-
-// DialUDP opens a UDP sender or receiver over the Netopus network
-func (n *netopus) DialUDP(lport uint16, addr net.IP, rport uint16) (UDPConn, error) {
-	var laddr *tcpip.FullAddress
-	if lport != 0 {
-		laddr = &tcpip.FullAddress{
-			NIC:  1,
-			Addr: tcpip.Address(n.addr),
-			Port: lport,
+// flood forwards a message to all neighbors, possibly excluding one.
+func (n *netopus) flood(message proto.Msg, excludeConn *net.IP) {
+	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
+		for _, sess := range s.sessions {
+			if excludeConn == nil || !excludeConn.Equal(sess.remoteAddr) {
+				go func(sess *protoSession) {
+					err := sess.conn.WriteMessage(message)
+					if err != nil && n.ctx.Err() == nil {
+						log.Warnf("flood error: %s", err)
+					}
+				}(sess)
+			}
 		}
-	}
-	var raddr *tcpip.FullAddress
-	if addr != nil {
-		raddr = &tcpip.FullAddress{
-			NIC:  1,
-			Addr: tcpip.Address(addr),
-			Port: rport,
+	})
+}
+
+// sendRoutingUpdate updates the local node in the router, and generates and sends a routing update to peers.
+func (n *netopus) sendRoutingUpdate() {
+	conns := make(proto.RoutingConnections, 0)
+	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
+		for _, sess := range s.sessions {
+			if sess.connected.Get() {
+				conns = append(conns, proto.RoutingConnection{
+					Peer: sess.remoteAddr,
+					Cost: 1.0,
+				})
+			}
 		}
+	})
+	n.router.UpdateNode(n.addr.String(), conns.GetConnMap())
+	up := &proto.RoutingUpdate{
+		Origin:      n.addr,
+		UpdateID:    rand.Uint64(),
+		UpdateEpoch: n.epoch,
+		Connections: conns,
 	}
-	return gonet.DialUDP(n.stack.Stack, laddr, raddr, ipv6.ProtocolNumber)
+	n.sequence.WorkWith(func(seq *uint64) {
+		*seq++
+		up.UpdateSequence = *seq
+	})
+	upb, err := up.Marshal()
+	if err != nil {
+		log.Warnf("error marshaling routing update: %s", err)
+		return
+	}
+	n.flood(upb, nil)
+}
+
+// handleRoutingUpdate updates the local routing table and known nodes data.  Returns a bool indicating whether the
+// update should be forwarded.
+func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
+	var seen bool
+	func() {
+		tr := n.seenUpdates.BeginTransaction()
+		defer tr.EndTransaction()
+		_, seen = tr.Get(r.UpdateID)
+		tr.Set(r.UpdateID, time.Now())
+	}()
+	if seen {
+		return false
+	}
+	accepted := false
+	func() {
+		tr := n.knownNodeInfo.BeginTransaction()
+		defer tr.EndTransaction()
+		ni, ok := tr.Get(string(r.Origin))
+		if ok && (r.UpdateEpoch < ni.epoch || (r.UpdateEpoch == ni.epoch && r.UpdateSequence < ni.sequence)) {
+			// This is an out-of-date update, so ignore it
+			return
+		}
+		accepted = true
+		tr.Set(string(r.Origin), nodeInfo{
+			epoch:    r.UpdateEpoch,
+			sequence: r.UpdateSequence,
+		})
+	}()
+	if !accepted {
+		return false
+	}
+	//TODO: detect unchanged connections and avoid routing update in that case
+	n.router.UpdateNode(r.Origin.String(), r.Connections.GetConnMap())
+	return true
 }
