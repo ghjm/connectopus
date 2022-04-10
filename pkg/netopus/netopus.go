@@ -64,7 +64,7 @@ type protoSession struct {
 	cancel     context.CancelFunc
 	conn       backends.BackendConnection
 	readChan   chan proto.Msg
-	remoteAddr net.IP
+	remoteAddr syncrovar.SyncroVar[net.IP]
 	connected  syncrovar.SyncroVar[bool]
 	connStart  time.Time
 }
@@ -165,11 +165,11 @@ func (p *protoSession) initSelect() {
 		}
 		switch v := msg.(type) {
 		case *proto.InitMsg:
-			p.remoteAddr = v.MyAddr
+			p.remoteAddr.Set(v.MyAddr)
 			p.connStart = time.Now()
 			p.connected.Set(true)
 			p.n.sessionInfo.WorkWith(func(s *sessInfo) {
-				s.nodeSessions[p.remoteAddr.String()] = p.id
+				s.nodeSessions[v.MyAddr.String()] = p.id
 			})
 			p.n.sendRoutingUpdate()
 			return
@@ -199,13 +199,14 @@ func (p *protoSession) mainSelect() {
 			}
 		case *proto.RoutingUpdate:
 			if p.n.handleRoutingUpdate(msg) {
-				p.n.flood(data, &p.remoteAddr)
+				ra := p.remoteAddr.Get()
+				p.n.flood(data, &ra)
 			}
 		case *proto.InitMsg:
 			if time.Now().Sub(p.connStart) > 2*time.Second {
 				// The remote side doesn't think we're connected, so re-run the init process
 				p.connected.Set(false)
-				p.n.router.RemoveNode(p.remoteAddr.String())
+				p.n.router.RemoveNode(p.remoteAddr.Get().String())
 			}
 		}
 	}
@@ -300,7 +301,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 func (n *netopus) flood(message proto.Msg, excludeConn *net.IP) {
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
 		for _, sess := range s.sessions {
-			if excludeConn == nil || !excludeConn.Equal(sess.remoteAddr) {
+			if excludeConn == nil || !excludeConn.Equal(sess.remoteAddr.Get()) {
 				go func(sess *protoSession) {
 					err := sess.conn.WriteMessage(message)
 					if err != nil && n.ctx.Err() == nil {
@@ -319,7 +320,7 @@ func (n *netopus) sendRoutingUpdate() {
 		for _, sess := range s.sessions {
 			if sess.connected.Get() {
 				conns = append(conns, proto.RoutingConnection{
-					Peer: sess.remoteAddr,
+					Peer: sess.remoteAddr.Get(),
 					Cost: 1.0,
 				})
 			}
