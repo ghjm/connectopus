@@ -2,7 +2,6 @@ package broker
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 )
 
 // broker code adapted from https://stackoverflow.com/questions/36417199/how-to-broadcast-message-using-channel
@@ -25,7 +24,6 @@ type broker[T any] struct {
 	publishCh  chan T
 	subCh      chan chan T
 	unSubCh    chan (<- chan T)
-	terminated syncrovar.SyncroVar[bool]
 }
 
 // NewBroker starts a new broker.
