@@ -39,15 +39,16 @@ type UDPConn interface {
 
 // netopus implements Netopus
 type netopus struct {
-	ctx           context.Context
-	addr          net.IP
-	stack         *netstack.NetStack
-	router        router.Router[string]
-	sessionInfo   syncrovar.SyncroVar[sessInfo]
-	epoch         uint64
-	sequence      syncrovar.SyncroVar[uint64]
-	seenUpdates   syncromap.SyncroMap[uint64, time.Time]
-	knownNodeInfo syncromap.SyncroMap[string, nodeInfo]
+	ctx               context.Context
+	addr              net.IP
+	stack             *netstack.NetStack
+	router            router.Router[string]
+	sessionInfo       syncrovar.SyncroVar[sessInfo]
+	epoch             uint64
+	sequence          syncrovar.SyncroVar[uint64]
+	seenUpdates       syncromap.SyncroMap[uint64, time.Time]
+	knownNodeInfo     syncromap.SyncroMap[string, nodeInfo]
+	lastRoutingUpdate syncrovar.SyncroVar[time.Time]
 }
 
 // sessInfo stores information about sessions
@@ -67,6 +68,7 @@ type protoSession struct {
 	remoteAddr syncrovar.SyncroVar[net.IP]
 	connected  syncrovar.SyncroVar[bool]
 	connStart  time.Time
+	lastInit   time.Time
 }
 
 // nodeInfo represents known information about a node
@@ -85,15 +87,16 @@ func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
 		return nil, err
 	}
 	n := &netopus{
-		ctx:           ctx,
-		addr:          addr,
-		stack:         stack,
-		router:        router.New(ctx, addr.String(), 50*time.Millisecond),
-		sessionInfo:   syncrovar.SyncroVar[sessInfo]{},
-		epoch:         uint64(time.Now().UnixNano()),
-		sequence:      syncrovar.SyncroVar[uint64]{},
-		seenUpdates:   syncromap.NewMap[uint64, time.Time](),
-		knownNodeInfo: syncromap.NewMap[string, nodeInfo](),
+		ctx:               ctx,
+		addr:              addr,
+		stack:             stack,
+		router:            router.New(ctx, addr.String(), 50*time.Millisecond),
+		sessionInfo:       syncrovar.SyncroVar[sessInfo]{},
+		epoch:             uint64(time.Now().UnixNano()),
+		sequence:          syncrovar.SyncroVar[uint64]{},
+		seenUpdates:       syncromap.NewMap[uint64, time.Time](),
+		knownNodeInfo:     syncromap.NewMap[string, nodeInfo](),
+		lastRoutingUpdate: syncrovar.SyncroVar[time.Time]{},
 	}
 	n.sessionInfo.WorkWith(func(s *sessInfo) {
 		s.sessions = make(map[uint64]*protoSession)
@@ -114,6 +117,7 @@ func (p *protoSession) backendReadLoop() {
 		}
 		select {
 		case <-p.ctx.Done():
+			return
 		case p.readChan <- data:
 		}
 	}
@@ -128,10 +132,10 @@ func (p *protoSession) netStackReadLoop() {
 			return
 		case packet := <-readChan:
 			err := p.n.SendPacket(packet)
+			if p.ctx.Err() != nil {
+				return
+			}
 			if err != nil {
-				if p.ctx.Err() != nil {
-					return
-				}
 				log.Warnf("protocol write error: %s", err)
 			}
 		}
@@ -140,6 +144,7 @@ func (p *protoSession) netStackReadLoop() {
 
 // sendInit sends an initialization message
 func (p *protoSession) sendInit() {
+	log.Debugf("%s: sending init message", p.n.addr.String())
 	im, err := (&proto.InitMsg{MyAddr: p.n.addr}).Marshal()
 	if err == nil {
 		err = p.conn.WriteMessage(im)
@@ -148,6 +153,7 @@ func (p *protoSession) sendInit() {
 		log.Warnf("error sending init message: %s", err)
 		return
 	}
+	p.lastInit = time.Now()
 }
 
 // initSelect runs one instance of the main loop when the connection is not established
@@ -159,20 +165,23 @@ func (p *protoSession) initSelect() {
 	case <-time.After(500 * time.Millisecond):
 		p.sendInit()
 	case data := <-p.readChan:
-		msg, err := data.Unmarshal()
+		msgAny, err := data.Unmarshal()
 		if err != nil {
 			return
 		}
-		switch v := msg.(type) {
+		switch msg := msgAny.(type) {
 		case *proto.InitMsg:
-			p.remoteAddr.Set(v.MyAddr)
+			log.Debugf("%s: received init message", p.n.addr.String())
+			p.remoteAddr.Set(msg.MyAddr)
 			p.connStart = time.Now()
 			p.connected.Set(true)
 			p.n.sessionInfo.WorkWith(func(s *sessInfo) {
-				s.nodeSessions[v.MyAddr.String()] = p.id
+				s.nodeSessions[msg.MyAddr.String()] = p.id
 			})
 			p.n.sendRoutingUpdate()
 			return
+		default:
+			log.Debugf("%s: received non-init message while in init mode", p.n.addr.String())
 		}
 	}
 }
@@ -182,8 +191,9 @@ func (p *protoSession) mainSelect() {
 	select {
 	case <-p.ctx.Done():
 		return
-	case <-time.After(time.Second):
-		p.n.sendRoutingUpdate()
+	//case <-time.After(time.Second):
+	//	log.Debugf("%s: sending routing update", p.n.addr.String())
+	//	p.n.sendRoutingUpdate()
 	case data := <-p.readChan:
 		msgAny, err := data.Unmarshal()
 		if err != nil {
@@ -198,15 +208,18 @@ func (p *protoSession) mainSelect() {
 				return
 			}
 		case *proto.RoutingUpdate:
+			log.Debugf("%s: received routing update %d from %s via %s with %v", p.n.addr.String(),
+				msg.UpdateSequence, msg.Origin.String(), p.remoteAddr.Get().String(), msg.Connections)
 			if p.n.handleRoutingUpdate(msg) {
-				ra := p.remoteAddr.Get()
-				p.n.flood(data, &ra)
+				p.n.router.UpdateNode(msg.Origin.String(), msg.Connections.GetConnMap())
+				p.n.flood(data)
+				p.n.rateLimitedSendRoutingUpdate()
 			}
 		case *proto.InitMsg:
-			if time.Now().Sub(p.connStart) > 2*time.Second {
-				// The remote side doesn't think we're connected, so re-run the init process
-				p.connected.Set(false)
-				p.n.router.RemoveNode(p.remoteAddr.Get().String())
+			log.Debugf("%s: received init message from %s while in main loop", p.n.addr.String(),
+				p.remoteAddr.Get().String())
+			if time.Now().Sub(p.lastInit) > time.Second {
+				p.sendInit()
 			}
 		}
 	}
@@ -232,7 +245,9 @@ func (p *protoSession) protoLoop() {
 // RunProtocol runs the Netopus protocol over a given backend connection
 func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnection) {
 	protoCtx, protoCancel := context.WithCancel(ctx)
-	defer protoCancel()
+	defer func() {
+		protoCancel()
+	}()
 	p := &protoSession{
 		n:        n,
 		ctx:      protoCtx,
@@ -276,6 +291,12 @@ func (n *netopus) SendPacket(packet []byte) error {
 	}
 	nextHop := n.router.NextHop(dest.String())
 	if nextHop == "" {
+		log.Debugf("%s: trying to recover from no route to host", n.addr.String())
+		n.sendRoutingUpdate()
+		time.Sleep(500 * time.Millisecond)
+		nextHop = n.router.NextHop(dest.String())
+	}
+	if nextHop == "" {
 		return fmt.Errorf("no route to host")
 	}
 	var nextHopSess *protoSession
@@ -297,11 +318,11 @@ func (n *netopus) SendPacket(packet []byte) error {
 	return nil
 }
 
-// flood forwards a message to all neighbors, possibly excluding one.
-func (n *netopus) flood(message proto.Msg, excludeConn *net.IP) {
+// flood forwards a message to all neighbors
+func (n *netopus) flood(message proto.Msg) {
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
 		for _, sess := range s.sessions {
-			if excludeConn == nil || !excludeConn.Equal(sess.remoteAddr.Get()) {
+			if sess.connected.Get() {
 				go func(sess *protoSession) {
 					err := sess.conn.WriteMessage(message)
 					if err != nil && n.ctx.Err() == nil {
@@ -313,8 +334,8 @@ func (n *netopus) flood(message proto.Msg, excludeConn *net.IP) {
 	})
 }
 
-// sendRoutingUpdate updates the local node in the router, and generates and sends a routing update to peers.
-func (n *netopus) sendRoutingUpdate() {
+// generateRoutingUpdate produces a routing update suitable for being sent to peers.
+func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, error) {
 	conns := make(proto.RoutingConnections, 0)
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
 		for _, sess := range s.sessions {
@@ -326,7 +347,6 @@ func (n *netopus) sendRoutingUpdate() {
 			}
 		}
 	})
-	n.router.UpdateNode(n.addr.String(), conns.GetConnMap())
 	up := &proto.RoutingUpdate{
 		Origin:      n.addr,
 		UpdateID:    rand.Uint64(),
@@ -339,15 +359,37 @@ func (n *netopus) sendRoutingUpdate() {
 	})
 	upb, err := up.Marshal()
 	if err != nil {
-		log.Warnf("error marshaling routing update: %s", err)
+		return nil, nil, fmt.Errorf("error marshaling routing update: %s", err)
+	}
+	return conns, upb, nil
+}
+
+// sendRoutingUpdate sends a routing update to all neighbors
+func (n *netopus) sendRoutingUpdate() {
+	conns, upb, err := n.generateRoutingUpdate()
+	if err != nil {
+		log.Errorf("error generating routing update: %s", err)
 		return
 	}
-	n.flood(upb, nil)
+	n.lastRoutingUpdate.Set(time.Now())
+	n.router.UpdateNode(n.addr.String(), conns.GetConnMap())
+	n.flood(upb)
+}
+
+// rateLimitedSendRoutingUpdate sends a routing update, only if one has not already been sent recently
+func (n *netopus) rateLimitedSendRoutingUpdate() {
+	if time.Now().Sub(n.lastRoutingUpdate.Get()) > time.Second {
+		n.sendRoutingUpdate()
+	}
 }
 
 // handleRoutingUpdate updates the local routing table and known nodes data.  Returns a bool indicating whether the
 // update should be forwarded.
 func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
+	if r.Origin.String() == n.addr.String() {
+		log.Debugf("%s: rejecting routing update because we are the origin", n.addr.String())
+		return false
+	}
 	var seen bool
 	func() {
 		tr := n.seenUpdates.BeginTransaction()
@@ -356,6 +398,7 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 		tr.Set(r.UpdateID, time.Now())
 	}()
 	if seen {
+		log.Debugf("%s: rejecting routing update because it was already seen", n.addr.String())
 		return false
 	}
 	accepted := false
@@ -364,7 +407,7 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 		defer tr.EndTransaction()
 		ni, ok := tr.Get(string(r.Origin))
 		if ok && (r.UpdateEpoch < ni.epoch || (r.UpdateEpoch == ni.epoch && r.UpdateSequence < ni.sequence)) {
-			// This is an out-of-date update, so ignore it
+			log.Debugf("%s: ignoring outdated routing update", n.addr.String())
 			return
 		}
 		accepted = true
@@ -377,6 +420,5 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 		return false
 	}
 	//TODO: detect unchanged connections and avoid routing update in that case
-	n.router.UpdateNode(r.Origin.String(), r.Connections.GetConnMap())
 	return true
 }

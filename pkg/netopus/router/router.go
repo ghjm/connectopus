@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ghjm/connectopus/pkg/utils/timerunner"
 	priorityQueue "github.com/jupp0r/go-priority-queue"
+	log "github.com/sirupsen/logrus"
 	"math"
 	"sync"
 	"time"
@@ -134,6 +135,7 @@ func (r *router[T]) recalculate() {
 	r.policyLock.Lock()
 	r.policy = newPolicy
 	r.policyLock.Unlock()
+	log.Debugf("%s: recalculated policy: %v", r.myNode, newPolicy)
 }
 
 func (r *router[T]) NextHop(dest T) T {

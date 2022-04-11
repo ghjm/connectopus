@@ -58,7 +58,14 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 		}
 	}
 	mesh := make(map[string]Netopus)
+	usedAddrs := make(map[string]struct{})
 	for node, spec := range meshSpec {
+		addrStr := spec.Address.String()
+		_, ok := usedAddrs[addrStr]
+		if ok {
+			return nil, fmt.Errorf("duplicate address in spec")
+		}
+		usedAddrs[addrStr] = struct{}{}
 		n, err := NewNetopus(ctx, spec.Address)
 		if err != nil {
 			return nil, err
@@ -100,9 +107,12 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 	return mesh, nil
 }
 
-var testStr = "Hello, world!"
+func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh map[string]Netopus) {
+	server := mesh["server"]
+	serverAddr := spec["server"].Address
+	client := mesh["client"]
+	testStr := "Hello, world!"
 
-func testStack(ctx context.Context, t *testing.T, server Netopus, serverAddr net.IP, client Netopus) {
 	// Start TCP listener
 	li, err := server.ListenTCP(1234)
 	if err != nil {
@@ -166,7 +176,7 @@ func testStack(ctx context.Context, t *testing.T, server Netopus, serverAddr net
 	}()
 
 	// Set up wait group
-	nConns := 10 //TODO: This fails with larger connection counts.  See https://github.com/google/gvisor/issues/7379
+	nConns := 5 //TODO: This fails with larger connection counts.  See https://github.com/google/gvisor/issues/7379
 	wg := sync.WaitGroup{}
 	wg.Add(2 * nConns)
 
@@ -177,20 +187,23 @@ func testStack(ctx context.Context, t *testing.T, server Netopus, serverAddr net
 				wg.Done()
 			}()
 			c, err := client.DialContextTCP(ctx, serverAddr, 1234)
+			if ctx.Err() != nil {
+				return
+			}
 			if err != nil {
 				t.Errorf("dial TCP error: %s", err)
 				return
 			}
+			b, err := io.ReadAll(c)
 			if ctx.Err() != nil {
 				return
 			}
-			b, err := io.ReadAll(c)
 			if err != nil {
 				t.Errorf("read TCP error: %s", err)
 				return
 			}
 			err = c.Close()
-			if err != nil {
+			if err != nil && ctx.Err() == nil {
 				t.Errorf("close TCP error: %s", err)
 				return
 			}
@@ -208,11 +221,11 @@ func testStack(ctx context.Context, t *testing.T, server Netopus, serverAddr net
 				wg.Done()
 			}()
 			udc, err := client.DialUDP(0, serverAddr, 2345)
-			if err != nil {
-				t.Errorf("dial UDP error: %s", err)
+			if ctx.Err() != nil {
 				return
 			}
-			if ctx.Err() != nil {
+			if err != nil {
+				t.Errorf("dial UDP error: %s", err)
 				return
 			}
 			pingCtx, pingCancel := context.WithCancel(ctx)
@@ -253,32 +266,72 @@ func testStack(ctx context.Context, t *testing.T, server Netopus, serverAddr net
 	wg.Wait()
 }
 
-func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh map[string]Netopus) {
-	testStack(ctx, t, mesh["server"], spec["server"].Address, mesh["client"])
+func idleTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh map[string]Netopus) {
 }
 
-func runTest(t *testing.T, test func(context.Context, *testing.T, map[string]NodeSpec, map[string]Netopus),
-	spec map[string]NodeSpec) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+func runTest(t *testing.T, spec map[string]NodeSpec,
+	tests ...func(context.Context, *testing.T, map[string]NodeSpec, map[string]Netopus)) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer func() {
+		cancel()
+	}()
 	mesh, err := MakeMesh(ctx, spec)
 	if err != nil {
-		t.Fatalf("mesh initialization error %s", err)
+		t.Fatalf("mesh initialization error: %s", err)
 	}
-	test(ctx, t, spec, mesh)
+	for _, test := range tests {
+		test(ctx, t, spec, mesh)
+	}
 }
 
 func TestNetopus(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	log.SetLevel(log.DebugLevel)
+	//log.SetLevel(log.DebugLevel)
 	log.SetOutput(os.Stdout)
-	//runTest(t, stackTest, map[string]NodeSpec{
-	//	"server": { net.ParseIP("FD00::1"), []string{"client"} },
-	//	"client": { net.ParseIP("FD00::2"), []string{"server"} },
-	//})
-	runTest(t, stackTest, map[string]NodeSpec{
-		"server": {net.ParseIP("FD00::1"), []string{"3"}},
-		"client": {net.ParseIP("FD00::2"), []string{"3"}},
-		"3":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
-	})
+	t.Logf("2 node test\n")
+	runTest(t, map[string]NodeSpec{
+		"server": {net.ParseIP("FD00::1"), []string{"client"}},
+		"client": {net.ParseIP("FD00::2"), []string{"server"}},
+	}, stackTest)
+	t.Logf("3 node test, linear\n")
+	runTest(t, map[string]NodeSpec{
+		"server": {net.ParseIP("FD00::1"), []string{"A"}},
+		"client": {net.ParseIP("FD00::2"), []string{"A"}},
+		"A":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
+	}, stackTest)
+	t.Logf("3 node test, circular\n")
+	runTest(t, map[string]NodeSpec{
+		"server": {net.ParseIP("FD00::1"), []string{"A", "client"}},
+		"client": {net.ParseIP("FD00::2"), []string{"server", "A"}},
+		"A":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
+	}, stackTest)
+	t.Logf("4 node test\n")
+	runTest(t, map[string]NodeSpec{
+		"server": {net.ParseIP("FD00::1"), []string{"A", "B"}},
+		"client": {net.ParseIP("FD00::2"), []string{"A", "B"}},
+		"A":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
+		"B":      {net.ParseIP("FD00::4"), []string{"server", "client"}},
+	}, stackTest)
+	t.Logf("8 node test, linear\n")
+	runTest(t, map[string]NodeSpec{
+		"server": {net.ParseIP("FD00::1"), []string{"A"}},
+		"A":      {net.ParseIP("FD00::2"), []string{"server", "B"}},
+		"B":      {net.ParseIP("FD00::3"), []string{"A", "C"}},
+		"C":      {net.ParseIP("FD00::4"), []string{"B", "D"}},
+		"D":      {net.ParseIP("FD00::5"), []string{"C", "E"}},
+		"E":      {net.ParseIP("FD00::6"), []string{"D", "F"}},
+		"F":      {net.ParseIP("FD00::7"), []string{"E", "client"}},
+		"client": {net.ParseIP("FD00::8"), []string{"F"}},
+	}, stackTest)
+	t.Logf("8 node test, circular\n")
+	runTest(t, map[string]NodeSpec{
+		"server": {net.ParseIP("FD00::1"), []string{"A"}},
+		"client": {net.ParseIP("FD00::2"), []string{"F"}},
+		"A":      {net.ParseIP("FD00::3"), []string{"B", "C", "server"}},
+		"B":      {net.ParseIP("FD00::4"), []string{"A", "D"}},
+		"C":      {net.ParseIP("FD00::5"), []string{"A", "E"}},
+		"D":      {net.ParseIP("FD00::6"), []string{"B", "F"}},
+		"E":      {net.ParseIP("FD00::7"), []string{"C", "F"}},
+		"F":      {net.ParseIP("FD00::8"), []string{"D", "E", "client"}},
+	}, stackTest, idleTest)
 }

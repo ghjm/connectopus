@@ -51,7 +51,7 @@ func (b *pairBackend) ReadMessage() ([]byte, error) {
 	select {
 	case data = <-b.readChan:
 	case <-b.ctx.Done():
-		return nil, os.ErrClosed
+		return nil, fmt.Errorf("operation cancelled")
 	case <-time.After(b.readDeadline.Sub(time.Now())):
 		return nil, os.ErrDeadlineExceeded
 	}
