@@ -1,4 +1,4 @@
-package syncrovar
+package syncro
 
 import (
 	"context"
@@ -11,7 +11,7 @@ func TestSyncroVar(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	sv := SyncroVar[int]{}
+	sv := Var[int]{}
 	go func() {
 		i := 0
 		for {
@@ -42,7 +42,7 @@ func TestSyncroWork(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	sv := SyncroVar[int]{}
+	sv := Var[int]{}
 	sv.Set(0)
 	go func() {
 		for {

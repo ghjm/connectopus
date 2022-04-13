@@ -3,7 +3,7 @@ package netstack
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
+	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	"go.uber.org/goleak"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -73,7 +73,7 @@ func TestNetstackSubscribe(t *testing.T) {
 		t.Fatalf("error initializing stack: %s", err)
 	}
 
-	gotData := syncrovar.SyncroVar[bool]{}
+	gotData := syncro.Var[bool]{}
 	go func() {
 		subCh := ns.SubscribePackets()
 		defer ns.UnsubscribePackets(subCh)
@@ -142,7 +142,7 @@ func TestNetstackInject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DialUDP error %s", err)
 	}
-	gotData := syncrovar.SyncroVar[bool]{}
+	gotData := syncro.Var[bool]{}
 	go func() {
 		buf := make([]byte, 1500)
 		for {

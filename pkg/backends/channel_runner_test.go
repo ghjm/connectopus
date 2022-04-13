@@ -2,7 +2,7 @@ package backends
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
+	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	"go.uber.org/goleak"
 	"os"
 	"testing"
@@ -17,7 +17,7 @@ type testBackend struct {
 	msgSent      bool
 	readDeadline time.Time
 	t            *testing.T
-	gotWrite     syncrovar.SyncroVar[bool]
+	gotWrite     syncro.Var[bool]
 }
 
 func (b *testBackend) MTU() int {
@@ -67,7 +67,7 @@ func TestChannelRunner(t *testing.T) {
 	}
 	c := NewChannelRunner()
 
-	gotRead := syncrovar.SyncroVar[bool]{}
+	gotRead := syncro.Var[bool]{}
 	go func() {
 		select {
 		case <-ctx.Done():

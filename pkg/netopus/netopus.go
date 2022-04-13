@@ -7,8 +7,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/netopus/netstack"
 	"github.com/ghjm/connectopus/pkg/netopus/proto"
 	"github.com/ghjm/connectopus/pkg/netopus/router"
-	"github.com/ghjm/connectopus/pkg/utils/syncromap"
-	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
+	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	log "github.com/sirupsen/logrus"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -29,12 +28,12 @@ type netopus struct {
 	addr              net.IP
 	stack             netstack.NetStack
 	router            router.Router[string]
-	sessionInfo       syncrovar.SyncroVar[sessInfo]
+	sessionInfo       syncro.Var[sessInfo]
 	epoch             uint64
-	sequence          syncrovar.SyncroVar[uint64]
-	seenUpdates       syncromap.SyncroMap[uint64, time.Time]
-	knownNodeInfo     syncromap.SyncroMap[string, nodeInfo]
-	lastRoutingUpdate syncrovar.SyncroVar[time.Time]
+	sequence          syncro.Var[uint64]
+	seenUpdates       syncro.Map[uint64, time.Time]
+	knownNodeInfo     syncro.Map[string, nodeInfo]
+	lastRoutingUpdate syncro.Var[time.Time]
 }
 
 // sessInfo stores information about sessions
@@ -51,8 +50,8 @@ type protoSession struct {
 	cancel     context.CancelFunc
 	conn       backends.BackendConnection
 	readChan   chan proto.Msg
-	remoteAddr syncrovar.SyncroVar[net.IP]
-	connected  syncrovar.SyncroVar[bool]
+	remoteAddr syncro.Var[net.IP]
+	connected  syncro.Var[bool]
 	connStart  time.Time
 	lastInit   time.Time
 }
@@ -77,12 +76,12 @@ func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
 		addr:              addr,
 		stack:             stack,
 		router:            router.New(ctx, addr.String(), 50*time.Millisecond),
-		sessionInfo:       syncrovar.SyncroVar[sessInfo]{},
+		sessionInfo:       syncro.Var[sessInfo]{},
 		epoch:             uint64(time.Now().UnixNano()),
-		sequence:          syncrovar.SyncroVar[uint64]{},
-		seenUpdates:       syncromap.NewMap[uint64, time.Time](),
-		knownNodeInfo:     syncromap.NewMap[string, nodeInfo](),
-		lastRoutingUpdate: syncrovar.SyncroVar[time.Time]{},
+		sequence:          syncro.Var[uint64]{},
+		seenUpdates:       syncro.Map[uint64, time.Time]{},
+		knownNodeInfo:     syncro.Map[string, nodeInfo]{},
+		lastRoutingUpdate: syncro.Var[time.Time]{},
 	}
 	n.sessionInfo.WorkWith(func(s *sessInfo) {
 		s.sessions = make(map[uint64]*protoSession)
@@ -376,37 +375,27 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 		log.Debugf("%s: rejecting routing update because we are the origin", n.addr.String())
 		return false
 	}
-	var seen bool
-	func() {
-		tr := n.seenUpdates.BeginTransaction()
-		defer tr.EndTransaction()
-		_, seen = tr.Get(r.UpdateID)
-		tr.Set(r.UpdateID, time.Now())
-	}()
+	_, seen := n.seenUpdates.Get(r.UpdateID)
+	n.seenUpdates.Set(r.UpdateID, time.Now())
 	if seen {
 		log.Debugf("%s: rejecting routing update because it was already seen", n.addr.String())
 		return false
 	}
-	accepted := false
-	func() {
-		tr := n.knownNodeInfo.BeginTransaction()
-		defer tr.EndTransaction()
-		ni, ok := tr.Get(string(r.Origin))
+	var retval bool
+	n.knownNodeInfo.WorkWith(func(knownNodeInfo map[string]nodeInfo) {
+		ni, ok := knownNodeInfo[string(r.Origin)]
 		if ok && (r.UpdateEpoch < ni.epoch || (r.UpdateEpoch == ni.epoch && r.UpdateSequence < ni.sequence)) {
 			log.Debugf("%s: ignoring outdated routing update", n.addr.String())
 			return
 		}
-		accepted = true
-		tr.Set(string(r.Origin), nodeInfo{
+		//TODO: detect unchanged connections and avoid routing update in that case
+		retval = true
+		knownNodeInfo[string(r.Origin)] = nodeInfo{
 			epoch:    r.UpdateEpoch,
 			sequence: r.UpdateSequence,
-		})
-	}()
-	if !accepted {
-		return false
-	}
-	//TODO: detect unchanged connections and avoid routing update in that case
-	return true
+		}
+	})
+	return retval
 }
 
 func (n *netopus) DialTCP(addr net.IP, port uint16) (net.Conn, error) {

@@ -2,14 +2,14 @@ package timerunner
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
+	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	"go.uber.org/goleak"
 	"testing"
 	"time"
 )
 
 func makeTestRunner() (func(), func() []time.Time) {
-	times := syncrovar.SyncroVar[[]time.Time]{}
+	times := syncro.Var[[]time.Time]{}
 	return func() {
 			times.WorkWith(func(tp *[]time.Time) {
 				*tp = append(*tp, time.Now())

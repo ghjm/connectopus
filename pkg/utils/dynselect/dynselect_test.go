@@ -2,7 +2,7 @@ package dynselect
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
+	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,7 +25,7 @@ func (t *funcTester) Result(desired int32) bool {
 	return t.good == desired && t.bad == 0
 }
 
-func waitForExit(exited *syncrovar.SyncroVar[bool]) bool {
+func waitForExit(exited *syncro.Var[bool]) bool {
 	sctx, scancel := context.WithTimeout(context.Background(), time.Second)
 	defer scancel()
 	for {
@@ -50,7 +50,7 @@ func TestDynselectSend(t *testing.T) {
 	AddSend(s, ch2, struct{}{}, func() {
 		ft.ShouldCall()
 	})
-	exited := syncrovar.SyncroVar[bool]{}
+	exited := syncro.Var[bool]{}
 	go func() {
 		s.Select()
 		exited.Set(true)
@@ -75,7 +75,7 @@ func TestDynselectRecv(t *testing.T) {
 	AddSend(s, ch2, struct{}{}, func() {
 		ft.ShouldNotCall()
 	})
-	exited := syncrovar.SyncroVar[bool]{}
+	exited := syncro.Var[bool]{}
 	go func() {
 		s.Select()
 		exited.Set(true)
@@ -103,7 +103,7 @@ func TestDynselectDefault(t *testing.T) {
 	AddDefault(s, func() {
 		ft.ShouldCall()
 	})
-	exited := syncrovar.SyncroVar[bool]{}
+	exited := syncro.Var[bool]{}
 	go func() {
 		s.Select()
 		exited.Set(true)
