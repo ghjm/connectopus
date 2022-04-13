@@ -20,28 +20,14 @@ import (
 // Netopus is the aggregate interface providing all the functionality of a netopus instance
 type Netopus interface {
 	backends.ProtocolRunner
-	Gonet
-}
-
-// Gonet is the Go net style interface for Go modules to use
-type Gonet interface {
-	DialTCP(net.IP, uint16) (net.Conn, error)
-	DialContextTCP(context.Context, net.IP, uint16) (net.Conn, error)
-	ListenTCP(uint16) (net.Listener, error)
-	DialUDP(uint16, net.IP, uint16) (UDPConn, error)
-}
-
-// UDPConn is the netopus equivalent to net.UDPConn
-type UDPConn interface {
-	net.Conn
-	net.PacketConn
+	netstack.UserStack
 }
 
 // netopus implements Netopus
 type netopus struct {
 	ctx               context.Context
 	addr              net.IP
-	stack             *netstack.NetStack
+	stack             netstack.NetStack
 	router            router.Router[string]
 	sessionInfo       syncrovar.SyncroVar[sessInfo]
 	epoch             uint64
@@ -421,4 +407,20 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 	}
 	//TODO: detect unchanged connections and avoid routing update in that case
 	return true
+}
+
+func (n *netopus) DialTCP(addr net.IP, port uint16) (net.Conn, error) {
+	return n.stack.DialTCP(addr, port)
+}
+
+func (n *netopus) DialContextTCP(ctx context.Context, addr net.IP, port uint16) (net.Conn, error) {
+	return n.stack.DialContextTCP(ctx, addr, port)
+}
+
+func (n *netopus) ListenTCP(port uint16) (net.Listener, error) {
+	return n.stack.ListenTCP(port)
+}
+
+func (n *netopus) DialUDP(lport uint16, addr net.IP, rport uint16) (netstack.UDPConn, error) {
+	return n.stack.DialUDP(lport, addr, rport)
 }

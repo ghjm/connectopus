@@ -6,9 +6,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/utils/syncrovar"
 	"go.uber.org/goleak"
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
-	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 	"io"
 	"io/ioutil"
@@ -29,13 +27,7 @@ func TestNetstack(t *testing.T) {
 		t.Fatalf("error initializing stack: %s", err)
 	}
 
-	// Start TCP listener
-	tcpFA := tcpip.FullAddress{
-		NIC:  1,
-		Addr: tcpip.Address(localIP),
-		Port: 1234,
-	}
-	li, err := gonet.ListenTCP(ns.Stack, tcpFA, ipv6.ProtocolNumber)
+	li, err := ns.ListenTCP(1234)
 	if err != nil {
 		t.Fatalf("listen TCP error: %s", err)
 	}
@@ -53,7 +45,7 @@ func TestNetstack(t *testing.T) {
 	// Connect using TCP
 	dctx, dcancel := context.WithTimeout(ctx, time.Second)
 	defer dcancel()
-	c, err := gonet.DialContextTCP(dctx, ns.Stack, tcpFA, ipv6.ProtocolNumber)
+	c, err := ns.DialContextTCP(dctx, localIP, 1234)
 	if err != nil {
 		t.Fatalf("dial TCP error: %s", err)
 	}
@@ -108,19 +100,7 @@ func TestNetstackSubscribe(t *testing.T) {
 		}
 	}()
 
-	udpConn, err := gonet.DialUDP(ns.Stack,
-		&tcpip.FullAddress{
-			NIC:  1,
-			Addr: tcpip.Address(localIP),
-			Port: 1234,
-		},
-		&tcpip.FullAddress{
-			NIC:  1,
-			Addr: tcpip.Address(remoteIP),
-			Port: 1234,
-		},
-		ipv6.ProtocolNumber,
-	)
+	udpConn, err := ns.DialUDP(1234, remoteIP, 1234)
 	if err != nil {
 		t.Fatalf("DialUDP error %s", err)
 	}
@@ -158,12 +138,7 @@ func TestNetstackInject(t *testing.T) {
 		t.Fatalf("error initializing stack: %s", err)
 	}
 
-	udpFA := tcpip.FullAddress{
-		NIC:  1,
-		Addr: tcpip.Address(localIP),
-		Port: 1234,
-	}
-	udpConn, err := gonet.DialUDP(ns.Stack, &udpFA, nil, ipv6.ProtocolNumber)
+	udpConn, err := ns.DialUDP(1234, nil, 0)
 	if err != nil {
 		t.Fatalf("DialUDP error %s", err)
 	}
