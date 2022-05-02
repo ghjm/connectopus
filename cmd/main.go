@@ -14,7 +14,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = backend_dtls.RunListener(ctx, nl, 4444)
+	_, err = backend_dtls.RunListener(ctx, nl, 4444)
 	if err != nil {
 		return err
 	}

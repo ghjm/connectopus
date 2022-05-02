@@ -87,7 +87,7 @@ func RunDialer(ctx context.Context, pr backends.ProtocolRunner, destAddr net.IP,
 	return nil
 }
 
-func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort int) error {
+func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort int) (net.Addr, error) {
 	addr := &net.UDPAddr{IP: net.ParseIP("0.0.0.0"), Port: listenPort}
 	config := getDtlsConfig(ctx)
 	li, lerr := dtls.Listen("udp", addr, config)
@@ -96,7 +96,7 @@ func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort int
 		_ = li.Close()
 	}()
 	if lerr != nil {
-		return lerr
+		return nil, lerr
 	}
 	go backends.RunListener(ctx, pr, func() (backends.BackendConnection, error) {
 		conn, err := li.Accept()
@@ -113,5 +113,5 @@ func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort int
 			conn: conn.(*dtls.Conn),
 		}, nil
 	})
-	return nil
+	return li.Addr(), nil
 }
