@@ -8,9 +8,10 @@ import (
 	"time"
 )
 
-// BackendConnection represents a single back-end connection.  Backends must guarantee that
-// whole messages transit the network intact - ie, that ReadMessage always returns the entire
-// message that was provided (on another node) to WriteMessage, not just a fragment of it.
+// BackendConnection represents a single back-end connection.  Message transport need not be reliable,
+// but Backends must guarantee that whole messages transit the network intact -  ie, that ReadMessage,
+// if it returns anything, always returns the entire message that was provided (on another node) to
+// WriteMessage, not just a fragment of it.
 type BackendConnection interface {
 	MTU() int
 	WriteMessage([]byte) error
@@ -27,8 +28,10 @@ type ProtocolRunner interface {
 
 var ErrExceedsMDU = fmt.Errorf("payload size exceeds MTU")
 
+// ConnFunc is a type of function that gets a new BackendConnection, such as by dialing or accepting
 type ConnFunc func() (BackendConnection, error)
 
+// RunDialer abstractly implements retry logic for repeatedly dialing a peer until it connects
 func RunDialer(ctx context.Context, pr ProtocolRunner, dialer ConnFunc) {
 	var nextTimeout time.Duration
 	for {
@@ -57,6 +60,7 @@ func RunDialer(ctx context.Context, pr ProtocolRunner, dialer ConnFunc) {
 	}
 }
 
+// RunListener abstractly implements the accept loop of a listener
 func RunListener(ctx context.Context, pr ProtocolRunner, acceptor ConnFunc) {
 	for {
 		conn, err := acceptor()

@@ -6,12 +6,14 @@ import (
 	"time"
 )
 
+// channelRunner implements ProtocolRunner
 type channelRunner struct {
 	readChan  chan []byte
 	writeChan chan []byte
 }
 
-// NewChannelRunner returns a ProtocolRunner that just connects channels.  Used for testing backends.
+// NewChannelRunner returns a ProtocolRunner that just exposes read and write channels, instead of any
+// real network connection.  Used for testing backends.
 func NewChannelRunner() *channelRunner {
 	return &channelRunner{
 		readChan:  make(chan []byte),
@@ -19,18 +21,22 @@ func NewChannelRunner() *channelRunner {
 	}
 }
 
+// ReadChan returns a channel that messages from the backend can be read from.
 func (p *channelRunner) ReadChan() <-chan []byte {
 	return p.readChan
 }
 
+// WriteChan returns a channel that messages to the backend can be written to.
 func (p *channelRunner) WriteChan() chan<- []byte {
 	return p.writeChan
 }
 
 func (p *channelRunner) RunProtocol(ctx context.Context, conn BackendConnection) {
 	protoCtx, protoCancel := context.WithCancel(ctx)
-	defer protoCancel()
+
+	// Goroutine that reads from conn and writes to readChan
 	go func() {
+		defer protoCancel()
 		for {
 			_ = conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 			data, err := conn.ReadMessage()
@@ -49,7 +55,10 @@ func (p *channelRunner) RunProtocol(ctx context.Context, conn BackendConnection)
 			}
 		}
 	}()
+
+	// Goroutine that reads from writeChan and writes to conn
 	go func() {
+		defer protoCancel()
 		for {
 			select {
 			case <-protoCtx.Done():
@@ -70,5 +79,6 @@ func (p *channelRunner) RunProtocol(ctx context.Context, conn BackendConnection)
 			}
 		}
 	}()
+
 	<-protoCtx.Done()
 }
