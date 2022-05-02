@@ -8,7 +8,7 @@ require (
 	github.com/rainycape/dl v0.0.0-20151222075243-1b01514224a1
 	github.com/sirupsen/logrus v1.8.1
 	go.uber.org/goleak v1.1.12
-	gvisor.dev/gvisor v0.0.0-20220331005633-3ea2ff49c25f
+	gvisor.dev/gvisor v0.0.0-20220430045309-0ada71a2f9ec
 )
 
 require (

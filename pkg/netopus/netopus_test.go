@@ -176,7 +176,7 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 	}()
 
 	// Set up wait group
-	nConns := 5 //TODO: This fails with larger connection counts.  See https://github.com/google/gvisor/issues/7379
+	nConns := 100
 	wg := sync.WaitGroup{}
 	wg.Add(2 * nConns)
 
