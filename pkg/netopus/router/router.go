@@ -3,11 +3,12 @@ package router
 import (
 	"context"
 	"github.com/ghjm/connectopus/pkg/utils/broker"
+	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	"github.com/ghjm/connectopus/pkg/utils/timerunner"
 	priorityQueue "github.com/jupp0r/go-priority-queue"
+	log "github.com/sirupsen/logrus"
 	"math"
 	"reflect"
-	"sync"
 	"time"
 )
 
@@ -35,8 +36,7 @@ type router[T ~string] struct {
 	ctx           context.Context
 	myNode        T
 	nodes         map[T]map[T]float32
-	policyLock    *sync.RWMutex
-	policy        map[T]T
+	policy        syncro.Map[T, T]
 	updateChan    chan nodeUpdate[T]
 	removeChan    chan T
 	updateWait    time.Duration
@@ -56,8 +56,7 @@ func New[T ~string](ctx context.Context, myNode T, updateWait time.Duration) Rou
 		ctx:           ctx,
 		myNode:        myNode,
 		nodes:         make(map[T]map[T]float32),
-		policyLock:    &sync.RWMutex{},
-		policy:        make(map[T]T),
+		policy:        syncro.Map[T, T]{},
 		updateChan:    make(chan nodeUpdate[T]),
 		removeChan:    make(chan T),
 		updateWait:    updateWait,
@@ -155,21 +154,31 @@ func (r *router[T]) recalculate() {
 		}
 	}
 	changed := false
-	r.policyLock.Lock()
-	if !reflect.DeepEqual(r.policy, newPolicy) {
-		r.policy = newPolicy
-		changed = true
-	}
-	r.policyLock.Unlock()
+	r.policy.WorkWith(func(policy *map[T]T) {
+		if len(*policy) != len(newPolicy) {
+			log.Errorf("changed because length different (old %d, new %d)", len(*policy), len(newPolicy))
+			changed = true
+		} else {
+			for k, v := range *policy {
+				nv, ok := newPolicy[k]
+				if !ok || nv != v {
+					log.Errorf("changed because policy different for %s", k)
+					changed = true
+					break
+				}
+			}
+		}
+		if changed {
+			*policy = newPolicy
+		}
+	})
 	if changed {
 		r.updatesBroker.Publish(newPolicy)
 	}
 }
 
 func (r *router[T]) NextHop(dest T) T {
-	r.policyLock.RLock()
-	defer r.policyLock.RUnlock()
-	hop, ok := r.policy[dest]
+	hop, ok := r.policy.Get(dest)
 	if !ok {
 		return r.zeroNode
 	}

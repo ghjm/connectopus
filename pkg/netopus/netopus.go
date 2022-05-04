@@ -433,9 +433,9 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 		return false
 	}
 	var retval bool
-	n.knownNodeInfo.WorkWith(func(knownNodeInfo map[string]nodeInfo) {
+	n.knownNodeInfo.WorkWith(func(knownNodeInfo *map[string]nodeInfo) {
 		origin := r.Origin.String()
-		ni, ok := knownNodeInfo[origin]
+		ni, ok := (*knownNodeInfo)[origin]
 		if ok && (r.UpdateEpoch < ni.epoch || (r.UpdateEpoch == ni.epoch && r.UpdateSequence < ni.sequence)) {
 			log.Debugf("%s: ignoring outdated routing update", n.addr.String())
 			return
@@ -445,7 +445,7 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 			return
 		}
 		retval = true
-		knownNodeInfo[origin] = nodeInfo{
+		(*knownNodeInfo)[origin] = nodeInfo{
 			epoch:    r.UpdateEpoch,
 			sequence: r.UpdateSequence,
 		}
