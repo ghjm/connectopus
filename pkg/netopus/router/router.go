@@ -154,10 +154,16 @@ func (r *router[T]) recalculate() {
 			p = prev[p]
 		}
 	}
+	changed := false
 	r.policyLock.Lock()
-	r.policy = newPolicy
+	if !reflect.DeepEqual(r.policy, newPolicy) {
+		r.policy = newPolicy
+		changed = true
+	}
 	r.policyLock.Unlock()
-	r.updatesBroker.Publish(newPolicy)
+	if changed {
+		r.updatesBroker.Publish(newPolicy)
+	}
 }
 
 func (r *router[T]) NextHop(dest T) T {
