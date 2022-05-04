@@ -13,6 +13,7 @@ type TimeRunner interface {
 }
 
 type timerunner struct {
+	ctx      context.Context
 	nextRun  time.Time
 	reqChan  chan time.Duration
 	f        func()
@@ -54,6 +55,7 @@ func EventChan[T any](ch <-chan T, f func(T)) func(*timerunner) {
 // NewTimeRunner returns a new TimeRunner which will execute function f at appropriate times
 func NewTimeRunner(ctx context.Context, f func(), mods ...func(*timerunner)) TimeRunner {
 	tr := &timerunner{
+		ctx:      ctx,
 		nextRun:  utils.TimeNever,
 		reqChan:  make(chan time.Duration),
 		f:        f,
@@ -96,6 +98,11 @@ func (tr *timerunner) mainLoop(ctx context.Context) {
 // RunWithin requests that the TimeRunner execute within a given duration
 func (tr *timerunner) RunWithin(t time.Duration) {
 	go func() {
-		tr.reqChan <- t // this is run in a goroutine to avoid deadlocking when called inside an event handler
+		// this is run in a goroutine to avoid deadlocking when called inside an event handler
+		select {
+		case <-tr.ctx.Done():
+			return
+		case tr.reqChan <- t:
+		}
 	}()
 }

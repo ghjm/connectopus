@@ -45,14 +45,14 @@ func RunDialer(ctx context.Context, pr ProtocolRunner, dialer ConnFunc) {
 		if nextTimeout == 0 {
 			nextTimeout = time.Second
 		} else {
-			nextTimeout *= 2
+			nextTimeout = nextTimeout * 6 / 5
 			if nextTimeout > time.Minute {
 				nextTimeout = time.Minute
 			}
 		}
 		conn, err := dialer()
 		if err != nil {
-			log.Warnf("dialer error: %s", err)
+			log.Debugf("dialer error: %s", err)
 			continue
 		}
 		nextTimeout = 0

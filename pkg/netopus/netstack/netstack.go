@@ -2,6 +2,7 @@ package netstack
 
 import (
 	"context"
+	"fmt"
 	"github.com/ghjm/connectopus/pkg/utils/broker"
 	log "github.com/sirupsen/logrus"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -10,6 +11,7 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
+	"gvisor.dev/gvisor/pkg/tcpip/transport/icmp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 	"net"
@@ -61,7 +63,13 @@ type netStack struct {
 }
 
 // NewStack creates a new network stack
-func NewStack(ctx context.Context, addr net.IP) (NetStack, error) {
+func NewStack(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetStack, error) {
+	if len(addr) != net.IPv6len || len(subnet.IP) != net.IPv6len {
+		return nil, fmt.Errorf("subnet and address must be ipv6")
+	}
+	if !subnet.Contains(addr) {
+		return nil, fmt.Errorf("%s is not in the subnet %s", addr.String(), subnet.String())
+	}
 	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_SEQPACKET, 0)
 	if err != nil {
 		return nil, err
@@ -72,9 +80,10 @@ func NewStack(ctx context.Context, addr net.IP) (NetStack, error) {
 		fds:          fds,
 	}
 	ns.stack = stack.New(stack.Options{
-		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
-		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
-		HandleLocal:        true,
+		NetworkProtocols: []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
+		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol,
+			icmp.NewProtocol4, icmp.NewProtocol6},
+		HandleLocal: true,
 	})
 	ns.endpoint, err = fdbased.New(&fdbased.Options{
 		FDs: []int{fds[0]},
@@ -89,7 +98,7 @@ func NewStack(ctx context.Context, addr net.IP) (NetStack, error) {
 		return nil, err
 	}
 	ns.stack.CreateNICWithOptions(1, ns.endpoint, stack.NICOptions{
-		Name:     "1",
+		Name:     "net0",
 		Disabled: false,
 	})
 	ns.stack.AddProtocolAddress(1,
@@ -102,15 +111,17 @@ func NewStack(ctx context.Context, addr net.IP) (NetStack, error) {
 		},
 		stack.AddressProperties{},
 	)
+	maskOnes, _ := subnet.Mask.Size()
 	localNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(net.ParseIP("FD00::0")),
-		PrefixLen: 8,
+		Address:   tcpip.Address(subnet.IP),
+		PrefixLen: maskOnes,
 	}
 	ns.stack.AddRoute(tcpip.Route{
 		Destination: localNet.Subnet(),
 		NIC:         1,
 	})
 
+	// Clean up after termination
 	go func() {
 		<-ctx.Done()
 		ns.endpoint.Attach(nil)
@@ -121,22 +132,25 @@ func NewStack(ctx context.Context, addr net.IP) (NetStack, error) {
 	}()
 
 	// Send incoming packets to subscribed receivers
-	go func() {
-		for {
-			packet := make([]byte, ns.endpoint.MTU())
-			n, err := syscall.Read(ns.fds[1], packet)
-			if ctx.Err() != nil {
-				return
-			}
-			if err != nil {
-				log.Errorf("error reading from stack endpoint fd: %s", err)
-			}
-			packet = packet[:n]
-			go ns.packetBroker.Publish(packet)
-		}
-	}()
+	go ns.packetPublisher(ctx)
 
 	return ns, nil
+}
+
+// packetPublisher publishes outgoing packets from the stack to the packetBroker
+func (ns *netStack) packetPublisher(ctx context.Context) {
+	for {
+		packet := make([]byte, ns.endpoint.MTU())
+		n, err := syscall.Read(ns.fds[1], packet)
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			log.Errorf("error reading from stack endpoint fd: %s", err)
+		}
+		packet = packet[:n]
+		go ns.packetBroker.Publish(packet)
+	}
 }
 
 func (ns *netStack) SendPacket(packet []byte) error {

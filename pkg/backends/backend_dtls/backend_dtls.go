@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
+	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/pion/dtls/v2"
 	"net"
 	"time"
@@ -66,11 +67,11 @@ func getDtlsConfig(ctx context.Context) *dtls.Config {
 	}
 }
 
-func RunDialer(ctx context.Context, pr backends.ProtocolRunner, destAddr net.IP, destPort int) error {
-	addr := &net.UDPAddr{IP: destAddr, Port: destPort}
-	config := getDtlsConfig(ctx)
+func RunDialer(ctx context.Context, pr backends.ProtocolRunner, destAddr net.IP, destPort uint16) error {
+	addr := &net.UDPAddr{IP: destAddr, Port: int(destPort)}
+	dtlsConfig := getDtlsConfig(ctx)
 	go backends.RunDialer(ctx, pr, func() (backends.BackendConnection, error) {
-		conn, err := dtls.DialWithContext(ctx, "udp", addr, config)
+		conn, err := dtls.DialWithContext(ctx, "udp", addr, dtlsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -87,10 +88,19 @@ func RunDialer(ctx context.Context, pr backends.ProtocolRunner, destAddr net.IP,
 	return nil
 }
 
-func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort int) (net.Addr, error) {
-	addr := &net.UDPAddr{IP: net.ParseIP("0.0.0.0"), Port: listenPort}
-	config := getDtlsConfig(ctx)
-	li, lerr := dtls.Listen("udp", addr, config)
+// RunDialerFromConfig runs a dialer from settings in a config.Params
+func RunDialerFromConfig(ctx context.Context, pr backends.ProtocolRunner, params config.Params) error {
+	ip, port, err := params.GetHostPort("peer")
+	if err != nil {
+		return fmt.Errorf("error parsing peer: %w", err)
+	}
+	return RunDialer(ctx, pr, ip, port)
+}
+
+func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort uint16) (net.Addr, error) {
+	addr := &net.UDPAddr{IP: net.ParseIP("0.0.0.0"), Port: int(listenPort)}
+	dtlsConfig := getDtlsConfig(ctx)
+	li, lerr := dtls.Listen("udp", addr, dtlsConfig)
 	go func() {
 		<-ctx.Done()
 		_ = li.Close()
@@ -114,4 +124,14 @@ func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort int
 		}, nil
 	})
 	return li.Addr(), nil
+}
+
+// RunListenerFromConfig runs a listener from settings in a config.Params
+func RunListenerFromConfig(ctx context.Context, pr backends.ProtocolRunner, params config.Params) error {
+	port, err := params.GetPort("port")
+	if err != nil {
+		return err
+	}
+	_, err = RunListener(ctx, pr, port)
+	return err
 }

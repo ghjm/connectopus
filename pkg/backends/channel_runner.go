@@ -12,8 +12,8 @@ type channelRunner struct {
 	writeChan chan []byte
 }
 
-// NewChannelRunner returns a ProtocolRunner that just exposes read and write channels, instead of any
-// real network connection.  Used for testing backends.
+// NewChannelRunner returns a ProtocolRunner that just exposes read and write channels.  This allows
+// low-level testing of backends by just pushing datagrams through them, without using Netopus at all.
 func NewChannelRunner() *channelRunner {
 	return &channelRunner{
 		readChan:  make(chan []byte),

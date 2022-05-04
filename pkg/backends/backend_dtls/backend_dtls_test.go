@@ -24,12 +24,12 @@ func TestBackendDtls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error splitting host:port: %s", err)
 	}
-	var port uint64
-	port, err = strconv.ParseUint(portStr, 10, 16)
+	var port int
+	port, err = strconv.Atoi(portStr)
 	if err != nil {
-		t.Fatalf("non-numeric port: %s", portStr)
+		t.Fatalf("error converting port to integer: %s", err)
 	}
-	err = RunDialer(ctx, n2, net.ParseIP("127.0.0.1"), int(port))
+	err = RunDialer(ctx, n2, net.ParseIP("127.0.0.1"), uint16(port))
 	if err != nil {
 		t.Fatalf("dialer backend error %s", err)
 	}

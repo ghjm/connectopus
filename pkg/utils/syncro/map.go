@@ -17,6 +17,13 @@ func (m *Map[K, V]) createIfNil() {
 	}
 }
 
+// MapFromGoMap constructs a new syncro.Map from a Go map
+func MapFromGoMap[K comparable, V any](initMap map[K]V) *Map[K, V] {
+	return &Map[K, V]{
+		value: initMap,
+	}
+}
+
 // Get a value from the map.  If it exists, returns the value and true; otherwise, returns the zero value and false.
 func (m *Map[K, V]) Get(key K) (V, bool) {
 	m.lock.RLock()

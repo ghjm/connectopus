@@ -2,6 +2,7 @@ package netopus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/netopus/netstack"
@@ -9,10 +10,13 @@ import (
 	"github.com/ghjm/connectopus/pkg/netopus/router"
 	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"math/rand"
 	"net"
+	"strings"
+	"syscall"
 	"time"
 )
 
@@ -63,11 +67,11 @@ type nodeInfo struct {
 }
 
 // NewNetopus constructs and returns a new network node on a given address
-func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
+func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, error) {
 	if len(addr) != net.IPv6len || !addr.IsPrivate() {
 		return nil, fmt.Errorf("address must be ipv6 from the unique local range (FC00::/7)")
 	}
-	stack, err := netstack.NewStack(ctx, addr)
+	stack, err := netstack.NewStack(ctx, subnet, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +91,23 @@ func NewNetopus(ctx context.Context, addr net.IP) (Netopus, error) {
 		s.sessions = make(map[uint64]*protoSession)
 		s.nodeSessions = make(map[string]uint64)
 	})
+	go func() {
+		routerUpdateChan := n.router.SubscribeUpdates()
+		defer n.router.UnsubscribeUpdates(routerUpdateChan)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case u := <-routerUpdateChan:
+				conns := make([]string, 0, len(u))
+				for k, v := range u {
+					conns = append(conns, fmt.Sprintf("%s via %s", k, v))
+				}
+				slices.Sort(conns)
+				log.Infof("routing update: %v", strings.Join(conns, ", "))
+			}
+		}
+	}()
 	return n, nil
 }
 
@@ -98,7 +119,12 @@ func (p *protoSession) backendReadLoop() {
 			return
 		}
 		if err != nil {
+			if errors.Is(err, syscall.ECONNREFUSED) {
+				p.cancel()
+				return
+			}
 			log.Warnf("protocol read error: %s", err)
+			continue
 		}
 		select {
 		case <-p.ctx.Done():
@@ -122,6 +148,7 @@ func (p *protoSession) netStackReadLoop() {
 			}
 			if err != nil {
 				log.Warnf("protocol write error: %s", err)
+				continue
 			}
 		}
 	}
@@ -142,21 +169,22 @@ func (p *protoSession) sendInit() {
 }
 
 // initSelect runs one instance of the main loop when the connection is not established
-func (p *protoSession) initSelect() {
+func (p *protoSession) initSelect() bool {
 	p.sendInit()
 	select {
 	case <-p.ctx.Done():
-		return
+		return false
 	case <-time.After(500 * time.Millisecond):
 		p.sendInit()
+		return false
 	case data := <-p.readChan:
 		msgAny, err := data.Unmarshal()
 		if err != nil {
-			return
+			return false
 		}
 		switch msg := msgAny.(type) {
 		case *proto.InitMsg:
-			log.Debugf("%s: received init message", p.n.addr.String())
+			log.Infof("%s: connected to %s", p.n.addr.String(), msg.MyAddr.String())
 			p.remoteAddr.Set(msg.MyAddr)
 			p.connStart = time.Now()
 			p.connected.Set(true)
@@ -164,37 +192,38 @@ func (p *protoSession) initSelect() {
 				s.nodeSessions[msg.MyAddr.String()] = p.id
 			})
 			p.n.sendRoutingUpdate()
-			return
+			return true
 		default:
 			log.Debugf("%s: received non-init message while in init mode", p.n.addr.String())
+			return true
 		}
 	}
 }
 
 // mainSelect runs one instance of the main loop when the connection is established
-func (p *protoSession) mainSelect() {
+func (p *protoSession) mainSelect() bool {
 	select {
 	case <-p.ctx.Done():
-		return
-	//case <-time.After(time.Second):
-	//	log.Debugf("%s: sending routing update", p.n.addr.String())
-	//	p.n.sendRoutingUpdate()
+		return false
+	case <-time.After(time.Second):
+		log.Debugf("%s: sending routing update", p.n.addr.String())
+		p.n.sendRoutingUpdate()
+		return false
 	case data := <-p.readChan:
 		msgAny, err := data.Unmarshal()
 		if err != nil {
 			log.Warnf("packet unmarshaling error: %s", err)
-			return
+			return false
 		}
 		switch msg := msgAny.(type) {
 		case []byte:
 			err = p.n.SendPacket(data)
 			if err != nil {
 				log.Warnf("packet sending error: %s", err)
-				return
 			}
 		case *proto.RoutingUpdate:
-			log.Debugf("%s: received routing update %d from %s via %s with %v", p.n.addr.String(),
-				msg.UpdateSequence, msg.Origin.String(), p.remoteAddr.Get().String(), msg.Connections)
+			log.Debugf("%s: received routing update %d from %s via %s", p.n.addr.String(),
+				msg.UpdateSequence, msg.Origin.String(), p.remoteAddr.Get().String())
 			if p.n.handleRoutingUpdate(msg) {
 				p.n.router.UpdateNode(msg.Origin.String(), msg.Connections.GetConnMap())
 				p.n.flood(data)
@@ -207,6 +236,7 @@ func (p *protoSession) mainSelect() {
 				p.sendInit()
 			}
 		}
+		return true
 	}
 }
 
@@ -215,11 +245,29 @@ func (p *protoSession) protoLoop() {
 	defer func() {
 		p.cancel()
 	}()
+	lastActivity := syncro.Var[time.Time]{}
+	go func() {
+		for {
+			select {
+			case <-p.ctx.Done():
+				return
+			case <-time.After(time.Second):
+				if lastActivity.Get().Before(time.Now().Add(-5 * time.Second)) {
+					log.Warnf("%s: closing connection to %s due to inactivity", p.n.addr.String(), p.remoteAddr.Get().String())
+					p.cancel()
+				}
+			}
+		}
+	}()
 	for {
+		var activity bool
 		if p.connected.Get() {
-			p.mainSelect()
+			activity = p.mainSelect()
 		} else {
-			p.initSelect()
+			activity = p.initSelect()
+		}
+		if activity {
+			lastActivity.Set(time.Now())
 		}
 		if p.ctx.Err() != nil {
 			return
@@ -251,14 +299,17 @@ func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnecti
 			break
 		}
 	})
-	defer n.sessionInfo.WorkWith(func(s *sessInfo) {
-		delete(s.sessions, p.id)
-		for k, v := range s.nodeSessions {
-			if v == p.id {
-				delete(s.nodeSessions, k)
+	defer func() {
+		n.sessionInfo.WorkWith(func(s *sessInfo) {
+			delete(s.sessions, p.id)
+			for k, v := range s.nodeSessions {
+				if v == p.id {
+					delete(s.nodeSessions, k)
+				}
 			}
-		}
-	})
+		})
+		n.sendRoutingUpdate()
+	}()
 	go p.backendReadLoop()
 	go p.netStackReadLoop()
 	go p.protoLoop()
@@ -383,14 +434,18 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 	}
 	var retval bool
 	n.knownNodeInfo.WorkWith(func(knownNodeInfo map[string]nodeInfo) {
-		ni, ok := knownNodeInfo[string(r.Origin)]
+		origin := r.Origin.String()
+		ni, ok := knownNodeInfo[origin]
 		if ok && (r.UpdateEpoch < ni.epoch || (r.UpdateEpoch == ni.epoch && r.UpdateSequence < ni.sequence)) {
 			log.Debugf("%s: ignoring outdated routing update", n.addr.String())
 			return
 		}
-		//TODO: detect unchanged connections and avoid routing update in that case
+		if r.UpdateEpoch == ni.epoch && r.UpdateSequence == ni.sequence {
+			log.Debugf("%s: ignoring unchanged routing update", n.addr.String())
+			return
+		}
 		retval = true
-		knownNodeInfo[string(r.Origin)] = nodeInfo{
+		knownNodeInfo[origin] = nodeInfo{
 			epoch:    r.UpdateEpoch,
 			sequence: r.UpdateSequence,
 		}

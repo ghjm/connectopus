@@ -1,0 +1,27 @@
+---
+global:
+  subnet: FD00::0/8
+
+nodes:
+
+  foo:
+    address: FD00::1
+    backends:
+      - type: dtls-dialer
+        params:
+          peer: localhost:4444
+
+  bar:
+    address: FD00::2
+    backends:
+      - type: dtls-listener
+        params:
+          port: 4444
+
+  baz:
+    address: FD00::3
+    backends:
+      - type: dtls-dialer
+        params:
+          peer: localhost:4444
+
