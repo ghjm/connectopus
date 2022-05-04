@@ -64,11 +64,11 @@ func (m *Map[K, V]) Delete(key K) {
 }
 
 // WorkWith calls a function to work with the map under lock
-func (m *Map[K, V]) WorkWith(f func(map[K]V)) {
+func (m *Map[K, V]) WorkWith(f func(*map[K]V)) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.createIfNil()
-	f(m.value)
+	f(&m.value)
 }
 
 // WorkWithReadOnly calls a function to work with the map under lock.  You are on the honor system not to change it.

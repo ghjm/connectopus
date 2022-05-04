@@ -14,15 +14,20 @@ func TestSyncromap(t *testing.T) {
 	if v != 1 || ok != true {
 		t.Fail()
 	}
-	s.WorkWith(func(m map[string]int) {
-		v, ok = m["foo"]
+	s.WorkWith(func(m *map[string]int) {
+		v, ok = (*m)["foo"]
 		if v != 1 || ok != true {
 			t.Fail()
 		}
-		m["foo"] = v + 1
+		(*m)["foo"] = v + 1
+		(*m)["bar"] = 123
 	})
 	v, ok = s.Get("foo")
 	if v != 2 || ok != true {
+		t.Fail()
+	}
+	v, ok = s.Get("bar")
+	if v != 123 || ok != true {
 		t.Fail()
 	}
 }
