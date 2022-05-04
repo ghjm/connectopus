@@ -2,6 +2,7 @@ package config
 
 import (
 	"io/ioutil"
+	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -36,13 +37,21 @@ nodes:
 
 `
 
+func MustParseCIDR(s string) IPNet {
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return IPNet(*ipnet)
+}
+
 var correctConfig = Config{
 	Global: Global{
-		Subnet: "FD00::0/8",
+		Subnet: MustParseCIDR("FD00::0/8"),
 	},
 	Nodes: map[string]Node{
 		"foo": {
-			Address: "FD00::1",
+			Address: IP(net.ParseIP("FD00::1")),
 			Backends: []Backend{
 				{
 					BackendType: "dtls-dialer",
@@ -53,7 +62,7 @@ var correctConfig = Config{
 			},
 		},
 		"bar": {
-			Address: "FD00::2",
+			Address: IP(net.ParseIP("FD00::2")),
 			Backends: []Backend{
 				{
 					BackendType: "dtls-listener",
@@ -64,7 +73,7 @@ var correctConfig = Config{
 			},
 		},
 		"baz": {
-			Address: "FD00::3",
+			Address: IP(net.ParseIP("FD00::3")),
 			Backends: []Backend{
 				{
 					BackendType: "dtls-dialer",

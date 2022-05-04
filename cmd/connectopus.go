@@ -50,20 +50,18 @@ var rootCmd = &cobra.Command{
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		var subnet *net.IPNet
-		subnet, err = config.Global.SubnetIPNet()
-		if err != nil {
-			errHalt(err)
-		}
-		var addr net.IP
-		addr, err = node.AddressIP()
-		if err != nil {
-			errHalt(err)
-		}
+		subnet := net.IPNet(config.Global.Subnet)
+		addr := net.IP(node.Address)
 		var n netopus.Netopus
-		n, err = netopus.NewNetopus(ctx, subnet, addr)
+		n, err = netopus.NewNetopus(ctx, &subnet, addr)
 		if err != nil {
 			errHalt(err)
+		}
+		if len(node.Tun.Address) > 0 {
+			n.AddExternalRoute(net.IP(node.Tun.Address), func(packet []byte) error {
+				fmt.Printf("tunnel got external packet")
+				return nil
+			})
 		}
 		for _, backend := range node.Backends {
 			err = backend_registry.RunBackend(ctx, n, backend.BackendType, backend.Params)

@@ -14,13 +14,19 @@ type Config struct {
 }
 
 type Global struct {
-	Subnet string `yaml:"subnet"`
+	Subnet IPNet  `yaml:"subnet"`
 	Domain string `yaml:"domain"`
 }
 
 type Node struct {
-	Address  string    `yaml:"address"`
+	Address  IP        `yaml:"address"`
+	Tun      Tun       `yaml:"tun"`
 	Backends []Backend `yaml:"backends"`
+}
+
+type Tun struct {
+	Name    string `yaml:"name"`
+	Address IP     `yaml:"address"`
 }
 
 type Backend struct {
@@ -29,6 +35,10 @@ type Backend struct {
 }
 
 type Params map[string]string
+
+type IP net.IP
+
+type IPNet net.IPNet
 
 func LoadConfig(filename string) (*Config, error) {
 	data, err := ioutil.ReadFile(filename)
@@ -41,25 +51,6 @@ func LoadConfig(filename string) (*Config, error) {
 		return nil, err
 	}
 	return config, nil
-}
-
-func (g *Global) SubnetIPNet() (*net.IPNet, error) {
-	_, ipnet, err := net.ParseCIDR(g.Subnet)
-	if err != nil {
-		return nil, err
-	}
-	return ipnet, nil
-}
-
-func (n *Node) AddressIP() (net.IP, error) {
-	ip := net.ParseIP(n.Address)
-	if ip == nil {
-		return nil, fmt.Errorf("error parsing IP address")
-	}
-	if len(ip) != net.IPv6len {
-		return nil, fmt.Errorf("address must be IPv6")
-	}
-	return ip, nil
 }
 
 func (p Params) GetPort(name string) (uint16, error) {
@@ -101,4 +92,54 @@ func (p Params) GetHostPort(name string) (net.IP, uint16, error) {
 		ip = ips[0]
 	}
 	return ip, uint16(port), nil
+}
+
+// UnmarshalYAML unmarshals an IP address from YAML.
+func (i *IP) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	err := unmarshal(&s)
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(s)
+	if ip == nil {
+		return fmt.Errorf("unmarshal YAML error: invalid IP address: %s", s)
+	}
+	*i = IP(ip)
+	return nil
+}
+
+// MarshalYAML marshals an IP address to YAML.
+func (i IP) MarshalYAML() (interface{}, error) {
+	if i == nil {
+		return nil, nil
+	} else {
+		return net.IP(i).String(), nil
+	}
+}
+
+// UnmarshalYAML unmarshals an IP subnet from YAML.
+func (ipnet *IPNet) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	err := unmarshal(&s)
+	if err != nil {
+		return err
+	}
+	var netIpNet *net.IPNet
+	_, netIpNet, err = net.ParseCIDR(s)
+	if err != nil {
+		return fmt.Errorf("unmarshal YAML error: invalid CIDR network: %s", s)
+	}
+	*ipnet = IPNet(*netIpNet)
+	return nil
+}
+
+// MarshalYAML marshals an IP subnet to YAML.
+func (ipnet *IPNet) MarshalYAML() (interface{}, error) {
+	if ipnet == nil {
+		return nil, nil
+	} else {
+		ipn := net.IPNet(*ipnet)
+		return ipn.String(), nil
+	}
 }

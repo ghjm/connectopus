@@ -24,6 +24,15 @@ import (
 type Netopus interface {
 	backends.ProtocolRunner
 	netstack.UserStack
+	ExternalRouter
+}
+
+// ExternalRouter is a device that can accept and send packets to external routes
+type ExternalRouter interface {
+	// AddExternalRoute adds an external route.  When packets arrive for this destination, outgoingPacketFunc will be called.
+	AddExternalRoute(net.IP, func([]byte) error)
+	// DelExternalRoute removes a previously added external route.  If the route does not exist, this has no effect.
+	DelExternalRoute(net.IP)
 }
 
 // netopus implements Netopus
@@ -38,6 +47,13 @@ type netopus struct {
 	seenUpdates       syncro.Map[uint64, time.Time]
 	knownNodeInfo     syncro.Map[string, nodeInfo]
 	lastRoutingUpdate syncro.Var[time.Time]
+	externalRoutes    syncro.Var[[]externalRouteInfo]
+}
+
+// externalRouteInfo stores information about a route
+type externalRouteInfo struct {
+	dest               net.IP
+	outgoingPacketFunc func(data []byte) error
 }
 
 // sessInfo stores information about sessions
@@ -68,8 +84,8 @@ type nodeInfo struct {
 
 // NewNetopus constructs and returns a new network node on a given address
 func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, error) {
-	if len(addr) != net.IPv6len || !addr.IsPrivate() {
-		return nil, fmt.Errorf("address must be ipv6 from the unique local range (FC00::/7)")
+	if len(addr) != net.IPv6len || len(subnet.IP) != net.IPv6len {
+		return nil, fmt.Errorf("subnet and address must be IPv6")
 	}
 	stack, err := netstack.NewStack(ctx, subnet, addr)
 	if err != nil {
@@ -325,6 +341,18 @@ func (n *netopus) SendPacket(packet []byte) error {
 	if dest == tcpip.Address(n.addr) {
 		return n.stack.SendPacket(packet)
 	}
+	var opf func([]byte) error
+	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
+		for _, r := range *routes {
+			if dest == tcpip.Address(r.dest) {
+				opf = r.outgoingPacketFunc
+				break
+			}
+		}
+	})
+	if opf != nil {
+		return opf(packet)
+	}
 	nextHop := n.router.NextHop(dest.String())
 	if nextHop == "" {
 		log.Debugf("%s: trying to recover from no route to host", n.addr.String())
@@ -381,6 +409,14 @@ func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, err
 					Cost: 1.0,
 				})
 			}
+		}
+	})
+	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
+		for _, r := range *routes {
+			conns = append(conns, proto.RoutingConnection{
+				Peer: r.dest,
+				Cost: 1.0,
+			})
 		}
 	})
 	up := &proto.RoutingUpdate{
@@ -453,18 +489,45 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 	return retval
 }
 
+// DialTCP implements netstack.UserStack
 func (n *netopus) DialTCP(addr net.IP, port uint16) (net.Conn, error) {
 	return n.stack.DialTCP(addr, port)
 }
 
+// DialContextTCP implements netstack.UserStack
 func (n *netopus) DialContextTCP(ctx context.Context, addr net.IP, port uint16) (net.Conn, error) {
 	return n.stack.DialContextTCP(ctx, addr, port)
 }
 
+// ListenTCP implements netstack.UserStack
 func (n *netopus) ListenTCP(port uint16) (net.Listener, error) {
 	return n.stack.ListenTCP(port)
 }
 
+// DialUDP implements netstack.UserStack
 func (n *netopus) DialUDP(lport uint16, addr net.IP, rport uint16) (netstack.UDPConn, error) {
 	return n.stack.DialUDP(lport, addr, rport)
+}
+
+// AddExternalRoute implements ExternalRouter
+func (n *netopus) AddExternalRoute(dest net.IP, outgoingPacketFunc func([]byte) error) {
+	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
+		*routes = append(*routes, externalRouteInfo{
+			dest:               dest,
+			outgoingPacketFunc: outgoingPacketFunc,
+		})
+	})
+}
+
+// DelExternalRoute implements ExternalRouter
+func (n *netopus) DelExternalRoute(dest net.IP) {
+	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
+		newRoutes := make([]externalRouteInfo, 0, len(*routes))
+		for _, r := range *routes {
+			if string(r.dest) != string(dest) {
+				newRoutes = append(newRoutes, r)
+			}
+		}
+		*routes = newRoutes
+	})
 }
