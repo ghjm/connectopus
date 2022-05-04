@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/ghjm/connectopus/internal/version"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/netopus"
@@ -21,8 +22,9 @@ var configFile string
 var identity string
 var logLevel string
 var rootCmd = &cobra.Command{
-	Use:  "connectopus",
-	Args: cobra.NoArgs,
+	Use:     "connectopus",
+	Args:    cobra.NoArgs,
+	Version: version.Version(),
 	Run: func(cmd *cobra.Command, args []string) {
 		config, err := config.LoadConfig(configFile)
 		if err != nil {
@@ -78,7 +80,7 @@ func main() {
 	_ = rootCmd.MarkFlagRequired("config")
 	rootCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
 	_ = rootCmd.MarkFlagRequired("identity")
-	rootCmd.Flags().StringVar(&logLevel, "log-level", "", "Set log level")
+	rootCmd.Flags().StringVar(&logLevel, "log-level", "", "Set log level (error/warning/info/debug)")
 	err := rootCmd.Execute()
 	if err != nil {
 		errHalt(err)
