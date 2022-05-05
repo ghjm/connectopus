@@ -33,7 +33,7 @@ type ExternalRouter interface {
 	AddExternalRoute(net.IP, func([]byte) error)
 	// DelExternalRoute removes a previously added external route.  If the route does not exist, this has no effect.
 	DelExternalRoute(net.IP)
-	// SendPacket rotues and sends a packet
+	// SendPacket routes and sends a packet
 	SendPacket(packet []byte) error
 }
 
