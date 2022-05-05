@@ -27,4 +27,8 @@ nodes:
       - type: dtls-dialer
         params:
           peer: localhost:4444
+    plugins:
+      - file: plugins/echo.so
+        params:
+          port: 7
 

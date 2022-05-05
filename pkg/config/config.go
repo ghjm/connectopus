@@ -22,6 +22,7 @@ type Node struct {
 	Address  IP        `yaml:"address"`
 	Tun      Tun       `yaml:"tun"`
 	Backends []Backend `yaml:"backends"`
+	Plugins  []Plugin  `yaml:"plugins"`
 }
 
 type Tun struct {
@@ -32,6 +33,11 @@ type Tun struct {
 type Backend struct {
 	BackendType string `yaml:"type"`
 	Params      Params `yaml:"params"`
+}
+
+type Plugin struct {
+	File   string `yaml:"file"`
+	Params Params `yaml:"params"`
 }
 
 type Params map[string]string

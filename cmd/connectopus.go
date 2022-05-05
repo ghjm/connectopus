@@ -8,6 +8,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/netopus"
 	"github.com/ghjm/connectopus/pkg/netopus/tun"
+	"github.com/ghjm/connectopus/plugins"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"net"
@@ -68,6 +69,12 @@ var rootCmd = &cobra.Command{
 		}
 		for _, backend := range node.Backends {
 			err = backend_registry.RunBackend(ctx, n, backend.BackendType, backend.Params)
+			if err != nil {
+				errHalt(err)
+			}
+		}
+		for _, plugin := range node.Plugins {
+			err = plugins.RunPlugin(ctx, plugin.File, n, plugin.Params)
 			if err != nil {
 				errHalt(err)
 			}
