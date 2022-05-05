@@ -7,6 +7,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/netopus"
+	"github.com/ghjm/connectopus/pkg/netopus/tun"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"net"
@@ -58,10 +59,12 @@ var rootCmd = &cobra.Command{
 			errHalt(err)
 		}
 		if len(node.Tun.Address) > 0 {
-			n.AddExternalRoute(net.IP(node.Tun.Address), func(packet []byte) error {
-				fmt.Printf("tunnel got external packet")
-				return nil
-			})
+			var tunLink tun.Link
+			tunLink, err = tun.NewLink(ctx, "ctun", net.IP(node.Tun.Address), addr, &subnet, n.SendPacket)
+			if err != nil {
+				errHalt(err)
+			}
+			n.AddExternalRoute(net.IP(node.Tun.Address), tunLink.SendPacket)
 		}
 		for _, backend := range node.Backends {
 			err = backend_registry.RunBackend(ctx, n, backend.BackendType, backend.Params)

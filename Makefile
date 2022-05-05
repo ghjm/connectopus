@@ -28,11 +28,14 @@ test-coverage:
 	@rm -f cover.out
 	@echo See coverage.html for details
 
+cap-net-admin:
+	@sudo setcap cap_net_admin+ep ./connectopus
+
 version:
 	@echo "$(VERSION)"
 
 clean:
 	@rm -fv $(PROGRAMS) coverage.html
 
-.PHONY: all lint fmt test test-coverage version clean
+.PHONY: all lint fmt test test-coverage version clean cap-net-admin
 

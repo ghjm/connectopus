@@ -33,6 +33,8 @@ type ExternalRouter interface {
 	AddExternalRoute(net.IP, func([]byte) error)
 	// DelExternalRoute removes a previously added external route.  If the route does not exist, this has no effect.
 	DelExternalRoute(net.IP)
+	// SendPacket rotues and sends a packet
+	SendPacket(packet []byte) error
 }
 
 // netopus implements Netopus
@@ -124,6 +126,7 @@ func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, e
 			}
 		}
 	}()
+	go n.netStackReadLoop()
 	return n, nil
 }
 
@@ -146,26 +149,6 @@ func (p *protoSession) backendReadLoop() {
 		case <-p.ctx.Done():
 			return
 		case p.readChan <- data:
-		}
-	}
-}
-
-// netStackReadLoop reads packets from the netstack and processes them
-func (p *protoSession) netStackReadLoop() {
-	readChan := p.n.stack.SubscribePackets()
-	for {
-		select {
-		case <-p.ctx.Done():
-			return
-		case packet := <-readChan:
-			err := p.n.SendPacket(packet)
-			if p.ctx.Err() != nil {
-				return
-			}
-			if err != nil {
-				log.Warnf("protocol write error: %s", err)
-				continue
-			}
 		}
 	}
 }
@@ -327,9 +310,28 @@ func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnecti
 		n.sendRoutingUpdate()
 	}()
 	go p.backendReadLoop()
-	go p.netStackReadLoop()
 	go p.protoLoop()
 	<-protoCtx.Done()
+}
+
+// netStackReadLoop reads packets from the netstack and processes them
+func (n *netopus) netStackReadLoop() {
+	readChan := n.stack.SubscribePackets()
+	for {
+		select {
+		case <-n.ctx.Done():
+			return
+		case packet := <-readChan:
+			err := n.SendPacket(packet)
+			if n.ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				log.Warnf("protocol write error: %s", err)
+				continue
+			}
+		}
+	}
 }
 
 // SendPacket sends a single IPv6 packet over the network.
@@ -338,6 +340,9 @@ func (n *netopus) SendPacket(packet []byte) error {
 		return fmt.Errorf("malformed packet: too small")
 	}
 	dest := header.IPv6(packet).DestinationAddress()
+	if header.IsV6MulticastAddress(dest) {
+		return nil
+	}
 	if dest == tcpip.Address(n.addr) {
 		return n.stack.SendPacket(packet)
 	}
@@ -361,7 +366,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 		nextHop = n.router.NextHop(dest.String())
 	}
 	if nextHop == "" {
-		return fmt.Errorf("no route to host")
+		return fmt.Errorf("no route to host: %s", dest.String())
 	}
 	var nextHopSess *protoSession
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {

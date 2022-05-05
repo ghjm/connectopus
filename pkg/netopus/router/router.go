@@ -6,7 +6,6 @@ import (
 	"github.com/ghjm/connectopus/pkg/utils/syncro"
 	"github.com/ghjm/connectopus/pkg/utils/timerunner"
 	priorityQueue "github.com/jupp0r/go-priority-queue"
-	log "github.com/sirupsen/logrus"
 	"math"
 	"reflect"
 	"time"
@@ -32,6 +31,7 @@ type Router[T ~string] interface {
 	UnsubscribeUpdates(ch <-chan map[T]T)
 }
 
+// Implements Router[T]
 type router[T ~string] struct {
 	ctx           context.Context
 	myNode        T
@@ -156,13 +156,11 @@ func (r *router[T]) recalculate() {
 	changed := false
 	r.policy.WorkWith(func(policy *map[T]T) {
 		if len(*policy) != len(newPolicy) {
-			log.Errorf("changed because length different (old %d, new %d)", len(*policy), len(newPolicy))
 			changed = true
 		} else {
 			for k, v := range *policy {
 				nv, ok := newPolicy[k]
 				if !ok || nv != v {
-					log.Errorf("changed because policy different for %s", k)
 					changed = true
 					break
 				}
