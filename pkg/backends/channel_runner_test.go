@@ -37,9 +37,11 @@ func (b *testBackend) ReadMessage() ([]byte, error) {
 		b.msgSent = true
 		return []byte(testMsg), nil
 	}
+	timer := time.NewTimer(b.readDeadline.Sub(time.Now()))
+	defer timer.Stop()
 	select {
 	case <-b.ctx.Done():
-	case <-time.After(b.readDeadline.Sub(time.Now())):
+	case <-timer.C:
 	}
 	return nil, os.ErrDeadlineExceeded
 }

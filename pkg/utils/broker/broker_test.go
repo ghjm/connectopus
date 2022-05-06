@@ -61,18 +61,21 @@ func TestBroker(t *testing.T) {
 				defer wg.Done()
 				count := 0
 				for {
+					timer := time.NewTimer(250 * time.Millisecond)
 					select {
 					case s, ok := <-c:
 						if !ok {
+							timer.Stop()
 							return
 						}
 						if s != testmsg {
 							t.Errorf("wrong message received: id %d expecting %s, got %s", id, testmsg, s)
+							timer.Stop()
 							return
 						}
 						count++
 						recv.Store(id, count)
-					case <-time.After(250 * time.Millisecond):
+					case <-timer.C:
 						return
 					}
 				}

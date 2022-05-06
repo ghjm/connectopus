@@ -32,11 +32,13 @@ func (b *pairBackend) WriteMessage(data []byte) error {
 	if wd.IsZero() {
 		wd = utils.TimeNever
 	}
+	timer := time.NewTimer(b.writeDeadline.Sub(time.Now()))
+	defer timer.Stop()
 	select {
 	case b.sendChan <- data:
 	case <-b.ctx.Done():
 		return os.ErrClosed
-	case <-time.After(b.writeDeadline.Sub(time.Now())):
+	case <-timer.C:
 		return os.ErrDeadlineExceeded
 	}
 	return nil
@@ -48,13 +50,16 @@ func (b *pairBackend) ReadMessage() ([]byte, error) {
 		rd = utils.TimeNever
 	}
 	var data []byte
+	timer := time.NewTimer(b.readDeadline.Sub(time.Now()))
 	select {
 	case data = <-b.readChan:
 	case <-b.ctx.Done():
+		timer.Stop()
 		return nil, fmt.Errorf("operation cancelled")
-	case <-time.After(b.readDeadline.Sub(time.Now())):
+	case <-timer.C:
 		return nil, os.ErrDeadlineExceeded
 	}
+	timer.Stop()
 	return data, nil
 }
 

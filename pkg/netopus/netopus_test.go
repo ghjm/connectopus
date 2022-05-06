@@ -240,10 +240,12 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 						t.Errorf("UDP write error: %s", err)
 						return
 					}
+					timer := time.NewTimer(time.Second)
 					select {
 					case <-pingCtx.Done():
+						timer.Stop()
 						return
-					case <-time.After(time.Second):
+					case <-timer.C:
 					}
 				}
 			}()

@@ -170,11 +170,12 @@ func (p *protoSession) sendInit() {
 // initSelect runs one instance of the main loop when the connection is not established
 func (p *protoSession) initSelect() bool {
 	p.sendInit()
+	timer := time.NewTimer(500 * time.Millisecond)
+	defer timer.Stop()
 	select {
 	case <-p.ctx.Done():
 		return false
-	case <-time.After(500 * time.Millisecond):
-		p.sendInit()
+	case <-timer.C:
 		return false
 	case data := <-p.readChan:
 		msgAny, err := data.Unmarshal()
@@ -201,10 +202,12 @@ func (p *protoSession) initSelect() bool {
 
 // mainSelect runs one instance of the main loop when the connection is established
 func (p *protoSession) mainSelect() bool {
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
 	select {
 	case <-p.ctx.Done():
 		return false
-	case <-time.After(time.Second):
+	case <-timer.C:
 		log.Debugf("%s: sending routing update", p.n.addr.String())
 		p.n.sendRoutingUpdate()
 		return false
@@ -247,10 +250,12 @@ func (p *protoSession) protoLoop() {
 	lastActivity := syncro.Var[time.Time]{}
 	go func() {
 		for {
+			timer := time.NewTimer(time.Second)
 			select {
 			case <-p.ctx.Done():
+				timer.Stop()
 				return
-			case <-time.After(time.Second):
+			case <-timer.C:
 				if lastActivity.Get().Before(time.Now().Add(-5 * time.Second)) {
 					log.Warnf("%s: closing connection to %s due to inactivity", p.n.addr.String(), p.remoteAddr.Get().String())
 					p.cancel()

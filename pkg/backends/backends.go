@@ -35,13 +35,15 @@ type ConnFunc func() (BackendConnection, error)
 func RunDialer(ctx context.Context, pr ProtocolRunner, dialer ConnFunc) {
 	var nextTimeout time.Duration
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(nextTimeout):
+		if nextTimeout > 0 {
+			timer := time.NewTimer(nextTimeout)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
 		}
-		time.AfterFunc(nextTimeout, func() {})
-		time.Sleep(nextTimeout)
 		if nextTimeout == 0 {
 			nextTimeout = time.Second
 		} else {

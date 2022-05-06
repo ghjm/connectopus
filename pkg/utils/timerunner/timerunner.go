@@ -69,9 +69,21 @@ func NewTimeRunner(ctx context.Context, f func(), mods ...func(*timerunner)) Tim
 func (tr *timerunner) mainLoop(ctx context.Context) {
 	for {
 		shouldReturn := false
+		var delayTime time.Duration
+		tn := time.Now()
+		if tn.Before(tr.nextRun) {
+			delayTime = tr.nextRun.Sub(tn)
+		} else {
+			delayTime = time.Millisecond
+		}
+		timer := time.NewTimer(delayTime)
+
+		// dynamic select
 		s := &dynselect.Selector{}
-		dynselect.AddRecvDiscard(s, ctx.Done(), func() { shouldReturn = true })
-		dynselect.AddRecvDiscard(s, time.After(tr.nextRun.Sub(time.Now())), func() {
+		dynselect.AddRecvDiscard(s, ctx.Done(), func() {
+			shouldReturn = true
+		})
+		dynselect.AddRecvDiscard(s, timer.C, func() {
 			if tr.nowait {
 				go tr.f()
 			} else {
@@ -85,10 +97,12 @@ func (tr *timerunner) mainLoop(ctx context.Context) {
 				tr.nextRun = reqNext
 			}
 		})
+		// Add custom events to the selector
 		for _, e := range tr.events {
 			e(s)
 		}
 		s.Select()
+		timer.Stop()
 		if shouldReturn {
 			return
 		}
