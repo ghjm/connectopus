@@ -72,6 +72,13 @@ prod:
 		golang:1.18-bullseye bash -c \
 		'cd /work && make clean && make && chown $$BUILD_USER:$$BUILD_GROUP $(PROGRAMS) $(PLUGIN_TARGETS)'
 
+# Because we use plugins and therefore cgo, building for arm64 isn't just
+# regular go cross-compilation.  To enable arm64 emulation in Fedora x86-64,
+# run: "dnf install qemu qemu-user-binfmt qemu-user-static".
+.PHONY: prod-arm64
+prod-arm64: PLATFORM=linux/arm64
+prod-arm64: prod
+
 .PHONY: clean
 clean:
 	@rm -fv $(PROGRAMS) $(PLUGIN_TARGETS) coverage.html
