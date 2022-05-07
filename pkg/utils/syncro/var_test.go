@@ -40,7 +40,7 @@ func TestSyncroVar(t *testing.T) {
 
 func TestSyncroWork(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	sv := Var[int]{}
 	sv.Set(0)
