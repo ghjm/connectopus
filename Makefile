@@ -1,9 +1,12 @@
 VERSION_TAG ?= $(shell if VER=`git describe --match "v[0-9]*" --tags 2>/dev/null`; then echo $VER; else echo "v0.0.1"; fi)
 VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
+OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
 
 PROGRAMS := connectopus
+ifeq ($(OS),Linux)
 PLUGINS := echo
+endif
 
 PLUGIN_TARGETS := $(foreach p,$(PLUGINS),plugins/$(p).so)
 
@@ -17,7 +20,7 @@ plugins: $(PLUGIN_TARGETS)
 # current directory, which are in directories reported as being dependencies
 # of the given go source file.
 define go_deps
-$(shell find $(go list -f '{{.Dir}}' -deps $(1) | grep "^$PWD") -name '*.go' | grep -v '_test.go$' | grep -v '_gen.go$')
+$(shell find $$(go list -f '{{.Dir}}' -deps $(1) | grep "^$$PWD") -name '*.go' | grep -v '_test.go$$' | grep -v '_gen.go$$')
 endef
 
 define PROGRAM_template

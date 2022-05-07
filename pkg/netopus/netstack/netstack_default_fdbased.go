@@ -10,3 +10,8 @@ import (
 func NewStackDefault(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetStack, error) {
 	return NewStackFdbased(ctx, subnet, addr)
 }
+
+var stackBuilders = []NewStackFunc{
+	NewStackChannel,
+	NewStackFdbased,
+}

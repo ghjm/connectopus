@@ -1,4 +1,4 @@
-//go:build cgo && !netgo && (aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris)
+//go:build cgo && !netgo && linux
 
 package main
 

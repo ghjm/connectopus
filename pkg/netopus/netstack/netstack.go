@@ -29,7 +29,7 @@ type UserStack interface {
 	DialContextTCP(ctx context.Context, addr net.IP, port uint16) (net.Conn, error)
 	// ListenTCP opens a TCP listener over the network stack.
 	ListenTCP(port uint16) (net.Listener, error)
-	// DialUDP opens a UDP sender or receiver over the network stack.  If raddr is nil,
+	// DialUDP opens a UDP sender or receiver over the network stack.  If addr is nil,
 	// rport will be ignored and this socket will only listen on lport.
 	DialUDP(lport uint16, addr net.IP, rport uint16) (UDPConn, error)
 }
@@ -39,3 +39,6 @@ type NetStack interface {
 	PacketStack
 	UserStack
 }
+
+// NewStackFunc is the type of a function that creates a new stack
+type NewStackFunc func(context.Context, *net.IPNet, net.IP) (NetStack, error)

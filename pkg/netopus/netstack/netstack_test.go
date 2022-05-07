@@ -15,8 +15,6 @@ import (
 	"time"
 )
 
-type NewStackFunc func(context.Context, *net.IPNet, net.IP) (NetStack, error)
-
 var testStr = "Hello, world!"
 
 func testNetstackSubscribe(t *testing.T, stackBuilder NewStackFunc) {
