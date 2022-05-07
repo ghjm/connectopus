@@ -79,17 +79,22 @@ var testInstances = []testInstance{
 }
 
 func doTest(t *testing.T, instance testInstance) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r := New(ctx, instance.myNode, 10*time.Millisecond)
+	r := New(ctx, instance.myNode, 50*time.Millisecond)
 	for node, conns := range instance.nodes {
 		r.UpdateNode(node, conns)
 	}
-	time.Sleep(20 * time.Millisecond)
-	for dest, result := range instance.tests {
-		hop := r.NextHop(dest)
-		if hop != result {
-			t.Errorf("router produced incorrect result")
+	updCh := r.SubscribeUpdates()
+	defer r.UnsubscribeUpdates(updCh)
+	select {
+	case <-ctx.Done():
+	case policy := <-updCh:
+		for dest, result := range instance.tests {
+			hop := policy[dest]
+			if hop != result {
+				t.Errorf("router produced incorrect result")
+			}
 		}
 	}
 }
