@@ -15,58 +15,11 @@ import (
 	"time"
 )
 
+type NewStackFunc func(context.Context, *net.IPNet, net.IP) (NetStack, error)
+
 var testStr = "Hello, world!"
 
-func TestNetstack(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	subnet := &net.IPNet{
-		IP:   net.ParseIP("FD00::0"),
-		Mask: net.CIDRMask(8, 8*net.IPv6len),
-	}
-	localIP := net.ParseIP("FD00::1")
-	ns, err := NewStack(ctx, subnet, localIP)
-	if err != nil {
-		t.Fatalf("error initializing stack: %s", err)
-	}
-
-	li, err := ns.ListenTCP(1234)
-	if err != nil {
-		t.Fatalf("listen TCP error: %s", err)
-	}
-	go func() {
-		c, err := li.Accept()
-		if err != nil {
-			t.Errorf("accept error: %s", err)
-			return
-		}
-		_, _ = c.Write([]byte(testStr))
-		_ = c.Close()
-		_ = li.Close()
-	}()
-
-	// Connect using TCP
-	dctx, dcancel := context.WithTimeout(ctx, time.Second)
-	defer dcancel()
-	c, err := ns.DialContextTCP(dctx, localIP, 1234)
-	if err != nil {
-		t.Fatalf("dial TCP error: %s", err)
-	}
-	b, err := ioutil.ReadAll(c)
-	if err != nil {
-		t.Fatalf("read TCP error: %s", err)
-	}
-	err = c.Close()
-	if err != nil {
-		t.Fatalf("close TCP error: %s", err)
-	}
-	if string(b) != testStr {
-		t.Fatalf("incorrect data received: expected %s but got %s", testStr, b)
-	}
-}
-
-func TestNetstackSubscribe(t *testing.T) {
+func testNetstackSubscribe(t *testing.T, stackBuilder NewStackFunc) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -76,7 +29,7 @@ func TestNetstackSubscribe(t *testing.T) {
 	}
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns, err := NewStack(ctx, subnet, localIP)
+	ns, err := stackBuilder(ctx, subnet, localIP)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}
@@ -135,7 +88,13 @@ func TestNetstackSubscribe(t *testing.T) {
 	}
 }
 
-func TestNetstackInject(t *testing.T) {
+func TestNetstackSubscribe(t *testing.T) {
+	for _, sb := range stackBuilders {
+		testNetstackSubscribe(t, sb)
+	}
+}
+
+func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -145,7 +104,7 @@ func TestNetstackInject(t *testing.T) {
 	}
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns, err := NewStack(ctx, subnet, localIP)
+	ns, err := stackBuilder(ctx, subnet, localIP)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}
@@ -210,5 +169,66 @@ func TestNetstackInject(t *testing.T) {
 	}
 	if !gotData.Get() {
 		t.Fatalf("did not receive any data")
+	}
+}
+
+func TestNetstackInject(t *testing.T) {
+	for _, sb := range stackBuilders {
+		testNetstackInject(t, sb)
+	}
+}
+
+func testNetstack(t *testing.T, stackBuilder NewStackFunc) {
+	defer goleak.VerifyNone(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	subnet := &net.IPNet{
+		IP:   net.ParseIP("FD00::0"),
+		Mask: net.CIDRMask(8, 8*net.IPv6len),
+	}
+	localIP := net.ParseIP("FD00::1")
+	ns, err := stackBuilder(ctx, subnet, localIP)
+	if err != nil {
+		t.Fatalf("error initializing stack: %s", err)
+	}
+
+	li, err := ns.ListenTCP(1234)
+	if err != nil {
+		t.Fatalf("listen TCP error: %s", err)
+	}
+	go func() {
+		c, err := li.Accept()
+		if err != nil {
+			t.Errorf("accept error: %s", err)
+			return
+		}
+		_, _ = c.Write([]byte(testStr))
+		_ = c.Close()
+		_ = li.Close()
+	}()
+
+	// Connect using TCP
+	dctx, dcancel := context.WithTimeout(ctx, time.Second)
+	defer dcancel()
+	c, err := ns.DialContextTCP(dctx, localIP, 1234)
+	if err != nil {
+		t.Fatalf("dial TCP error: %s", err)
+	}
+	b, err := ioutil.ReadAll(c)
+	if err != nil {
+		t.Fatalf("read TCP error: %s", err)
+	}
+	err = c.Close()
+	if err != nil {
+		t.Fatalf("close TCP error: %s", err)
+	}
+	if string(b) != testStr {
+		t.Fatalf("incorrect data received: expected %s but got %s", testStr, b)
+	}
+}
+
+func TestNetstack(t *testing.T) {
+	for _, sb := range stackBuilders {
+		testNetstack(t, sb)
 	}
 }

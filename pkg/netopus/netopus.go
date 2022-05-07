@@ -89,7 +89,7 @@ func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, e
 	if len(addr) != net.IPv6len || len(subnet.IP) != net.IPv6len {
 		return nil, fmt.Errorf("subnet and address must be IPv6")
 	}
-	stack, err := netstack.NewStack(ctx, subnet, addr)
+	stack, err := netstack.NewStackDefault(ctx, subnet, addr)
 	if err != nil {
 		return nil, err
 	}
