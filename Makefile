@@ -1,6 +1,7 @@
 VERSION_TAG ?= $(shell if VER=`git describe --match "v[0-9]*" --tags 2>/dev/null`; then echo $VER; else echo "v0.0.1"; fi)
 VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
+GCFLAGS ?= -gcflags "all=-N -l"
 OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
 
 PROGRAMS := connectopus
@@ -25,14 +26,14 @@ endef
 
 define PROGRAM_template
 $(1): cmd/$(1).go Makefile $(PROGRAM_DEPS_$(1))
-	go build -o $(1) $(LDFLAGS) cmd/$(1).go
+	go build -o $(1) $(LDFLAGS) $(GCFLAGS) cmd/$(1).go
 endef
 $(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p := $(call go_deps,cmd/$(p).go)))
 $(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p))))
 
 define PLUGIN_template
 plugins/$(1).so: plugins/$(1)/$(1).go Makefile $(PLUGIN_DEPS_$(1))
-	go build -buildmode=plugin -o plugins/$(1).so plugins/$(1)/$(1).go
+	go build -buildmode=plugin -o plugins/$(1).so $(GCFLAGS) plugins/$(1)/$(1).go
 endef
 $(foreach p,$(PLUGINS),$(eval PLUGIN_DEPS_$p := $(call go_deps,plugins/$(p)/$(p).go)))
 $(foreach p,$(PLUGINS),$(eval $(call PLUGIN_template,$(p))))
@@ -73,7 +74,7 @@ prod:
 	@docker run -it --rm --platform $(PLATFORM) -v $$PWD:/work \
 		--env BUILD_USER=$$(id -u) --env BUILD_GROUP=$$(id -g)\
 		golang:1.18-bullseye bash -c \
-		'cd /work && make clean && make && chown $$BUILD_USER:$$BUILD_GROUP $(PROGRAMS) $(PLUGIN_TARGETS)'
+		'cd /work && make clean && GCFLAGS="" make && chown $$BUILD_USER:$$BUILD_GROUP $(PROGRAMS) $(PLUGIN_TARGETS)'
 
 # Because we use plugins and therefore cgo, building for arm64 isn't just
 # regular go cross-compilation.  To enable arm64 emulation in Fedora x86-64,
