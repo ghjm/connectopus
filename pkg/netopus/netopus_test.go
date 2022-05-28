@@ -103,7 +103,7 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 		if allGood {
 			break
 		}
-		if time.Now().Sub(startTime) > 5*time.Second {
+		if time.Since(startTime) > 5*time.Second {
 			return nil, fmt.Errorf("timeout initializing mesh")
 		}
 		time.Sleep(100 * time.Millisecond)

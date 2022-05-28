@@ -96,7 +96,7 @@ func TestLink(t *testing.T) {
 	}
 	startTime := time.Now()
 	for {
-		if time.Now().Sub(startTime) > time.Second {
+		if time.Since(startTime) > time.Second {
 			t.Errorf("timed out")
 		}
 		if inCount.Get() == len(testData) {

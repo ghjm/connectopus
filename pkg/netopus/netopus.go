@@ -234,7 +234,7 @@ func (p *protoSession) mainSelect() bool {
 		case *proto.InitMsg:
 			log.Debugf("%s: received init message from %s while in main loop", p.n.addr.String(),
 				p.remoteAddr.Get().String())
-			if time.Now().Sub(p.lastInit) > time.Second {
+			if time.Since(p.lastInit) > time.Second {
 				p.sendInit()
 			}
 		}
@@ -460,7 +460,7 @@ func (n *netopus) sendRoutingUpdate() {
 
 // rateLimitedSendRoutingUpdate sends a routing update, only if one has not already been sent recently
 func (n *netopus) rateLimitedSendRoutingUpdate() {
-	if time.Now().Sub(n.lastRoutingUpdate.Get()) > time.Second {
+	if time.Since(n.lastRoutingUpdate.Get()) > time.Second {
 		n.sendRoutingUpdate()
 	}
 }

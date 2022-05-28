@@ -32,7 +32,7 @@ func (b *pairBackend) WriteMessage(data []byte) error {
 	if wd.IsZero() {
 		wd = utils.TimeNever
 	}
-	timer := time.NewTimer(b.writeDeadline.Sub(time.Now()))
+	timer := time.NewTimer(time.Until(wd))
 	defer timer.Stop()
 	select {
 	case b.sendChan <- data:
@@ -50,7 +50,7 @@ func (b *pairBackend) ReadMessage() ([]byte, error) {
 		rd = utils.TimeNever
 	}
 	var data []byte
-	timer := time.NewTimer(b.readDeadline.Sub(time.Now()))
+	timer := time.NewTimer(time.Until(rd))
 	select {
 	case data = <-b.readChan:
 	case <-b.ctx.Done():

@@ -65,7 +65,7 @@ func testNetstackSubscribe(t *testing.T, stackBuilder NewStackFunc) {
 	}
 	startTime := time.Now()
 	for {
-		if gotData.Get() || time.Now().Sub(startTime) > 5*time.Second {
+		if gotData.Get() || time.Since(startTime) > 5*time.Second {
 			break
 		}
 		err = udpConn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
@@ -160,7 +160,7 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 
 	startTime := time.Now()
 	for {
-		if gotData.Get() || time.Now().Sub(startTime) > 5*time.Second {
+		if gotData.Get() || time.Since(startTime) > 5*time.Second {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

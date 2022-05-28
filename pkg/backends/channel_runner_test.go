@@ -37,7 +37,7 @@ func (b *testBackend) ReadMessage() ([]byte, error) {
 		b.msgSent = true
 		return []byte(testMsg), nil
 	}
-	timer := time.NewTimer(b.readDeadline.Sub(time.Now()))
+	timer := time.NewTimer(time.Until(b.readDeadline))
 	defer timer.Stop()
 	select {
 	case <-b.ctx.Done():
@@ -92,7 +92,7 @@ func TestChannelRunner(t *testing.T) {
 
 	startTime := time.Now()
 	for {
-		if (gotRead.Get() && b.gotWrite.Get()) || time.Now().Sub(startTime) > 5*time.Second {
+		if (gotRead.Get() && b.gotWrite.Get()) || time.Since(startTime) > 5*time.Second {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
