@@ -61,7 +61,7 @@ var rootCmd = &cobra.Command{
 		}
 		if len(node.Tun.Address) > 0 {
 			var tunLink tun.Link
-			tunLink, err = tun.NewLink(ctx, "ctun", net.IP(node.Tun.Address), addr, &subnet, n.SendPacket)
+			tunLink, err = tun.NewLink(ctx, node.Tun.Name, net.IP(node.Tun.Address), &subnet, n.SendPacket)
 			if err != nil {
 				errHalt(err)
 			}

@@ -19,49 +19,87 @@ type link struct {
 }
 
 // NewLink returns a new tun.Link.  inboundPacketFunc will be called when a packet arrives from the kernel.
-func NewLink(ctx context.Context, name string, tunAddr net.IP, npAddr net.IP,
+func NewLink(ctx context.Context, name string, tunAddr net.IP,
 	subnet *net.IPNet, inboundPacketFunc func([]byte) error) (Link, error) {
-	l := &link{
-		ctx:               ctx,
-		inboundPacketFunc: inboundPacketFunc,
+	persistTun := true
+	nl, err := netlink.LinkByName(name)
+	if _, ok := err.(netlink.LinkNotFoundError); ok {
+		persistTun = false
+	} else if err != nil {
+		return nil, fmt.Errorf("error accessing link for tun device: %s", err)
 	}
-	tunIf, err := water.New(water.Config{
+	var tunIf *water.Interface
+	tunIf, err = water.New(water.Config{
 		DeviceType: water.TUN,
 		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name: name,
+			Name:    name,
+			Persist: persistTun,
 		},
 	})
-	l.tunRWC = tunIf
 	if err != nil {
 		return nil, err
 	}
-	var nl netlink.Link
-	nl, err = netlink.LinkByName(tunIf.Name())
-	if err != nil {
-		return nil, fmt.Errorf("error accessing link for tun device: %s", err)
+	l := &link{
+		ctx:               ctx,
+		tunRWC:            tunIf,
+		inboundPacketFunc: inboundPacketFunc,
 	}
-	err = netlink.AddrAdd(nl, &netlink.Addr{
-		IPNet: &net.IPNet{
-			IP:   tunAddr,
-			Mask: net.CIDRMask(8*net.IPv6len, 8*net.IPv6len),
-		},
-	})
+	var addrs []netlink.Addr
+	addrs, err = netlink.AddrList(nl, netlink.FAMILY_V6)
 	if err != nil {
-		return nil, fmt.Errorf("error setting tun device address: %s", err)
+		return nil, fmt.Errorf("error listing addresses of tun device: %s", err)
 	}
-	err = netlink.LinkSetUp(nl)
-	if err != nil {
-		return nil, fmt.Errorf("error activating tun device: %s", err)
+	tunMask := net.CIDRMask(8*net.IPv6len, 8*net.IPv6len)
+	found := false
+	for _, addr := range addrs {
+		if addr.IP.Equal(tunAddr) && addr.Mask.String() == tunMask.String() {
+			found = true
+			break
+		}
 	}
-	route := &netlink.Route{
+	if !found {
+		err = netlink.AddrAdd(nl, &netlink.Addr{
+			IPNet: &net.IPNet{
+				IP:   tunAddr,
+				Mask: net.CIDRMask(8*net.IPv6len, 8*net.IPv6len),
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error setting tun device address: %s", err)
+		}
+	}
+	if nl.Attrs().Flags&net.FlagUp == 0 {
+		err = netlink.LinkSetUp(nl)
+		if err != nil {
+			return nil, fmt.Errorf("error activating tun device: %s", err)
+		}
+	}
+	route := netlink.Route{
 		LinkIndex: nl.Attrs().Index,
 		Scope:     netlink.SCOPE_UNIVERSE,
 		Src:       tunAddr,
 		Dst:       subnet,
 	}
-	err = netlink.RouteAdd(route)
+	var routes []netlink.Route
+	routes, err = netlink.RouteList(nl, netlink.FAMILY_V6)
 	if err != nil {
-		return nil, fmt.Errorf("error adding route to tun device: %s", err)
+		return nil, fmt.Errorf("error listing routes: %s", err)
+	}
+	found = false
+	for _, r := range routes {
+		if r.Dst.IP.Equal(route.Dst.IP) &&
+			r.Dst.Mask.String() == route.Dst.Mask.String() &&
+			r.Gw.Equal(route.Gw) &&
+			r.Src.Equal(route.Src) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		err = netlink.RouteAdd(&route)
+		if err != nil {
+			return nil, fmt.Errorf("error adding route to tun device: %s", err)
+		}
 	}
 	go func() {
 		<-ctx.Done()

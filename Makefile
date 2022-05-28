@@ -61,6 +61,19 @@ test-coverage:
 cap-net-admin:
 	@sudo setcap cap_net_admin+ep ./connectopus
 
+.PHONY: ctun
+CTUN_NAME ?= ctun
+CTUN_ADDR ?= FD00::1:2
+CTUN_NET ?= FD00::0/8
+ctun:
+	@sudo bash -c ' \
+		ip tuntap del dev $(CTUN_NAME) mode tun && \
+		ip tuntap add dev $(CTUN_NAME) mode tun user $$SUDO_UID group $$SUDO_GID && \
+		ip addr add dev $(CTUN_NAME) $(CTUN_ADDR) && \
+		ip link set $(CTUN_NAME) up && \
+		ip route add $(CTUN_NET) dev $(CTUN_NAME) src $(CTUN_ADDR) \
+		'
+
 .PHONY: version
 version:
 	@echo "$(VERSION)"
