@@ -2,7 +2,7 @@ package dynselect
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/utils/syncro"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -92,11 +92,13 @@ func TestDynselectRecv(t *testing.T) {
 func TestDynselectDefault(t *testing.T) {
 	ch1 := make(chan struct{})
 	ch2 := make(chan struct{})
+	ch3 := make(chan struct{})
 	s := &Selector{}
 	ft := &funcTester{}
 	AddRecvDiscard(s, ch1, func() {
 		ft.ShouldNotCall()
 	})
+	AddRecvDiscard(s, ch3, nil)
 	AddSend(s, ch2, struct{}{}, func() {
 		ft.ShouldNotCall()
 	})
