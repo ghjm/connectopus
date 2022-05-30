@@ -11,7 +11,7 @@ import (
 
 type BackendRunFunc func(context.Context, backends.ProtocolRunner, config.Params) error
 
-var backendMap = syncro.MapFromGoMap[string, BackendRunFunc](map[string]BackendRunFunc{
+var backendMap = syncro.NewMap[string, BackendRunFunc](map[string]BackendRunFunc{
 	"dtls-dialer":   backend_dtls.RunDialerFromConfig,
 	"dtls-listener": backend_dtls.RunListenerFromConfig,
 })

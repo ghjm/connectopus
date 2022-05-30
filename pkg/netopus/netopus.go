@@ -59,15 +59,11 @@ type externalRouteInfo struct {
 }
 
 // sessInfo stores information about sessions
-type sessInfo struct {
-	sessions     map[uint64]*protoSession
-	nodeSessions map[string]uint64
-}
+type sessInfo map[string]*protoSession
 
 // protoSession represents one running session of a protocol
 type protoSession struct {
 	n          *netopus
-	id         uint64
 	ctx        context.Context
 	cancel     context.CancelFunc
 	conn       backends.BackendConnection
@@ -98,7 +94,7 @@ func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, e
 		addr:              addr,
 		stack:             stack,
 		router:            router.New(ctx, addr.String(), 50*time.Millisecond),
-		sessionInfo:       syncro.Var[sessInfo]{},
+		sessionInfo:       syncro.NewVar(make(sessInfo)),
 		epoch:             uint64(time.Now().UnixNano()),
 		sequence:          syncro.Var[uint64]{},
 		seenUpdates:       syncro.Map[uint64, time.Time]{},
@@ -106,8 +102,7 @@ func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, e
 		lastRoutingUpdate: syncro.Var[time.Time]{},
 	}
 	n.sessionInfo.WorkWith(func(s *sessInfo) {
-		s.sessions = make(map[uint64]*protoSession)
-		s.nodeSessions = make(map[string]uint64)
+		*s = make(sessInfo)
 	})
 	go func() {
 		routerUpdateChan := n.router.SubscribeUpdates()
@@ -189,7 +184,13 @@ func (p *protoSession) initSelect() bool {
 			p.connStart = time.Now()
 			p.connected.Set(true)
 			p.n.sessionInfo.WorkWith(func(s *sessInfo) {
-				s.nodeSessions[msg.MyAddr.String()] = p.id
+				si := *s
+				oldSess, ok := si[msg.MyAddr.String()]
+				if ok {
+					log.Infof("%s: closing old connection to %s", p.n.addr.String(), msg.MyAddr.String())
+					oldSess.cancel()
+				}
+				si[msg.MyAddr.String()] = p
 			})
 			p.n.sendRoutingUpdate()
 			return true
@@ -292,23 +293,12 @@ func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnecti
 		conn:     conn,
 		readChan: make(chan proto.Msg),
 	}
-	n.sessionInfo.WorkWith(func(s *sessInfo) {
-		for {
-			p.id = rand.Uint64()
-			_, ok := s.sessions[p.id]
-			if ok {
-				continue
-			}
-			s.sessions[p.id] = p
-			break
-		}
-	})
 	defer func() {
 		n.sessionInfo.WorkWith(func(s *sessInfo) {
-			delete(s.sessions, p.id)
-			for k, v := range s.nodeSessions {
-				if v == p.id {
-					delete(s.nodeSessions, k)
+			si := *s
+			for k, v := range si {
+				if v == p {
+					delete(si, k)
 				}
 			}
 		})
@@ -375,10 +365,8 @@ func (n *netopus) SendPacket(packet []byte) error {
 	}
 	var nextHopSess *protoSession
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		id, ok := s.nodeSessions[nextHop]
-		if ok {
-			nextHopSess = s.sessions[id]
-		}
+		si := *s
+		nextHopSess = si[nextHop]
 	})
 	if nextHopSess == nil || !nextHopSess.connected.Get() {
 		return fmt.Errorf("no connection to next hop %s", nextHop)
@@ -395,7 +383,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 // flood forwards a message to all neighbors
 func (n *netopus) flood(message proto.Msg) {
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		for _, sess := range s.sessions {
+		for _, sess := range *s {
 			if sess.connected.Get() {
 				go func(sess *protoSession) {
 					err := sess.conn.WriteMessage(message)
@@ -412,7 +400,7 @@ func (n *netopus) flood(message proto.Msg) {
 func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, error) {
 	conns := make(proto.RoutingConnections, 0)
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		for _, sess := range s.sessions {
+		for _, sess := range *s {
 			if sess.connected.Get() {
 				conns = append(conns, proto.RoutingConnection{
 					Peer: sess.remoteAddr.Get(),

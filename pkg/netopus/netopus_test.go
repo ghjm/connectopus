@@ -88,7 +88,8 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 		for n, c := range map[string]string{conn.N1: conn.N2, conn.N2: conn.N1} {
 			good := false
 			mesh[n].(*netopus).sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-				for _, v := range s.sessions {
+				si := *s
+				for _, v := range si {
 					if v.connected.Get() && v.remoteAddr.Get().Equal(meshSpec[c].Address) {
 						good = true
 						return
