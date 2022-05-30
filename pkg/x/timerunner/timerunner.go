@@ -20,20 +20,20 @@ type timerunner struct {
 	events   []func(*dynselect.Selector)
 }
 
-// Periodic modifies NewTimeRunner to include periodic activations
+// Periodic modifies New to include periodic activations
 func Periodic(period time.Duration) func(*timerunner) {
 	return func(tr *timerunner) {
 		tr.periodic = &period
 	}
 }
 
-// AtStart modifies NewTimeRunner to run the function once immediately at startup
+// AtStart modifies New to run the function once immediately at startup
 func AtStart(tr *timerunner) {
 	tn := time.Now()
 	tr.nextRun = &tn
 }
 
-// EventChan modifies NewTimeRunner to include a new event channel.  The point of this is to be able to run
+// EventChan modifies New to include a new event channel.  The point of this is to be able to run
 // your own code within the timerunner's goroutine, to avoid the need for external synchronization like mutexes.
 func EventChan[T any](ch <-chan T, f func(T)) func(*timerunner) {
 	return func(tr *timerunner) {
@@ -45,8 +45,8 @@ func EventChan[T any](ch <-chan T, f func(T)) func(*timerunner) {
 	}
 }
 
-// NewTimeRunner returns a new TimeRunner which will execute function f at appropriate times
-func NewTimeRunner(ctx context.Context, f func(), mods ...func(*timerunner)) TimeRunner {
+// New returns a new TimeRunner which will execute function f at appropriate times
+func New(ctx context.Context, f func(), mods ...func(*timerunner)) TimeRunner {
 	tr := &timerunner{
 		ctx:      ctx,
 		nextRun:  nil,
@@ -55,6 +55,10 @@ func NewTimeRunner(ctx context.Context, f func(), mods ...func(*timerunner)) Tim
 		periodic: nil,
 	}
 	modifiers.ProcessMods(tr, mods)
+	if tr.periodic != nil && tr.nextRun == nil {
+		nr := time.Now().Add(*tr.periodic)
+		tr.nextRun = &nr
+	}
 	go tr.mainLoop(ctx)
 	return tr
 }

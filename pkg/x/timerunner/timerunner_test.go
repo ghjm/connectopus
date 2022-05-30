@@ -25,7 +25,7 @@ func TestTimeRunner(t *testing.T) {
 	f, getTimes := makeTestRunner()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tr := NewTimeRunner(ctx, f)
+	tr := New(ctx, f)
 	tr.RunWithin(200 * time.Millisecond)
 	tr.RunWithin(time.Millisecond)
 	time.Sleep(100 * time.Millisecond)
