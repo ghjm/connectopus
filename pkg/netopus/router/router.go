@@ -64,7 +64,7 @@ func New[T ~string](ctx context.Context, myNode T, updateWait time.Duration) Rou
 		updatesBroker: broker.NewBroker[map[T]T](ctx),
 	}
 	// updateNode and removeNode are run within the timerunner goroutine, to avoid the need for locks/mutexes
-	r.tr = timerunner.NewTimeRunner(ctx, r.recalculate,
+	r.tr = timerunner.New(ctx, r.recalculate,
 		timerunner.EventChan(r.updateChan, r.updateNode),
 		timerunner.EventChan(r.removeChan, r.removeNode),
 	)

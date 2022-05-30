@@ -30,7 +30,6 @@ type InitMsg struct {
 // RoutingUpdate is a message type carrying routing information
 type RoutingUpdate struct {
 	Origin         net.IP
-	UpdateID       uint64
 	UpdateEpoch    uint64
 	UpdateSequence uint64
 	Connections    RoutingConnections
@@ -103,12 +102,16 @@ func (m *InitMsg) Marshal() ([]byte, error) {
 }
 
 // Marshal marshals a RoutingUpdate to a []byte
-func (m *RoutingUpdate) Marshal() ([]byte, error) {
-	d, err := marshalMsg(m, MsgTypeRoute)
+func (ru *RoutingUpdate) Marshal() ([]byte, error) {
+	d, err := marshalMsg(ru, MsgTypeRoute)
 	if err != nil {
 		return nil, err
 	}
 	return d, nil
+}
+
+func (ru *RoutingUpdate) String() string {
+	return fmt.Sprintf("%s/%d/%d", ru.Origin.String(), ru.UpdateEpoch, ru.UpdateSequence)
 }
 
 // GetConnMap gets a map of connection costs, suitable for use in router.UpdateNode

@@ -9,11 +9,11 @@ import (
 	"github.com/ghjm/connectopus/pkg/netopus/proto"
 	"github.com/ghjm/connectopus/pkg/netopus/router"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/connectopus/pkg/x/timerunner"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
-	"math/rand"
 	"net"
 	"strings"
 	"syscall"
@@ -39,17 +39,15 @@ type ExternalRouter interface {
 
 // netopus implements Netopus
 type netopus struct {
-	ctx               context.Context
-	addr              net.IP
-	stack             netstack.NetStack
-	router            router.Router[string]
-	sessionInfo       syncro.Var[sessInfo]
-	epoch             uint64
-	sequence          syncro.Var[uint64]
-	seenUpdates       syncro.Map[uint64, time.Time]
-	knownNodeInfo     syncro.Map[string, nodeInfo]
-	lastRoutingUpdate syncro.Var[time.Time]
-	externalRoutes    syncro.Var[[]externalRouteInfo]
+	ctx            context.Context
+	addr           net.IP
+	stack          netstack.NetStack
+	router         router.Router[string]
+	sessionInfo    syncro.Var[sessInfo]
+	epoch          uint64
+	sequence       syncro.Var[uint64]
+	knownNodeInfo  syncro.Map[string, nodeInfo]
+	externalRoutes syncro.Var[[]externalRouteInfo]
 }
 
 // externalRouteInfo stores information about a route
@@ -63,15 +61,16 @@ type sessInfo map[string]*protoSession
 
 // protoSession represents one running session of a protocol
 type protoSession struct {
-	n          *netopus
-	ctx        context.Context
-	cancel     context.CancelFunc
-	conn       backends.BackendConnection
-	readChan   chan proto.Msg
-	remoteAddr syncro.Var[net.IP]
-	connected  syncro.Var[bool]
-	connStart  time.Time
-	lastInit   time.Time
+	n            *netopus
+	ctx          context.Context
+	cancel       context.CancelFunc
+	conn         backends.BackendConnection
+	readChan     chan proto.Msg
+	remoteAddr   syncro.Var[net.IP]
+	connected    syncro.Var[bool]
+	connStart    time.Time
+	lastInit     time.Time
+	updateSender timerunner.TimeRunner
 }
 
 // nodeInfo represents known information about a node
@@ -90,16 +89,14 @@ func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, e
 		return nil, err
 	}
 	n := &netopus{
-		ctx:               ctx,
-		addr:              addr,
-		stack:             stack,
-		router:            router.New(ctx, addr.String(), 50*time.Millisecond),
-		sessionInfo:       syncro.NewVar(make(sessInfo)),
-		epoch:             uint64(time.Now().UnixNano()),
-		sequence:          syncro.Var[uint64]{},
-		seenUpdates:       syncro.Map[uint64, time.Time]{},
-		knownNodeInfo:     syncro.Map[string, nodeInfo]{},
-		lastRoutingUpdate: syncro.Var[time.Time]{},
+		ctx:           ctx,
+		addr:          addr,
+		stack:         stack,
+		router:        router.New(ctx, addr.String(), 100*time.Millisecond),
+		sessionInfo:   syncro.NewVar(make(sessInfo)),
+		epoch:         uint64(time.Now().UnixNano()),
+		sequence:      syncro.Var[uint64]{},
+		knownNodeInfo: syncro.Map[string, nodeInfo]{},
 	}
 	n.sessionInfo.WorkWith(func(s *sessInfo) {
 		*s = make(sessInfo)
@@ -192,7 +189,9 @@ func (p *protoSession) initSelect() bool {
 				}
 				si[msg.MyAddr.String()] = p
 			})
-			p.n.sendRoutingUpdate()
+			p.updateSender = timerunner.New(p.ctx, func() { go p.n.sendRoutingUpdate() },
+				timerunner.Periodic(10*time.Second),
+				timerunner.AtStart)
 			return true
 		default:
 			log.Debugf("%s: received non-init message while in init mode", p.n.addr.String())
@@ -203,14 +202,8 @@ func (p *protoSession) initSelect() bool {
 
 // mainSelect runs one instance of the main loop when the connection is established
 func (p *protoSession) mainSelect() bool {
-	timer := time.NewTimer(time.Second)
-	defer timer.Stop()
 	select {
 	case <-p.ctx.Done():
-		return false
-	case <-timer.C:
-		log.Debugf("%s: sending routing update", p.n.addr.String())
-		p.n.sendRoutingUpdate()
 		return false
 	case data := <-p.readChan:
 		msgAny, err := data.Unmarshal()
@@ -225,17 +218,18 @@ func (p *protoSession) mainSelect() bool {
 				log.Warnf("packet sending error: %s", err)
 			}
 		case *proto.RoutingUpdate:
+			viaNode := p.remoteAddr.Get().String()
 			log.Debugf("%s: received routing update %d from %s via %s", p.n.addr.String(),
-				msg.UpdateSequence, msg.Origin.String(), p.remoteAddr.Get().String())
+				msg.UpdateSequence, msg.Origin.String(), viaNode)
 			if p.n.handleRoutingUpdate(msg) {
 				p.n.router.UpdateNode(msg.Origin.String(), msg.Connections.GetConnMap())
-				p.n.flood(data)
-				p.n.rateLimitedSendRoutingUpdate()
+				p.n.floodExcept(data, viaNode)
+				p.updateSender.RunWithin(100 * time.Millisecond)
 			}
 		case *proto.InitMsg:
 			log.Debugf("%s: received init message from %s while in main loop", p.n.addr.String(),
 				p.remoteAddr.Get().String())
-			if time.Since(p.lastInit) > time.Second {
+			if time.Since(p.lastInit) > 2*time.Second {
 				p.sendInit()
 			}
 		}
@@ -257,7 +251,7 @@ func (p *protoSession) protoLoop() {
 				timer.Stop()
 				return
 			case <-timer.C:
-				if lastActivity.Get().Before(time.Now().Add(-5 * time.Second)) {
+				if lastActivity.Get().Before(time.Now().Add(-31 * time.Second)) {
 					log.Warnf("%s: closing connection to %s due to inactivity", p.n.addr.String(), p.remoteAddr.Get().String())
 					p.cancel()
 				}
@@ -380,10 +374,13 @@ func (n *netopus) SendPacket(packet []byte) error {
 	return nil
 }
 
-// flood forwards a message to all neighbors
-func (n *netopus) flood(message proto.Msg) {
+// floodExcept forwards a message to all neighbors except one (likely the one we received it from)
+func (n *netopus) floodExcept(message proto.Msg, except string) {
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		for _, sess := range *s {
+		for node, sess := range *s {
+			if node == except {
+				continue
+			}
 			if sess.connected.Get() {
 				go func(sess *protoSession) {
 					err := sess.conn.WriteMessage(message)
@@ -394,6 +391,11 @@ func (n *netopus) flood(message proto.Msg) {
 			}
 		}
 	})
+}
+
+// flood forwards a message to all neighbors
+func (n *netopus) flood(message proto.Msg) {
+	n.floodExcept(message, "")
 }
 
 // generateRoutingUpdate produces a routing update suitable for being sent to peers.
@@ -419,7 +421,6 @@ func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, err
 	})
 	up := &proto.RoutingUpdate{
 		Origin:      n.addr,
-		UpdateID:    rand.Uint64(),
 		UpdateEpoch: n.epoch,
 		Connections: conns,
 	}
@@ -436,21 +437,14 @@ func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, err
 
 // sendRoutingUpdate sends a routing update to all neighbors
 func (n *netopus) sendRoutingUpdate() {
+	log.Debugf("%s: sending routing update", n.addr.String())
 	conns, upb, err := n.generateRoutingUpdate()
 	if err != nil {
 		log.Errorf("error generating routing update: %s", err)
 		return
 	}
-	n.lastRoutingUpdate.Set(time.Now())
 	n.router.UpdateNode(n.addr.String(), conns.GetConnMap())
 	n.flood(upb)
-}
-
-// rateLimitedSendRoutingUpdate sends a routing update, only if one has not already been sent recently
-func (n *netopus) rateLimitedSendRoutingUpdate() {
-	if time.Since(n.lastRoutingUpdate.Get()) > time.Second {
-		n.sendRoutingUpdate()
-	}
 }
 
 // handleRoutingUpdate updates the local routing table and known nodes data.  Returns a bool indicating whether the
@@ -458,12 +452,6 @@ func (n *netopus) rateLimitedSendRoutingUpdate() {
 func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 	if r.Origin.String() == n.addr.String() {
 		log.Debugf("%s: rejecting routing update because we are the origin", n.addr.String())
-		return false
-	}
-	_, seen := n.seenUpdates.Get(r.UpdateID)
-	n.seenUpdates.Set(r.UpdateID, time.Now())
-	if seen {
-		log.Debugf("%s: rejecting routing update because it was already seen", n.addr.String())
 		return false
 	}
 	var retval bool
@@ -475,7 +463,7 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 			return
 		}
 		if r.UpdateEpoch == ni.epoch && r.UpdateSequence == ni.sequence {
-			log.Debugf("%s: ignoring unchanged routing update", n.addr.String())
+			log.Debugf("%s: ignoring duplicate routing update", n.addr.String())
 			return
 		}
 		retval = true
