@@ -19,8 +19,6 @@ type pairBackend struct {
 	writeDeadline time.Time
 }
 
-var timeNever = time.Date(9999, 0, 0, 0, 0, 0, 0, time.UTC)
-
 func (b *pairBackend) MTU() int {
 	return b.mtu
 }
@@ -30,16 +28,17 @@ func (b *pairBackend) WriteMessage(data []byte) error {
 		return fmt.Errorf("exceeds MTU")
 	}
 	wd := b.writeDeadline
-	if wd.IsZero() {
-		wd = timeNever
+	var timeChan <-chan time.Time
+	if !wd.IsZero() {
+		timer := time.NewTimer(time.Until(wd))
+		defer timer.Stop()
+		timeChan = timer.C
 	}
-	timer := time.NewTimer(time.Until(wd))
-	defer timer.Stop()
 	select {
 	case b.sendChan <- data:
 	case <-b.ctx.Done():
 		return os.ErrClosed
-	case <-timer.C:
+	case <-timeChan:
 		return os.ErrDeadlineExceeded
 	}
 	return nil
@@ -47,20 +46,20 @@ func (b *pairBackend) WriteMessage(data []byte) error {
 
 func (b *pairBackend) ReadMessage() ([]byte, error) {
 	rd := b.readDeadline
-	if rd.IsZero() {
-		rd = timeNever
+	var timeChan <-chan time.Time
+	if !rd.IsZero() {
+		timer := time.NewTimer(time.Until(rd))
+		defer timer.Stop()
+		timeChan = timer.C
 	}
 	var data []byte
-	timer := time.NewTimer(time.Until(rd))
 	select {
 	case data = <-b.readChan:
 	case <-b.ctx.Done():
-		timer.Stop()
 		return nil, fmt.Errorf("operation cancelled")
-	case <-timer.C:
+	case <-timeChan:
 		return nil, os.ErrDeadlineExceeded
 	}
-	timer.Stop()
 	return data, nil
 }
 
@@ -88,18 +87,18 @@ func RunPair(ctx context.Context, pr1 backends.ProtocolRunner, pr2 backends.Prot
 		cancel:        pairCancel,
 		mtu:           mtu,
 		readChan:      pair2to1chan,
-		readDeadline:  timeNever,
+		readDeadline:  time.Time{},
 		sendChan:      pair1to2chan,
-		writeDeadline: timeNever,
+		writeDeadline: time.Time{},
 	}
 	pair2 := &pairBackend{
 		ctx:           pairCtx,
 		cancel:        pairCancel,
 		mtu:           mtu,
 		readChan:      pair1to2chan,
-		readDeadline:  timeNever,
+		readDeadline:  time.Time{},
 		sendChan:      pair2to1chan,
-		writeDeadline: timeNever,
+		writeDeadline: time.Time{},
 	}
 	go pr1.RunProtocol(pairCtx, pair1)
 	go pr2.RunProtocol(pairCtx, pair2)

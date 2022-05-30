@@ -2,7 +2,7 @@ package backend_dtls
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/backends"
+	"github.com/ghjm/connectopus/pkg/backends/channel_runner"
 	"go.uber.org/goleak"
 	"net"
 	"strconv"
@@ -13,8 +13,8 @@ func TestBackendDtls(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	n1 := backends.NewChannelRunner()
-	n2 := backends.NewChannelRunner()
+	n1 := channel_runner.NewChannelRunner()
+	n2 := channel_runner.NewChannelRunner()
 	addr, err := RunListener(ctx, n1, 0)
 	if err != nil {
 		t.Fatalf("listener backend error %s", err)

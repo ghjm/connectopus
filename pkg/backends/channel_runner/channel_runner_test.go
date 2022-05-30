@@ -1,4 +1,4 @@
-package backends
+package channel_runner
 
 import (
 	"context"

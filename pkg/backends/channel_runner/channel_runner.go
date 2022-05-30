@@ -1,7 +1,8 @@
-package backends
+package channel_runner
 
 import (
 	"context"
+	"github.com/ghjm/connectopus/pkg/backends"
 	"os"
 	"time"
 )
@@ -31,7 +32,7 @@ func (p *channelRunner) WriteChan() chan<- []byte {
 	return p.writeChan
 }
 
-func (p *channelRunner) RunProtocol(ctx context.Context, conn BackendConnection) {
+func (p *channelRunner) RunProtocol(ctx context.Context, conn backends.BackendConnection) {
 	protoCtx, protoCancel := context.WithCancel(ctx)
 
 	// Goroutine that reads from conn and writes to readChan
