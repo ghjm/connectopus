@@ -34,7 +34,7 @@ func TestSyncromap(t *testing.T) {
 
 func TestMapFromGoMap(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	m := MapFromGoMap[string, string](map[string]string{"hello": "goodbye", "i am": "the walrus"})
+	m := NewMap[string, string](map[string]string{"hello": "goodbye", "i am": "the walrus"})
 	v, ok := m.Get("hello")
 	if !ok || v != "goodbye" {
 		t.Fail()

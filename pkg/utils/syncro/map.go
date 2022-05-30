@@ -17,9 +17,10 @@ func (m *Map[K, V]) createIfNil() {
 	}
 }
 
-// MapFromGoMap constructs a new syncro.Map from a Go map
-func MapFromGoMap[K comparable, V any](initMap map[K]V) *Map[K, V] {
-	return &Map[K, V]{
+// NewMap constructs a new syncro.Map, initialized from a Go map.  It is not necessary to use NewMap if you
+// do not need to set an initial value.
+func NewMap[K comparable, V any](initMap map[K]V) Map[K, V] {
+	return Map[K, V]{
 		value: initMap,
 	}
 }

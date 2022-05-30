@@ -10,6 +10,12 @@ type Var[T any] struct {
 	lock  sync.RWMutex
 }
 
+// NewVar creates a new variable with a given initial value.  It is not required to use NewVar if you don't
+// need to set an initial value.
+func NewVar[T any](value T) Var[T] {
+	return Var[T]{value: value}
+}
+
 // Set sets the value
 func (sv *Var[T]) Set(value T) {
 	sv.lock.Lock()
