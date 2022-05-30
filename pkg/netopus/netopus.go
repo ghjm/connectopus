@@ -8,7 +8,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/netopus/netstack"
 	"github.com/ghjm/connectopus/pkg/netopus/proto"
 	"github.com/ghjm/connectopus/pkg/netopus/router"
-	"github.com/ghjm/connectopus/pkg/utils/syncro"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	"gvisor.dev/gvisor/pkg/tcpip"

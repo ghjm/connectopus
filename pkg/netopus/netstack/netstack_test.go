@@ -3,7 +3,7 @@ package netstack
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/utils/syncro"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"

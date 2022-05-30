@@ -4,7 +4,7 @@ package tun
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/utils/syncro"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
 	"io"
 	"testing"

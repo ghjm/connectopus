@@ -6,7 +6,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/backends/backend_dtls"
 	"github.com/ghjm/connectopus/pkg/config"
-	"github.com/ghjm/connectopus/pkg/utils/syncro"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
 )
 
 type BackendRunFunc func(context.Context, backends.ProtocolRunner, config.Params) error

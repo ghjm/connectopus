@@ -2,9 +2,9 @@ package router
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/utils/broker"
-	"github.com/ghjm/connectopus/pkg/utils/syncro"
-	"github.com/ghjm/connectopus/pkg/utils/timerunner"
+	"github.com/ghjm/connectopus/pkg/x/broker"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/connectopus/pkg/x/timerunner"
 	priorityQueue "github.com/jupp0r/go-priority-queue"
 	"math"
 	"reflect"

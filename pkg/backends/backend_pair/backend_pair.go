@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
-	"github.com/ghjm/connectopus/pkg/utils"
 	"os"
 	"time"
 )
@@ -20,6 +19,8 @@ type pairBackend struct {
 	writeDeadline time.Time
 }
 
+var timeNever = time.Date(9999, 0, 0, 0, 0, 0, 0, time.UTC)
+
 func (b *pairBackend) MTU() int {
 	return b.mtu
 }
@@ -30,7 +31,7 @@ func (b *pairBackend) WriteMessage(data []byte) error {
 	}
 	wd := b.writeDeadline
 	if wd.IsZero() {
-		wd = utils.TimeNever
+		wd = timeNever
 	}
 	timer := time.NewTimer(time.Until(wd))
 	defer timer.Stop()
@@ -47,7 +48,7 @@ func (b *pairBackend) WriteMessage(data []byte) error {
 func (b *pairBackend) ReadMessage() ([]byte, error) {
 	rd := b.readDeadline
 	if rd.IsZero() {
-		rd = utils.TimeNever
+		rd = timeNever
 	}
 	var data []byte
 	timer := time.NewTimer(time.Until(rd))
@@ -87,18 +88,18 @@ func RunPair(ctx context.Context, pr1 backends.ProtocolRunner, pr2 backends.Prot
 		cancel:        pairCancel,
 		mtu:           mtu,
 		readChan:      pair2to1chan,
-		readDeadline:  utils.TimeNever,
+		readDeadline:  timeNever,
 		sendChan:      pair1to2chan,
-		writeDeadline: utils.TimeNever,
+		writeDeadline: timeNever,
 	}
 	pair2 := &pairBackend{
 		ctx:           pairCtx,
 		cancel:        pairCancel,
 		mtu:           mtu,
 		readChan:      pair1to2chan,
-		readDeadline:  utils.TimeNever,
+		readDeadline:  timeNever,
 		sendChan:      pair2to1chan,
-		writeDeadline: utils.TimeNever,
+		writeDeadline: timeNever,
 	}
 	go pr1.RunProtocol(pairCtx, pair1)
 	go pr2.RunProtocol(pairCtx, pair2)
