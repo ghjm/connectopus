@@ -48,6 +48,7 @@ type netopus struct {
 	sequence       syncro.Var[uint64]
 	knownNodeInfo  syncro.Map[string, nodeInfo]
 	externalRoutes syncro.Var[[]externalRouteInfo]
+	updateSender   timerunner.TimeRunner
 }
 
 // externalRouteInfo stores information about a route
@@ -61,16 +62,15 @@ type sessInfo map[string]*protoSession
 
 // protoSession represents one running session of a protocol
 type protoSession struct {
-	n            *netopus
-	ctx          context.Context
-	cancel       context.CancelFunc
-	conn         backends.BackendConnection
-	readChan     chan proto.Msg
-	remoteAddr   syncro.Var[net.IP]
-	connected    syncro.Var[bool]
-	connStart    time.Time
-	lastInit     time.Time
-	updateSender timerunner.TimeRunner
+	n          *netopus
+	ctx        context.Context
+	cancel     context.CancelFunc
+	conn       backends.BackendConnection
+	readChan   chan proto.Msg
+	remoteAddr syncro.Var[net.IP]
+	connected  syncro.Var[bool]
+	connStart  time.Time
+	lastInit   time.Time
 }
 
 // nodeInfo represents known information about a node
@@ -115,10 +115,30 @@ func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, e
 				}
 				slices.Sort(conns)
 				log.Infof("routing update: %v", strings.Join(conns, ", "))
+				n.sessionInfo.WorkWith(func(s *sessInfo) {
+					for _, p := range *s {
+						p.n.updateSender.RunWithin(100 * time.Millisecond)
+					}
+				})
 			}
 		}
 	}()
 	go n.netStackReadLoop()
+	n.updateSender = timerunner.New(ctx,
+		func() {
+			go func() {
+				log.Debugf("%s: sending routing update", n.addr.String())
+				conns, upb, uerr := n.generateRoutingUpdate()
+				if uerr != nil {
+					log.Errorf("error generating routing update: %s", uerr)
+					return
+				}
+				n.router.UpdateNode(n.addr.String(), conns.GetConnMap())
+				n.flood(upb)
+			}()
+		},
+		timerunner.Periodic(2*time.Second),
+		timerunner.AtStart)
 	return n, nil
 }
 
@@ -189,9 +209,6 @@ func (p *protoSession) initSelect() bool {
 				}
 				si[msg.MyAddr.String()] = p
 			})
-			p.updateSender = timerunner.New(p.ctx, func() { go p.n.sendRoutingUpdate() },
-				timerunner.Periodic(10*time.Second),
-				timerunner.AtStart)
 			return true
 		default:
 			log.Debugf("%s: received non-init message while in init mode", p.n.addr.String())
@@ -224,7 +241,6 @@ func (p *protoSession) mainSelect() bool {
 			if p.n.handleRoutingUpdate(msg) {
 				p.n.router.UpdateNode(msg.Origin.String(), msg.Connections.GetConnMap())
 				p.n.floodExcept(data, viaNode)
-				p.updateSender.RunWithin(100 * time.Millisecond)
 			}
 		case *proto.InitMsg:
 			log.Debugf("%s: received init message from %s while in main loop", p.n.addr.String(),
@@ -251,7 +267,7 @@ func (p *protoSession) protoLoop() {
 				timer.Stop()
 				return
 			case <-timer.C:
-				if lastActivity.Get().Before(time.Now().Add(-31 * time.Second)) {
+				if lastActivity.Get().Before(time.Now().Add(-7 * time.Second)) {
 					log.Warnf("%s: closing connection to %s due to inactivity", p.n.addr.String(), p.remoteAddr.Get().String())
 					p.cancel()
 				}
@@ -296,7 +312,7 @@ func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnecti
 				}
 			}
 		})
-		n.sendRoutingUpdate()
+		n.updateSender.RunWithin(100 * time.Millisecond)
 	}()
 	go p.backendReadLoop()
 	go p.protoLoop()
@@ -350,7 +366,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 	nextHop := n.router.NextHop(dest.String())
 	if nextHop == "" {
 		log.Debugf("%s: trying to recover from no route to host", n.addr.String())
-		n.sendRoutingUpdate()
+		n.updateSender.RunWithin(100 * time.Millisecond)
 		time.Sleep(500 * time.Millisecond)
 		nextHop = n.router.NextHop(dest.String())
 	}
@@ -433,18 +449,6 @@ func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, err
 		return nil, nil, fmt.Errorf("error marshaling routing update: %s", err)
 	}
 	return conns, upb, nil
-}
-
-// sendRoutingUpdate sends a routing update to all neighbors
-func (n *netopus) sendRoutingUpdate() {
-	log.Debugf("%s: sending routing update", n.addr.String())
-	conns, upb, err := n.generateRoutingUpdate()
-	if err != nil {
-		log.Errorf("error generating routing update: %s", err)
-		return
-	}
-	n.router.UpdateNode(n.addr.String(), conns.GetConnMap())
-	n.flood(upb)
 }
 
 // handleRoutingUpdate updates the local routing table and known nodes data.  Returns a bool indicating whether the
