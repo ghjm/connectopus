@@ -99,4 +99,5 @@ prod-arm64: prod
 .PHONY: clean
 clean:
 	@rm -fv $(PROGRAMS) $(PLUGIN_TARGETS) coverage.html
+	@find . -name Makefile -and -not -path ./Makefile -execdir make clean --no-print-directory \;
 
