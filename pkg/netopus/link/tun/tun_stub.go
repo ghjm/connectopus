@@ -5,6 +5,7 @@ package tun
 import (
 	"context"
 	"fmt"
+	"github.com/ghjm/connectopus/pkg/netopus/link"
 	"net"
 )
 
