@@ -6,3 +6,10 @@ repos:
       - id: go-fmt
       - id: golangci-lint
       - id: go-unit-tests
+  - repo: local
+    hooks:
+      - id: build-platforms
+        name: Build Platforms
+        language: script
+        entry: .pre-commit-scripts/build-platforms.sh
+
