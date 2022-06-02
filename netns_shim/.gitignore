@@ -1,0 +1,2 @@
+*.o
+netns_shim

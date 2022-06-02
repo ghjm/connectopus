@@ -26,8 +26,8 @@ type broker[T any] struct {
 	unSubCh   chan (<-chan T)
 }
 
-// NewBroker starts a new broker.
-func NewBroker[T any](ctx context.Context) Broker[T] {
+// New starts a new broker.
+func New[T any](ctx context.Context) Broker[T] {
 	b := &broker[T]{
 		ctx:       ctx,
 		publishCh: make(chan T),
@@ -50,7 +50,7 @@ func (b *broker[T]) run() {
 			delete(subs, msgCh)
 		case msg := <-b.publishCh:
 			for msgCh := range subs {
-				go func(msgCh chan T) {
+				func(msgCh chan T) {
 					select {
 					case <-b.ctx.Done():
 					case msgCh <- msg:

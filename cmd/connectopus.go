@@ -7,7 +7,9 @@ import (
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/netopus"
-	"github.com/ghjm/connectopus/pkg/netopus/tun"
+	"github.com/ghjm/connectopus/pkg/netopus/link"
+	"github.com/ghjm/connectopus/pkg/netopus/link/netns"
+	"github.com/ghjm/connectopus/pkg/netopus/link/tun"
 	"github.com/ghjm/connectopus/plugins"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -60,11 +62,23 @@ var rootCmd = &cobra.Command{
 			errHalt(err)
 		}
 		if len(node.Tun.Address) > 0 {
-			var tunLink tun.Link
-			tunLink, err = tun.NewLink(ctx, node.Tun.Name, net.IP(node.Tun.Address), &subnet, n.SendPacket)
+			var tunLink link.Link
+			tunLink, err = tun.New(ctx, node.Tun.Name, net.IP(node.Tun.Address), &subnet)
 			if err != nil {
 				errHalt(err)
 			}
+			tunCh := tunLink.SubscribePackets()
+			go func() {
+				for {
+					select {
+					case <-ctx.Done():
+						tunLink.UnsubscribePackets(tunCh)
+						return
+					case packet := <-tunCh:
+						_ = n.SendPacket(packet)
+					}
+				}
+			}()
 			n.AddExternalRoute(net.IP(node.Tun.Address), tunLink.SendPacket)
 		}
 		for _, backend := range node.Backends {
@@ -78,6 +92,26 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				errHalt(err)
 			}
+		}
+		for _, namespace := range node.Namespaces {
+			var ns link.Link
+			ns, err = netns.NewNetns(ctx, net.IP(namespace.Address))
+			if err != nil {
+				errHalt(err)
+			}
+			nsCh := ns.SubscribePackets()
+			go func() {
+				for {
+					select {
+					case <-ctx.Done():
+						ns.UnsubscribePackets(nsCh)
+						return
+					case packet := <-nsCh:
+						_ = n.SendPacket(packet)
+					}
+				}
+			}()
+			n.AddExternalRoute(net.IP(namespace.Address), ns.SendPacket)
 		}
 		<-ctx.Done()
 	},

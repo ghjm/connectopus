@@ -9,6 +9,8 @@ nodes:
     tun:
       name: ctun
       address: FD00::1:2
+    namespaces:
+      - address: FD00::1:3
     backends:
       - type: dtls-dialer
         params:

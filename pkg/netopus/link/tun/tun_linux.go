@@ -5,28 +5,28 @@ package tun
 import (
 	"context"
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	"github.com/ghjm/connectopus/pkg/netopus/link"
+	"github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 	"io"
 	"net"
 )
 
-type link struct {
-	ctx               context.Context
-	tunRWC            io.ReadWriteCloser
-	inboundPacketFunc func([]byte) error
+type tunLink struct {
+	packet_publisher.Publisher
+	ctx    context.Context
+	tunRWC io.ReadWriteCloser
 }
 
-// NewLink returns a new tun.Link.  inboundPacketFunc will be called when a packet arrives from the kernel.
-func NewLink(ctx context.Context, name string, tunAddr net.IP,
-	subnet *net.IPNet, inboundPacketFunc func([]byte) error) (Link, error) {
+// New returns a link.Link connected to a newly created Linux tun/tap device.
+func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (link.Link, error) {
 	persistTun := true
 	nl, err := netlink.LinkByName(name)
 	if _, ok := err.(netlink.LinkNotFoundError); ok {
 		persistTun = false
 	} else if err != nil {
-		return nil, fmt.Errorf("error accessing link for tun device: %s", err)
+		return nil, fmt.Errorf("error accessing tunLink for tun device: %s", err)
 	}
 	var tunIf *water.Interface
 	tunIf, err = water.New(water.Config{
@@ -39,10 +39,9 @@ func NewLink(ctx context.Context, name string, tunAddr net.IP,
 	if err != nil {
 		return nil, err
 	}
-	l := &link{
-		ctx:               ctx,
-		tunRWC:            tunIf,
-		inboundPacketFunc: inboundPacketFunc,
+	l := &tunLink{
+		ctx:    ctx,
+		tunRWC: tunIf,
 	}
 	var addrs []netlink.Addr
 	addrs, err = netlink.AddrList(nl, netlink.FAMILY_V6)
@@ -101,33 +100,13 @@ func NewLink(ctx context.Context, name string, tunAddr net.IP,
 			return nil, fmt.Errorf("error adding route to tun device: %s", err)
 		}
 	}
-	go func() {
-		<-ctx.Done()
-		_ = l.tunRWC.Close()
-	}()
-	go l.inboundLoop()
+
+	l.Publisher = *packet_publisher.New(ctx, tunIf, 1500)
+
 	return l, nil
 }
 
-func (l *link) inboundLoop() {
-	for {
-		buf := make([]byte, 1500)
-		n, err := l.tunRWC.Read(buf)
-		if err != nil {
-			if l.ctx.Err() == nil {
-				log.Warnf("tun device read error: %s", err)
-			}
-			return
-		}
-		buf = buf[:n]
-		err = l.inboundPacketFunc(buf)
-		if err != nil {
-			log.Warnf("tun inbound packet error: %s", err)
-		}
-	}
-}
-
-func (l *link) SendPacket(packet []byte) error {
+func (l *tunLink) SendPacket(packet []byte) error {
 	n, err := l.tunRWC.Write(packet)
 	if err != nil {
 		return err

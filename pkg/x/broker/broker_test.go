@@ -13,7 +13,7 @@ func TestBrokerShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	bctx, bcancel := context.WithCancel(ctx)
-	b := NewBroker[string](bctx)
+	b := New[string](bctx)
 	noRecCh := b.Subscribe()
 	go func() {
 		for {
@@ -47,7 +47,7 @@ func TestBroker(t *testing.T) {
 	numToSend := 100
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	b := NewBroker[string](ctx)
+	b := New[string](ctx)
 	subCh := make([]<-chan string, numSubs)
 	for i := 0; i < numSubs; i++ {
 		subCh[i] = b.Subscribe()

@@ -5,6 +5,7 @@ GCFLAGS ?= -gcflags "all=-N -l"
 OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
 
 PROGRAMS := connectopus
+EXTRA_DEPS_connectopus := netns_shim/netns_shim
 ifeq ($(OS),Linux)
 PLUGINS := echo
 endif
@@ -29,6 +30,7 @@ $(1): cmd/$(1).go Makefile $(PROGRAM_DEPS_$(1))
 	go build -o $(1) $(LDFLAGS) $(GCFLAGS) cmd/$(1).go
 endef
 $(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p := $(call go_deps,cmd/$(p).go)))
+$(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p += $(EXTRA_DEPS_$p)))
 $(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p))))
 
 define PLUGIN_template
@@ -36,7 +38,11 @@ plugins/$(1).so: plugins/$(1)/$(1).go Makefile $(PLUGIN_DEPS_$(1))
 	go build -buildmode=plugin -o plugins/$(1).so $(GCFLAGS) plugins/$(1)/$(1).go
 endef
 $(foreach p,$(PLUGINS),$(eval PLUGIN_DEPS_$p := $(call go_deps,plugins/$(p)/$(p).go)))
+$(foreach p,$(PROGRAMS),$(eval PLUGIN_DEPS_$p += $(EXTRA_DEPS_$p)))
 $(foreach p,$(PLUGINS),$(eval $(call PLUGIN_template,$(p))))
+
+netns_shim/netns_shim:
+	@cd netns_shim && make netns_shim
 
 .PHONY: lint
 lint:

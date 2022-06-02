@@ -19,10 +19,11 @@ type Global struct {
 }
 
 type Node struct {
-	Address  IP        `yaml:"address"`
-	Tun      Tun       `yaml:"tun"`
-	Backends []Backend `yaml:"backends"`
-	Plugins  []Plugin  `yaml:"plugins"`
+	Address    IP          `yaml:"address"`
+	Tun        Tun         `yaml:"tun"`
+	Backends   []Backend   `yaml:"backends"`
+	Plugins    []Plugin    `yaml:"plugins"`
+	Namespaces []Namespace `yaml:"namespaces"`
 }
 
 type Tun struct {
@@ -38,6 +39,10 @@ type Backend struct {
 type Plugin struct {
 	File   string `yaml:"file"`
 	Params Params `yaml:"params"`
+}
+
+type Namespace struct {
+	Address IP `yaml:"address"`
 }
 
 type Params map[string]string

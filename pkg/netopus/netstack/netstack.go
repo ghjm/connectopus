@@ -2,6 +2,7 @@ package netstack
 
 import (
 	"context"
+	"github.com/ghjm/connectopus/pkg/netopus/link"
 	"net"
 )
 
@@ -9,16 +10,6 @@ import (
 type UDPConn interface {
 	net.Conn
 	net.PacketConn
-}
-
-// PacketStack is a network stack that accepts and produces IPv6 packets
-type PacketStack interface {
-	// SendPacket injects a single packet into the network stack.  The data must be a valid IPv6 packet.
-	SendPacket(packet []byte) error
-	// SubscribePackets returns a channel which will receive packets outgoing from the network stack.
-	SubscribePackets() <-chan []byte
-	// UnsubscribePackets unsubscribes a channel previously subscribed with SubscribePackets.
-	UnsubscribePackets(pktCh <-chan []byte)
 }
 
 // UserStack provides the methods that allow user apps to communicate over a network stack
@@ -36,7 +27,7 @@ type UserStack interface {
 
 // NetStack represents an IPv6 network stack
 type NetStack interface {
-	PacketStack
+	link.Link
 	UserStack
 }
 

@@ -43,7 +43,7 @@ func NewStackFdbased(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetSt
 	}
 	ns := &netStackFdbased{
 		addr:         addr,
-		packetBroker: broker.NewBroker[[]byte](ctx),
+		packetBroker: broker.New[[]byte](ctx),
 		fds:          fds,
 	}
 	ns.stack = stack.New(stack.Options{

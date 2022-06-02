@@ -1,9 +1,11 @@
 //go:build linux
 
-package tun
+package link
 
 import (
 	"context"
+	"fmt"
+	"github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
 	"io"
@@ -27,6 +29,7 @@ func (d *dummyRWC) Read(p []byte) (int, error) {
 				dStr := (*data)[0]
 				readData = &dStr
 				*data = (*data)[1:]
+				fmt.Printf("Read %s\n", *readData)
 			}
 		})
 		if readData != nil {
@@ -40,6 +43,7 @@ func (d *dummyRWC) Read(p []byte) (int, error) {
 
 func (d *dummyRWC) Write(p []byte) (int, error) {
 	d.data.WorkWith(func(data *[]string) {
+		fmt.Printf("Wrote %s\n", p)
 		*data = append(*data, string(p))
 	})
 	return len(p), nil
@@ -50,18 +54,25 @@ func (d *dummyRWC) Close() error {
 	return nil
 }
 
-// NewDummyLink returns a dummy tun.link.  We cannot unit test the real NewLink because it requires root.
-func NewDummyLink(ctx context.Context, inboundPacketFunc func([]byte) error) Link {
-	l := &link{
-		ctx:               ctx,
-		inboundPacketFunc: inboundPacketFunc,
-		tunRWC:            &dummyRWC{},
+type dummyLink struct {
+	packet_publisher.Publisher
+	rwc io.ReadWriteCloser
+}
+
+func (d *dummyLink) SendPacket(packet []byte) error {
+	_, err := d.rwc.Write(packet)
+	if err != nil {
+		return err
 	}
-	go func() {
-		<-ctx.Done()
-		_ = l.tunRWC.Close()
-	}()
-	go l.inboundLoop()
+	return nil
+}
+
+func NewDummyLink(ctx context.Context) Link {
+	rwc := &dummyRWC{}
+	l := &dummyLink{
+		Publisher: *packet_publisher.New(ctx, rwc, 1500),
+		rwc:       rwc,
+	}
 	return l
 }
 
@@ -79,15 +90,24 @@ func TestLink(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var inCount syncro.Var[int]
-	dl := NewDummyLink(ctx, func(packet []byte) error {
-		inCount.WorkWith(func(i *int) {
-			if string(packet) != testData[*i] {
-				t.Errorf("wrong packet data received")
+	dl := NewDummyLink(ctx)
+	packChan := dl.SubscribePackets()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case packet := <-packChan:
+				inCount.WorkWith(func(i *int) {
+					fmt.Printf("Subscriber read %s\n", packet)
+					if string(packet) != testData[*i] {
+						t.Errorf("wrong packet data received")
+					}
+					*i++
+				})
 			}
-			*i++
-		})
-		return nil
-	})
+		}
+	}()
 	for _, s := range testData {
 		err := dl.SendPacket([]byte(s))
 		if err != nil {

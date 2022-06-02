@@ -38,7 +38,7 @@ func NewStackChannel(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetSt
 	}
 	ns := &netStackChannel{
 		addr:         addr,
-		packetBroker: broker.NewBroker[[]byte](ctx),
+		packetBroker: broker.New[[]byte](ctx),
 	}
 	ns.stack = stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
