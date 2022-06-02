@@ -231,7 +231,7 @@ func (p *protoSession) mainSelect() bool {
 		switch msg := msgAny.(type) {
 		case []byte:
 			err = p.n.SendPacket(data)
-			if err != nil {
+			if err != nil && err != context.Canceled {
 				log.Warnf("packet sending error: %s", err)
 			}
 		case *proto.RoutingUpdate:

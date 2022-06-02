@@ -95,7 +95,7 @@ var rootCmd = &cobra.Command{
 		}
 		for _, namespace := range node.Namespaces {
 			var ns link.Link
-			ns, err = netns.NewNetns(ctx, net.IP(namespace.Address))
+			ns, err = netns.New(ctx, net.IP(namespace.Address))
 			if err != nil {
 				errHalt(err)
 			}

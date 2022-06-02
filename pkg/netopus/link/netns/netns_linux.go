@@ -4,23 +4,17 @@ package netns
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/netopus/link"
 	"github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
+	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"net"
 	"os"
 	"os/exec"
 	"syscall"
 )
 
-// netStackNetns implements PacketStack, using gVisor with an fdbased endpoint
-type netStackNetns struct {
-	packet_publisher.Publisher
-	shimFd int
-}
-
-// NewNetns creates a new Linux network namespace based network stack
-func NewNetns(ctx context.Context, addr net.IP) (link.Link, error) {
-	ns := &netStackNetns{}
+// New creates a new Linux network namespace based network stack
+func New(ctx context.Context, addr net.IP) (*Link, error) {
+	ns := &Link{}
 
 	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_SEQPACKET, 0)
 	if err != nil {
@@ -39,12 +33,13 @@ func NewNetns(ctx context.Context, addr net.IP) (link.Link, error) {
 	}
 	// _ = remotePipe.Close()
 
-	ns.Publisher = *packet_publisher.New(ctx, os.NewFile(uintptr(ns.shimFd), "socket"), 1500)
+	ns.Publisher = *packet_publisher.New(ctx, os.NewFile(uintptr(ns.shimFd), "socket"),
+		chanreader.WithBufferSize(1500))
 
 	return ns, nil
 }
 
-func (ns *netStackNetns) SendPacket(packet []byte) error {
+func (ns *Link) SendPacket(packet []byte) error {
 	_, err := syscall.Write(ns.shimFd, packet)
 	return err
 }

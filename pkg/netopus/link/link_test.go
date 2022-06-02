@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
+	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
 	"io"
@@ -70,7 +71,7 @@ func (d *dummyLink) SendPacket(packet []byte) error {
 func NewDummyLink(ctx context.Context) Link {
 	rwc := &dummyRWC{}
 	l := &dummyLink{
-		Publisher: *packet_publisher.New(ctx, rwc, 1500),
+		Publisher: *packet_publisher.New(ctx, rwc, chanreader.WithBufferSize(1500)),
 		rwc:       rwc,
 	}
 	return l

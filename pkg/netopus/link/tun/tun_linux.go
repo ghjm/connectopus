@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/netopus/link"
 	"github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
+	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 	"io"
@@ -101,7 +102,7 @@ func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (l
 		}
 	}
 
-	l.Publisher = *packet_publisher.New(ctx, tunIf, 1500)
+	l.Publisher = *packet_publisher.New(ctx, tunIf, chanreader.WithBufferSize(1500))
 
 	return l, nil
 }
