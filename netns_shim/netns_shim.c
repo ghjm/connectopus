@@ -251,6 +251,10 @@ void run_parent(int pid) {
 
 int main(int argc, char **argv) {
 
+    // Make stdout and stderr unbuffered
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
     // command line options
     char *netfd_str = NULL;
     char *tun_name = NULL;

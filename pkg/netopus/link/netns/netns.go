@@ -6,4 +6,5 @@ import "github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
 type Link struct {
 	packet_publisher.Publisher
 	shimFd int
+	pid    int
 }
