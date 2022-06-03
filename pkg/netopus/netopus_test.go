@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -181,7 +182,11 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 	}()
 
 	// Set up wait group
-	nConns := 100
+	nConns := 10
+	if runtime.GOOS == "linux" {
+		// Code is less optimized for other platforms
+		nConns = 100
+	}
 	wg := sync.WaitGroup{}
 	wg.Add(2 * nConns)
 
