@@ -125,3 +125,7 @@ func (ns *Link) SendPacket(packet []byte) error {
 	_, err := syscall.Write(ns.shimFd, packet)
 	return err
 }
+
+func (ns *Link) PID() int {
+	return ns.pid
+}

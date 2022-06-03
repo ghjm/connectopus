@@ -32,6 +32,11 @@ jobs:
       - name: Check formatting
         run: gofmt -l .
 
+      - name: Check that generated code is up to date
+        run: |
+          go generate ./...
+          git diff --exit-code
+
   test:
     name: test
     strategy:

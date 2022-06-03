@@ -15,3 +15,7 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 func (ns *Link) SendPacket(packet []byte) error {
 	return fmt.Errorf("not implemented")
 }
+
+func (ns *Link) PID() int {
+	return ns.pid
+}

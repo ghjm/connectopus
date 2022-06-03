@@ -76,5 +76,6 @@ func (m *Map[K, V]) WorkWith(f func(*map[K]V)) {
 func (m *Map[K, V]) WorkWithReadOnly(f func(map[K]V)) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
+	m.createIfNil()
 	f(m.value)
 }

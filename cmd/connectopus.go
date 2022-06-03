@@ -6,6 +6,7 @@ import (
 	"github.com/ghjm/connectopus/internal/version"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
+	"github.com/ghjm/connectopus/pkg/cpctl"
 	"github.com/ghjm/connectopus/pkg/netopus"
 	"github.com/ghjm/connectopus/pkg/netopus/link"
 	"github.com/ghjm/connectopus/pkg/netopus/link/netns"
@@ -15,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"net"
 	"os"
+	"path"
 )
 
 func errHalt(err error) {
@@ -93,8 +95,9 @@ var rootCmd = &cobra.Command{
 				errHalt(err)
 			}
 		}
+		nsreg := &netns.Registry{}
 		for _, namespace := range node.Namespaces {
-			var ns link.Link
+			var ns *netns.Link
 			ns, err = netns.New(ctx, net.IP(namespace.Address))
 			if err != nil {
 				errHalt(err)
@@ -112,6 +115,26 @@ var rootCmd = &cobra.Command{
 				}
 			}()
 			n.AddExternalRoute(net.IP(namespace.Address), ns.SendPacket)
+			nsreg.Add(namespace.Name, ns.PID())
+		}
+		if node.Cpctl.Enable {
+			csrv := cpctl.Resolver{
+				NsReg: nsreg,
+			}
+			socketFile := path.Join(os.Getenv("HOME"), ".local", "share", "connectopus", "cpctl.sock")
+			if node.Cpctl.SocketFile != "" {
+				socketFile = node.Cpctl.SocketFile
+			}
+			err = csrv.ServeUnix(ctx, socketFile)
+			if err != nil {
+				errHalt(err)
+			}
+			if node.Cpctl.Port != 0 {
+				err = csrv.ServeHTTP(ctx, node.Cpctl.Port)
+				if err != nil {
+					errHalt(err)
+				}
+			}
 		}
 		<-ctx.Done()
 	},

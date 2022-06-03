@@ -10,11 +10,15 @@ nodes:
       name: ctun
       address: FD00::1:2
     namespaces:
-      - address: FD00::1:3
+      - name: foo
+        address: FD00::1:3
     backends:
       - type: dtls-dialer
         params:
           peer: localhost:4444
+    cpctl:
+      enable: yes
+      port: 8123
 
   bar:
     address: FD00::2:1

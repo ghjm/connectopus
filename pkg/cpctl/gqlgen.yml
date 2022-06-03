@@ -1,0 +1,28 @@
+schema:
+  - ./graphql/*.graphqls
+
+exec:
+  filename: ./gql_runtime_gen.go
+  package: cpctl
+
+model:
+  filename: ./gql_models_gen.go
+  package: cpctl
+
+#autobind:
+#  - github.com/ghjm/connectopus/pkg/cpctl
+
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+

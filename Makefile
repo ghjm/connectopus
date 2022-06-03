@@ -44,6 +44,10 @@ $(foreach p,$(PLUGINS),$(eval $(call PLUGIN_template,$(p))))
 netns_shim/netns_shim:
 	@cd netns_shim && make netns_shim
 
+.PHONY: gen
+gen:
+	@go generate ./...
+
 .PHONY: lint
 lint:
 	@golangci-lint run --timeout 5m

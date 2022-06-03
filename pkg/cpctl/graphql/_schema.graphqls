@@ -1,0 +1,22 @@
+type Query {
+  netns(filter: NetnsFilter): [NetnsResult!]!
+}
+
+type Mutation {
+  # The schema generator seems to require at least one mutation
+  dummy: DummyResult!
+}
+
+input NetnsFilter {
+  name: String
+}
+
+type NetnsResult {
+  name: String!
+  pid: Int!
+}
+
+type DummyResult {
+  mutationId: ID!
+}
+

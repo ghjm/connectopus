@@ -24,6 +24,7 @@ type Node struct {
 	Backends   []Backend   `yaml:"backends"`
 	Plugins    []Plugin    `yaml:"plugins"`
 	Namespaces []Namespace `yaml:"namespaces"`
+	Cpctl      Cpctl       `yaml:"cpctl"`
 }
 
 type Tun struct {
@@ -42,7 +43,14 @@ type Plugin struct {
 }
 
 type Namespace struct {
-	Address IP `yaml:"address"`
+	Name    string `yaml:"name"`
+	Address IP     `yaml:"address"`
+}
+
+type Cpctl struct {
+	Enable     bool   `yaml:"enable"`
+	SocketFile string `yaml:"socket_file"`
+	Port       int    `yaml:"port"`
 }
 
 type Params map[string]string

@@ -3,12 +3,15 @@ module github.com/ghjm/connectopus
 go 1.18
 
 require (
+	github.com/99designs/gqlgen v0.17.9
+	github.com/Yamashou/gqlgenc v0.0.6
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/pion/dtls/v2 v2.1.3
 	github.com/rainycape/dl v0.0.0-20151222075243-1b01514224a1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.4.0
+	github.com/vektah/gqlparser/v2 v2.4.4
 	github.com/vishvananda/netlink v1.0.1-0.20190930145447-2ec5bdc52b86
 	go.uber.org/goleak v1.1.12
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
@@ -17,15 +20,27 @@ require (
 )
 
 require (
+	github.com/agnivade/levenshtein v1.1.1 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/google/btree v1.0.1 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/matryer/moq v0.2.7 // indirect
+	github.com/mitchellh/mapstructure v1.3.1 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/transport v0.13.0 // indirect
 	github.com/pion/udp v0.1.1 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/urfave/cli/v2 v2.8.1 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
+	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
+	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
+	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
