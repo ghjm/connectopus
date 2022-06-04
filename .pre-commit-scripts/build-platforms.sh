@@ -6,6 +6,6 @@ cleanup() {
   exit $ARG
 }
 trap cleanup EXIT
-GOOS=linux   go build -o testbin cmd/connectopus.go
-GOOS=windows go build -o testbin cmd/connectopus.go
-GOOS=darwin  go build -o testbin cmd/connectopus.go
+GOOS=linux   go build -o testbin cmd/connectopus/connectopus.go
+GOOS=windows go build -o testbin cmd/connectopus/connectopus.go
+GOOS=darwin  go build -o testbin cmd/connectopus/connectopus.go

@@ -5,6 +5,7 @@
 *.so
 *.dylib
 /connectopus
+/cpctl
 /coverage.html
 /testbin
 

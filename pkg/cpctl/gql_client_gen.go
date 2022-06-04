@@ -23,36 +23,12 @@ type Query struct {
 type Mutation struct {
 	Dummy DummyResult "json:\"dummy\" graphql:\"dummy\""
 }
-type GetNetnsList_Netns struct {
-	Name string "json:\"name\" graphql:\"name\""
-}
 type GetNetns_Netns struct {
 	Name string "json:\"name\" graphql:\"name\""
 	Pid  int    "json:\"pid\" graphql:\"pid\""
 }
-type GetNetnsList struct {
-	Netns []*GetNetnsList_Netns "json:\"netns\" graphql:\"netns\""
-}
 type GetNetns struct {
 	Netns []*GetNetns_Netns "json:\"netns\" graphql:\"netns\""
-}
-
-const GetNetnsListDocument = `query GetNetnsList {
-	netns {
-		name
-	}
-}
-`
-
-func (c *Client) GetNetnsList(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetNetnsList, error) {
-	vars := map[string]interface{}{}
-
-	var res GetNetnsList
-	if err := c.Client.Post(ctx, "GetNetnsList", GetNetnsListDocument, &res, vars, interceptors...); err != nil {
-		return nil, err
-	}
-
-	return &res, nil
 }
 
 const GetNetnsDocument = `query GetNetns ($name: String) {

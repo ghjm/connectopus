@@ -1,9 +1,3 @@
-query GetNetnsList {
-  netns {
-    name
-  } 
-}
-
 query GetNetns($name: String) {
   netns(filter: {name: $name}) {
     name

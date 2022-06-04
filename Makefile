@@ -4,7 +4,7 @@ LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(
 GCFLAGS ?= -gcflags "all=-N -l"
 OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
 
-PROGRAMS := connectopus
+PROGRAMS := connectopus cpctl
 EXTRA_DEPS_connectopus := netns_shim/netns_shim
 ifeq ($(OS),Linux)
 PLUGINS := echo
@@ -26,10 +26,10 @@ $(shell find $$(go list -f '{{.Dir}}' -deps $(1) | grep "^$$PWD") -name '*.go' |
 endef
 
 define PROGRAM_template
-$(1): cmd/$(1).go Makefile $(PROGRAM_DEPS_$(1))
-	go build -o $(1) $(LDFLAGS) $(GCFLAGS) cmd/$(1).go
+$(1): cmd/$(1)/$(1).go Makefile $(PROGRAM_DEPS_$(1))
+	go build -o $(1) $(LDFLAGS) $(GCFLAGS) cmd/$(1)/$(1).go
 endef
-$(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p := $(call go_deps,cmd/$(p).go)))
+$(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p := $(call go_deps,cmd/$(p)/$(p).go)))
 $(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p += $(EXTRA_DEPS_$p)))
 $(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p))))
 
