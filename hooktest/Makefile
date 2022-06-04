@@ -1,10 +1,10 @@
 all: lookup/lookup preload/preload.so
 
 lookup/lookup: lookup/lookup.go
-	@go build -o lookup/lookup lookup/lookup.go
+	go build -o lookup/lookup lookup/lookup.go
 
 preload/preload.so: preload/preload.go
-	@go build -buildmode=c-shared -o preload/preload.so preload/preload.go	
+	go build -buildmode=c-shared -o preload/preload.so preload/preload.go	
 
 NAME ?= "example.com"
 test: all
