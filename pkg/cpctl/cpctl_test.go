@@ -6,21 +6,23 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestCpctl(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	r := Resolver{}
 	f, err := ioutil.TempFile("", "temp_cpctl_*.sock")
 	if err != nil {
 		t.Fatal(err)
 	}
 	fn := f.Name()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
+		cancel()
+		time.Sleep(50 * time.Millisecond)
 		_ = os.Remove(fn)
 	}()
+	r := Resolver{}
 	err = os.Remove(fn)
 	if err != nil {
 		t.Fatal(err)
