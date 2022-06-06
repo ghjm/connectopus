@@ -5,29 +5,21 @@ package tun
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/links"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
-	"io"
 	"net"
 )
 
-type tunLink struct {
-	packet_publisher.Publisher
-	ctx    context.Context
-	tunRWC io.ReadWriteCloser
-}
-
 // New returns a link.Link connected to a newly created Linux tun/tap device.
-func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (links.Link, error) {
+func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (*Link, error) {
 	persistTun := true
 	nl, err := netlink.LinkByName(name)
 	if _, ok := err.(netlink.LinkNotFoundError); ok {
 		persistTun = false
 	} else if err != nil {
-		return nil, fmt.Errorf("error accessing tunLink for tun device: %s", err)
+		return nil, fmt.Errorf("error accessing tun device: %s", err)
 	}
 	var tunIf *water.Interface
 	tunIf, err = water.New(water.Config{
@@ -40,7 +32,14 @@ func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (l
 	if err != nil {
 		return nil, err
 	}
-	l := &tunLink{
+	if nl == nil {
+		nl, err = netlink.LinkByName(name)
+		if err != nil {
+			return nil, fmt.Errorf("error accessing tun device: %s", err)
+		}
+
+	}
+	l := &Link{
 		ctx:    ctx,
 		tunRWC: tunIf,
 	}
@@ -80,40 +79,12 @@ func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (l
 		Src:       tunAddr,
 		Dst:       subnet,
 	}
-	var routes []netlink.Route
-	routes, err = netlink.RouteList(nl, netlink.FAMILY_V6)
-	if err != nil {
-		return nil, fmt.Errorf("error listing routes: %s", err)
-	}
-	found = false
-	for _, r := range routes {
-		if r.Dst.IP.Equal(route.Dst.IP) &&
-			r.Dst.Mask.String() == route.Dst.Mask.String() &&
-			r.Gw.Equal(route.Gw) &&
-			r.Src.Equal(route.Src) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		err = netlink.RouteAdd(&route)
-		if err != nil {
-			return nil, fmt.Errorf("error adding route to tun device: %s", err)
-		}
+	err = netlink.RouteAdd(&route)
+	if err != nil { // && !errors.Is(syscall.EEXIST, err){
+		return nil, fmt.Errorf("error adding route to tun device: %s", err)
 	}
 
 	l.Publisher = *packet_publisher.New(ctx, tunIf, chanreader.WithBufferSize(1500))
 
 	return l, nil
-}
-
-func (l *tunLink) SendPacket(packet []byte) error {
-	n, err := l.tunRWC.Write(packet)
-	if err != nil {
-		return err
-	}
-	if n != len(packet) {
-		return fmt.Errorf("tun device only wrote %d bytes of %d", n, len(packet))
-	}
-	return nil
 }

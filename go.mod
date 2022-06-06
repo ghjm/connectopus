@@ -11,8 +11,9 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.4.0
+	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 	github.com/vektah/gqlparser/v2 v2.4.4
-	github.com/vishvananda/netlink v1.0.1-0.20190930145447-2ec5bdc52b86
+	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/goleak v1.1.12
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
@@ -39,7 +40,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
-	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
