@@ -5,9 +5,9 @@ GCFLAGS ?= -gcflags "all=-N -l"
 OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
 
 PROGRAMS := connectopus cpctl
-EXTRA_DEPS_connectopus := netns_shim/netns_shim
 ifeq ($(OS),Linux)
 PLUGINS := echo
+EXTRA_DEPS_connectopus := netns_shim/netns_shim
 endif
 
 PLUGIN_TARGETS := $(foreach p,$(PLUGINS),plugins/$(p).so)
