@@ -5,9 +5,9 @@ package tun
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/netopus/link"
-	"github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
+	"github.com/ghjm/connectopus/pkg/links"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
+	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 	"io"
@@ -21,7 +21,7 @@ type tunLink struct {
 }
 
 // New returns a link.Link connected to a newly created Linux tun/tap device.
-func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (link.Link, error) {
+func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (links.Link, error) {
 	persistTun := true
 	nl, err := netlink.LinkByName(name)
 	if _, ok := err.(netlink.LinkNotFoundError); ok {

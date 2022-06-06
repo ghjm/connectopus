@@ -1,12 +1,12 @@
 //go:build linux
 
-package link
+package links
 
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/netopus/link/packet_publisher"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
+	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
 	"io"

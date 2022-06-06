@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/config"
-	"github.com/ghjm/connectopus/pkg/netopus/netstack"
+	"github.com/ghjm/connectopus/pkg/netstack"
 	"plugin"
 )
 

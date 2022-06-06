@@ -2,7 +2,7 @@ package netstack
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/netopus/link"
+	"github.com/ghjm/connectopus/pkg/links"
 	"net"
 )
 
@@ -27,7 +27,7 @@ type UserStack interface {
 
 // NetStack represents an IPv6 network stack
 type NetStack interface {
-	link.Link
+	links.Link
 	UserStack
 }
 

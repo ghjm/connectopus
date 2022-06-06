@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"github.com/ghjm/connectopus/pkg/config"
-	"github.com/ghjm/connectopus/pkg/netopus/netstack"
+	"github.com/ghjm/connectopus/pkg/netstack"
 	log "github.com/sirupsen/logrus"
 	"net"
 )

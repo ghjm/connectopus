@@ -1,4 +1,4 @@
-package link
+package links
 
 // Link is a network stack that accepts and produces IPv6 packets
 type Link interface {

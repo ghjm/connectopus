@@ -2,7 +2,7 @@ package cpctl
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/netopus/link/netns"
+	"github.com/ghjm/connectopus/pkg/links/netns"
 )
 
 type Resolver struct {

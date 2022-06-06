@@ -7,10 +7,10 @@ import (
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/cpctl"
+	"github.com/ghjm/connectopus/pkg/links"
+	"github.com/ghjm/connectopus/pkg/links/netns"
+	"github.com/ghjm/connectopus/pkg/links/tun"
 	"github.com/ghjm/connectopus/pkg/netopus"
-	"github.com/ghjm/connectopus/pkg/netopus/link"
-	"github.com/ghjm/connectopus/pkg/netopus/link/netns"
-	"github.com/ghjm/connectopus/pkg/netopus/link/tun"
 	"github.com/ghjm/connectopus/plugins"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -64,7 +64,7 @@ var rootCmd = &cobra.Command{
 			errHalt(err)
 		}
 		if len(node.Tun.Address) > 0 {
-			var tunLink link.Link
+			var tunLink links.Link
 			tunLink, err = tun.New(ctx, node.Tun.Name, net.IP(node.Tun.Address), &subnet)
 			if err != nil {
 				errHalt(err)
