@@ -15,12 +15,14 @@ func (r *Resolver) Query() QueryResolver {
 
 func (r *Resolver) Netns(ctx context.Context, filter *NetnsFilter) ([]*NetnsResult, error) {
 	var nspid []netns.NamePID
-	if filter == nil || filter.Name == nil {
-		nspid = r.NsReg.GetAll()
-	} else {
-		nsp, err := r.NsReg.Get(*filter.Name)
-		if err == nil {
-			nspid = []netns.NamePID{{Name: *filter.Name, PID: nsp}}
+	if r.NsReg != nil {
+		if filter == nil || filter.Name == nil {
+			nspid = r.NsReg.GetAll()
+		} else {
+			nsp, err := r.NsReg.Get(*filter.Name)
+			if err == nil {
+				nspid = []netns.NamePID{{Name: *filter.Name, PID: nsp}}
+			}
 		}
 	}
 	nsr := make([]*NetnsResult, 0, len(nspid))
