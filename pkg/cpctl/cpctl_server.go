@@ -13,11 +13,7 @@ import (
 	"time"
 )
 
-func (r *Resolver) serve(ctx context.Context, li net.Listener) {
-	mux := http.NewServeMux()
-	mux.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
-
+func (r *Resolver) runServer(ctx context.Context, li net.Listener, mux http.Handler) {
 	srv := &http.Server{
 		Handler:        mux,
 		ReadTimeout:    10 * time.Second,
@@ -56,7 +52,11 @@ func (r *Resolver) ServeUnix(ctx context.Context, socketFile string) error {
 	if err != nil {
 		return err
 	}
-	r.serve(ctx, li)
+
+	mux := http.NewServeMux()
+	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
+
+	r.runServer(ctx, li, mux)
 	return nil
 }
 
@@ -65,6 +65,11 @@ func (r *Resolver) ServeHTTP(ctx context.Context, port int) error {
 	if err != nil {
 		return err
 	}
-	r.serve(ctx, li)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", playground.Handler("GraphQL playground", "/query"))
+	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
+
+	r.runServer(ctx, li, mux)
 	return nil
 }
