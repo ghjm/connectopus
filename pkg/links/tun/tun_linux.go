@@ -73,15 +73,31 @@ func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (*
 			return nil, fmt.Errorf("error activating tun device: %s", err)
 		}
 	}
-	route := netlink.Route{
-		LinkIndex: nl.Attrs().Index,
-		Scope:     netlink.SCOPE_UNIVERSE,
-		Src:       tunAddr,
-		Dst:       subnet,
+	var routes []netlink.Route
+	routes, err = netlink.RouteList(nl, netlink.FAMILY_V6)
+	if err != nil {
+		return nil, fmt.Errorf("error listing routes: %s", err)
 	}
-	err = netlink.RouteAdd(&route)
-	if err != nil { // && !errors.Is(syscall.EEXIST, err){
-		return nil, fmt.Errorf("error adding route to tun device: %s", err)
+	found = false
+	for _, route := range routes {
+		if route.Scope == netlink.SCOPE_UNIVERSE &&
+			route.Src.Equal(tunAddr) &&
+			route.Dst.String() == subnet.String() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		route := netlink.Route{
+			LinkIndex: nl.Attrs().Index,
+			Scope:     netlink.SCOPE_UNIVERSE,
+			Src:       tunAddr,
+			Dst:       subnet,
+		}
+		err = netlink.RouteAdd(&route)
+		if err != nil {
+			return nil, fmt.Errorf("error adding route to tun device: %s", err)
+		}
 	}
 
 	l.Publisher = *packet_publisher.New(ctx, tunIf, chanreader.WithBufferSize(1500))
