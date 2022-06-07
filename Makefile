@@ -7,7 +7,6 @@ OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
 PROGRAMS := connectopus cpctl
 ifeq ($(OS),Linux)
 PLUGINS := echo
-EXTRA_DEPS_connectopus := netns_shim/netns_shim
 endif
 
 PLUGIN_TARGETS := $(foreach p,$(PLUGINS),plugins/$(p).so)
@@ -40,9 +39,6 @@ endef
 $(foreach p,$(PLUGINS),$(eval PLUGIN_DEPS_$p := $(call go_deps,plugins/$(p)/$(p).go)))
 $(foreach p,$(PROGRAMS),$(eval PLUGIN_DEPS_$p += $(EXTRA_DEPS_$p)))
 $(foreach p,$(PLUGINS),$(eval $(call PLUGIN_template,$(p))))
-
-netns_shim/netns_shim:
-	@cd netns_shim && make netns_shim
 
 .PHONY: gen
 gen:
