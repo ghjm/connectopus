@@ -159,13 +159,6 @@ int setup_networking(char *tun_name, struct sockaddr_in6 ipaddr) {
         errExit("adding IPv6 default gateway", true);
     }
 
-//    struct sockaddr_in *addr = (struct sockaddr_in *)&rt4.rt_dst;
-//    addr->sin_family=AF_INET;
-//    addr->sin_addr.s_addr=INADDR_ANY;
-//    rt4.rt_dev = "tun9";
-//    rt4.rt_flags = RTF_UP | RTF_GATEWAY;
-//    rt4.rt_metric = 1;
-
     close(sock4fd);
     close(sockfd);
 
