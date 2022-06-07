@@ -39,7 +39,7 @@ func checkPacket(pkt []byte, port int, message string) bool {
 	return false
 }
 
-func TestTun(t *testing.T) {
+func TestAsRootTun(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
