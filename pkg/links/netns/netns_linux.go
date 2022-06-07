@@ -18,10 +18,22 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
+var linkReadyMessage = "netns_shim link ready\n"
+
+type newParams struct {
+	shimBin string
+}
+
 // New creates a new Linux network namespace based network stack
-func New(ctx context.Context, addr net.IP) (*Link, error) {
+func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, error) {
+	params := &newParams{}
+	for _, mod := range mods {
+		mod(params)
+	}
+
 	ns := &Link{}
 
 	// Create the socketpair
@@ -32,19 +44,25 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 	ns.shimFd = fds[0]
 
 	// Run the command
-	var myExec string
-	myExec, err = os.Executable()
-	if err != nil {
-		return nil, err
+	myExec := params.shimBin
+	if myExec == "" {
+		myExec, err = os.Executable()
+		if err != nil {
+			return nil, err
+		}
 	}
-	cmd := exec.Command(myExec, "netns_shim", "--fd", "3", "--tunif", "nstun",
+	cmd := exec.CommandContext(ctx, myExec, "netns_shim", "--fd", "3", "--tunif", "nstun",
 		"--addr", fmt.Sprintf("%s/128", addr.String()))
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Unshareflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER | syscall.CLONE_NEWNET | syscall.CLONE_NEWUTS,
 		UidMappings:  []syscall.SysProcIDMap{{ContainerID: 0, HostID: unix.Getuid(), Size: 1}},
 	}
 	cmd.Stdin = nil
-	cmd.Stdout = nil
+	var stdout io.ReadCloser
+	stdout, err = cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
 	var stderr io.ReadCloser
 	stderr, err = cmd.StderrPipe()
 	if err != nil {
@@ -75,6 +93,26 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 		_ = cmd.Wait()
 	}()
 
+	// Stdout handling
+	chanReady := make(chan struct{})
+	go func() {
+		closed := false
+		sr := bufio.NewReader(stdout)
+		for {
+			s, rerr := sr.ReadString('\n')
+			if rerr != nil {
+				return
+			}
+			if !closed && s == linkReadyMessage {
+				log.Debugf("got link ready message")
+				closed = true
+				close(chanReady)
+			} else {
+				log.Debugf("netns_shim: %s", s)
+			}
+		}
+	}()
+
 	// Stderr handling
 	go func() {
 		sr := bufio.NewReader(stderr)
@@ -91,7 +129,22 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 	ns.Publisher = *packet_publisher.New(ctx, os.NewFile(uintptr(ns.shimFd), "socket"),
 		chanreader.WithBufferSize(1500))
 
+	// Try not to return until the link is actually ready
+	select {
+	case <-ctx.Done():
+	case <-chanReady:
+	case <-time.After(time.Second):
+		log.Warnf("netns_shim slow to initialize")
+	}
+	log.Warnf("select done")
 	return ns, nil
+}
+
+// WithShimBin sets the path to the netns_shim binary.  Used for testing - normal users do not need this.
+func WithShimBin(shimBin string) func(*newParams) {
+	return func(p *newParams) {
+		p.shimBin = shimBin
+	}
 }
 
 func (ns *Link) SendPacket(packet []byte) error {
@@ -104,8 +157,8 @@ func (ns *Link) PID() int {
 }
 
 func RunShim(fd int, tunif string, addr string) error {
-
 	// Bring up the lo interface
+	_, _ = fmt.Printf("bringing up lo\n")
 	lo, err := netlink.LinkByName("lo")
 	if err != nil {
 		return fmt.Errorf("error opening lo: %v", err)
@@ -116,6 +169,7 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Create the tun interface
+	_, _ = fmt.Printf("creating tun if\n")
 	var tun *water.Interface
 	tun, err = water.New(water.Config{
 		DeviceType: water.TUN,
@@ -129,6 +183,7 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Set the tun interface address
+	_, _ = fmt.Printf("setting tun if address\n")
 	var tunLink netlink.Link
 	tunLink, err = netlink.LinkByName(tunif)
 	if err != nil {
@@ -145,12 +200,14 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Bring up the tun interface
+	_, _ = fmt.Printf("bringing up tun if\n")
 	err = netlink.LinkSetUp(tunLink)
 	if err != nil {
 		return fmt.Errorf("error bringing up tun: %v", err)
 	}
 
 	// Set the tun interface IPv4 default route
+	_, _ = fmt.Printf("setting tun if ipv4 route\n")
 	err = netlink.RouteAdd(&netlink.Route{
 		LinkIndex: tunLink.Attrs().Index,
 		Scope:     netlink.SCOPE_UNIVERSE,
@@ -165,6 +222,7 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Set the tun interface IPv6 default route
+	_, _ = fmt.Printf("setting tun if ipv6 route\n")
 	err = netlink.RouteAdd(&netlink.Route{
 		LinkIndex: tunLink.Attrs().Index,
 		Scope:     netlink.SCOPE_UNIVERSE,
@@ -177,6 +235,10 @@ func RunShim(fd int, tunif string, addr string) error {
 	if err != nil {
 		return fmt.Errorf("error adding IPv6 route to tun interface: %v", err)
 	}
+
+	// Notify that the link is ready
+	_, _ = fmt.Printf("notifying link ready\n")
+	_, _ = fmt.Print(linkReadyMessage)
 
 	// Copy packets between the tun interface and the provided fd
 	serr := syncro.Var[error]{}

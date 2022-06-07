@@ -73,9 +73,9 @@ jobs:
       - name: Run tests
         run: go test ./... -count=1 -race
 
-      - name: Run root tests as root, only on Linux
+      - name: Run root tests
+        if: runner.os == 'Linux'
         run: |
-          if [ "$(uname -s)" == "Linux" ]; then
-            sudo GOPATH=$HOME/go $(which --skip-tilde go) test ./... -test.run 'TestAsRoot*' -count=1 -race
-          fi
+          make connectopus
+          sudo GOPATH=$HOME/go $(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
 

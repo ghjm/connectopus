@@ -5,24 +5,15 @@ package tun
 import (
 	"context"
 	"fmt"
+	"github.com/ghjm/connectopus/pkg/x/checkroot"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
-	"github.com/syndtr/gocapability/capability"
 	"go.uber.org/goleak"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"math/rand"
 	"net"
-	"os"
 	"testing"
 	"time"
 )
-
-func checkForNetAdmin() bool {
-	c, err := capability.NewPid2(0)
-	if err != nil {
-		return false
-	}
-	return c.Get(capability.EFFECTIVE, capability.CAP_NET_ADMIN)
-}
 
 func checkPacket(pkt []byte, port int, message string) bool {
 	ipkt := header.IPv6(pkt)
@@ -45,7 +36,7 @@ func TestAsRootTun(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if os.Geteuid() != 0 && !checkForNetAdmin() {
+	if !checkroot.CheckRoot() && !checkroot.CheckNetAdmin() {
 		fmt.Printf("Skipping tun link tests due to lack of permissions\n")
 		return
 	}
