@@ -140,12 +140,38 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+var netnsFd int
+var netnsTunIf string
+var netnsAddr string
+var netnsCmd = &cobra.Command{
+	Use:     "netns_shim",
+	Args:    cobra.NoArgs,
+	Version: version.Version(),
+	Hidden:  true,
+	Run: func(cmd *cobra.Command, args []string) {
+		err := netns.RunShim(netnsFd, netnsTunIf, netnsAddr)
+		if err != nil {
+			errHalt(err)
+		}
+	},
+}
+
 func main() {
 	rootCmd.Flags().StringVar(&configFile, "config", "", "Config file name (required)")
 	_ = rootCmd.MarkFlagRequired("config")
 	rootCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
 	_ = rootCmd.MarkFlagRequired("identity")
 	rootCmd.Flags().StringVar(&logLevel, "log-level", "", "Set log level (error/warning/info/debug)")
+
+	netnsCmd.Flags().IntVar(&netnsFd, "fd", 0, "file descriptor")
+	_ = netnsCmd.MarkFlagRequired("fd")
+	netnsCmd.Flags().StringVar(&netnsTunIf, "tunif", "", "tun interface name")
+	_ = netnsCmd.MarkFlagRequired("fd")
+	netnsCmd.Flags().StringVar(&netnsAddr, "addr", "", "ip address")
+	_ = netnsCmd.MarkFlagRequired("addr")
+
+	rootCmd.AddCommand(netnsCmd)
+
 	err := rootCmd.Execute()
 	if err != nil {
 		errHalt(err)

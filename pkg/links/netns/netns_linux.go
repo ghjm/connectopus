@@ -8,15 +8,16 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
 	log "github.com/sirupsen/logrus"
+	"github.com/songgao/water"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	"io"
 	"net"
 	"os"
 	"os/exec"
-	"strconv"
-	"strings"
 	"syscall"
-	"time"
 )
 
 // New creates a new Linux network namespace based network stack
@@ -31,12 +32,19 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 	ns.shimFd = fds[0]
 
 	// Run the command
-	cmd := exec.Command("netns_shim/netns_shim", "-f", "3", "-t", "nstun", "-a", addr.String())
-	var stdout io.ReadCloser
-	stdout, err = cmd.StdoutPipe()
+	var myExec string
+	myExec, err = os.Executable()
 	if err != nil {
 		return nil, err
 	}
+	cmd := exec.Command(myExec, "netns_shim", "--fd", "3", "--tunif", "nstun",
+		"--addr", fmt.Sprintf("%s/128", addr.String()))
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Unshareflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER | syscall.CLONE_NEWNET | syscall.CLONE_NEWUTS,
+		UidMappings:  []syscall.SysProcIDMap{{ContainerID: 0, HostID: unix.Getuid(), Size: 1}},
+	}
+	cmd.Stdin = nil
+	cmd.Stdout = nil
 	var stderr io.ReadCloser
 	stderr, err = cmd.StderrPipe()
 	if err != nil {
@@ -47,6 +55,7 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 	if err != nil {
 		return nil, err
 	}
+	ns.pid = cmd.Process.Pid
 
 	// Clean up fd we're no longer interested in
 	err = syscall.Close(fds[1])
@@ -58,37 +67,12 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 	go func() {
 		<-ctx.Done()
 		_ = cmd.Process.Kill()
-		_ = stdout.Close()
 		_ = stderr.Close()
 	}()
 
 	// Wait for the command (needed to free resources)
 	go func() {
 		_ = cmd.Wait()
-	}()
-
-	// Stdout handling
-	pidch := make(chan int)
-	go func() {
-		defer close(pidch)
-		sr := bufio.NewReader(stdout)
-		for {
-			s, rerr := sr.ReadString('\n')
-			if rerr != nil {
-				return
-			}
-			prefixStr := "Unshared PID: "
-			if strings.HasPrefix(s, prefixStr) {
-				s = strings.TrimPrefix(s, prefixStr)
-				s = strings.TrimSpace(s)
-				pid, serr := strconv.Atoi(s)
-				if serr != nil {
-					return
-				}
-				pidch <- pid
-				return
-			}
-		}
 	}()
 
 	// Stderr handling
@@ -107,17 +91,6 @@ func New(ctx context.Context, addr net.IP) (*Link, error) {
 	ns.Publisher = *packet_publisher.New(ctx, os.NewFile(uintptr(ns.shimFd), "socket"),
 		chanreader.WithBufferSize(1500))
 
-	// Wait for the PID from the shim
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-time.After(5 * time.Second):
-		return nil, fmt.Errorf("timed out waiting for ns_shim to send pid")
-	case pid := <-pidch:
-		ns.pid = pid
-		log.Infof("ns_shim PID is %d", pid)
-	}
-
 	return ns, nil
 }
 
@@ -128,4 +101,105 @@ func (ns *Link) SendPacket(packet []byte) error {
 
 func (ns *Link) PID() int {
 	return ns.pid
+}
+
+func RunShim(fd int, tunif string, addr string) error {
+
+	// Bring up the lo interface
+	lo, err := netlink.LinkByName("lo")
+	if err != nil {
+		return fmt.Errorf("error opening lo: %v", err)
+	}
+	err = netlink.LinkSetUp(lo)
+	if err != nil {
+		return fmt.Errorf("error bringing up lo: %v", err)
+	}
+
+	// Create the tun interface
+	var tun *water.Interface
+	tun, err = water.New(water.Config{
+		DeviceType: water.TUN,
+		PlatformSpecificParams: water.PlatformSpecificParams{
+			Name:    tunif,
+			Persist: true,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("error creating tun interface: %v", err)
+	}
+
+	// Set the tun interface address
+	var tunLink netlink.Link
+	tunLink, err = netlink.LinkByName(tunif)
+	if err != nil {
+		return fmt.Errorf("error opening tun interface: %v", err)
+	}
+	var tunAddr *netlink.Addr
+	tunAddr, err = netlink.ParseAddr(addr)
+	if err != nil {
+		return fmt.Errorf("error parsing IP address: %v", err)
+	}
+	err = netlink.AddrAdd(tunLink, tunAddr)
+	if err != nil {
+		return fmt.Errorf("error adding IP address to tun interface: %v", err)
+	}
+
+	// Bring up the tun interface
+	err = netlink.LinkSetUp(tunLink)
+	if err != nil {
+		return fmt.Errorf("error bringing up tun: %v", err)
+	}
+
+	// Set the tun interface IPv4 default route
+	err = netlink.RouteAdd(&netlink.Route{
+		LinkIndex: tunLink.Attrs().Index,
+		Scope:     netlink.SCOPE_UNIVERSE,
+		Dst: &net.IPNet{
+			IP:   net.ParseIP("0.0.0.0"),
+			Mask: net.CIDRMask(0, 32),
+		},
+		Hoplimit: 30,
+	})
+	if err != nil {
+		return fmt.Errorf("error adding IPv4 route to tun interface: %v", err)
+	}
+
+	// Set the tun interface IPv6 default route
+	err = netlink.RouteAdd(&netlink.Route{
+		LinkIndex: tunLink.Attrs().Index,
+		Scope:     netlink.SCOPE_UNIVERSE,
+		Dst: &net.IPNet{
+			IP:   net.IPv6unspecified,
+			Mask: net.CIDRMask(0, 128),
+		},
+		Hoplimit: 30,
+	})
+	if err != nil {
+		return fmt.Errorf("error adding IPv6 route to tun interface: %v", err)
+	}
+
+	// Copy packets between the tun interface and the provided fd
+	serr := syncro.Var[error]{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	f := os.NewFile(uintptr(fd), "conn")
+	go func() {
+		_, gerr := io.Copy(f, tun)
+		if gerr != nil {
+			serr.Set(gerr)
+		}
+		cancel()
+	}()
+	go func() {
+		_, gerr := io.Copy(tun, f)
+		if gerr != nil {
+			serr.Set(gerr)
+		}
+		cancel()
+	}()
+	<-ctx.Done()
+	err = serr.Get()
+	_ = tun.Close()
+	_ = f.Close()
+	return err
 }

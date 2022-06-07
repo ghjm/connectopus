@@ -19,3 +19,7 @@ func (ns *Link) SendPacket(packet []byte) error {
 func (ns *Link) PID() int {
 	return ns.pid
 }
+
+func RunShim(fd int, tunif string, addr string) error {
+	return fmt.Errorf("not implemented")
+}
