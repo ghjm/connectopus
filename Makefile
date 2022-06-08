@@ -1,21 +1,13 @@
 VERSION_TAG ?= $(shell if VER=`git describe --match "v[0-9]*" --tags 2>/dev/null`; then echo $VER; else echo "v0.0.1"; fi)
 VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
-GCFLAGS ?= -gcflags "all=-N -l"
 OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
+export CGO_ENABLED = 0
 
 PROGRAMS := connectopus cpctl
-ifeq ($(OS),Linux)
-PLUGINS := echo
-endif
-
-PLUGIN_TARGETS := $(foreach p,$(PLUGINS),plugins/$(p).so)
 
 .PHONY: all
-all: $(PROGRAMS) plugins
-
-.PHONY: plugins
-plugins: $(PLUGIN_TARGETS)
+all: $(PROGRAMS)
 
 # go_deps finds all of the non-test/non-generated .go files under the
 # current directory, which are in directories reported as being dependencies
@@ -32,14 +24,6 @@ $(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p := $(call go_deps,cmd/$(p)/$(p).g
 $(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p += $(EXTRA_DEPS_$p)))
 $(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p))))
 
-define PLUGIN_template
-plugins/$(1).so: plugins/$(1)/$(1).go Makefile $(PLUGIN_DEPS_$(1))
-	go build -buildmode=plugin -o plugins/$(1).so $(GCFLAGS) plugins/$(1)/$(1).go
-endef
-$(foreach p,$(PLUGINS),$(eval PLUGIN_DEPS_$p := $(call go_deps,plugins/$(p)/$(p).go)))
-$(foreach p,$(PROGRAMS),$(eval PLUGIN_DEPS_$p += $(EXTRA_DEPS_$p)))
-$(foreach p,$(PLUGINS),$(eval $(call PLUGIN_template,$(p))))
-
 .PHONY: gen
 gen:
 	@go generate ./...
@@ -55,6 +39,10 @@ fmt:
 .PHONY: test
 test:
 	@go test ./... -count=1 -race
+
+.PHONY: test-root
+test-root: connectopus
+	@sudo GOPATH=$$HOME/go $$(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
 
 .PHONY: test-coverage
 test-coverage:
@@ -93,7 +81,7 @@ prod:
 	@docker run -it --rm --platform $(PLATFORM) -v $$PWD:/work \
 		--env BUILD_USER=$$(id -u) --env BUILD_GROUP=$$(id -g)\
 		golang:1.18-bullseye bash -c \
-		'cd /work && make clean && GCFLAGS="" make && chown $$BUILD_USER:$$BUILD_GROUP $(PROGRAMS) $(PLUGIN_TARGETS)'
+		'cd /work && make clean && GCFLAGS="" make && chown $$BUILD_USER:$$BUILD_GROUP $(PROGRAMS)'
 
 # Because we use plugins and therefore cgo, building for arm64 isn't just
 # regular go cross-compilation.  To enable arm64 emulation in Fedora x86-64,
@@ -104,6 +92,6 @@ prod-arm64: prod
 
 .PHONY: clean
 clean:
-	@rm -fv $(PROGRAMS) $(PLUGIN_TARGETS) coverage.html
+	@rm -fv $(PROGRAMS) coverage.html
 	@find . -name Makefile -and -not -path ./Makefile -execdir make clean --no-print-directory \;
 

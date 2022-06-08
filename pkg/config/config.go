@@ -22,7 +22,7 @@ type Node struct {
 	Address    IP          `yaml:"address"`
 	Tun        Tun         `yaml:"tun"`
 	Backends   []Backend   `yaml:"backends"`
-	Plugins    []Plugin    `yaml:"plugins"`
+	Services   []Service   `yaml:"services"`
 	Namespaces []Namespace `yaml:"namespaces"`
 	Cpctl      Cpctl       `yaml:"cpctl"`
 }
@@ -37,9 +37,10 @@ type Backend struct {
 	Params      Params `yaml:"params"`
 }
 
-type Plugin struct {
-	File   string `yaml:"file"`
-	Params Params `yaml:"params"`
+type Service struct {
+	Port       int    `yaml:"port"`
+	Command    string `yaml:"command"`
+	WinCommand string `yaml:"win_command"`
 }
 
 type Namespace struct {

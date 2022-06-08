@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/99designs/gqlgen v0.17.9
 	github.com/Yamashou/gqlgenc v0.0.6
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/pion/dtls/v2 v2.1.3
 	github.com/rainycape/dl v0.0.0-20151222075243-1b01514224a1

@@ -11,7 +11,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/links/tun"
 	"github.com/ghjm/connectopus/pkg/netopus"
-	"github.com/ghjm/connectopus/plugins"
+	"github.com/ghjm/connectopus/pkg/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"net"
@@ -89,8 +89,8 @@ var rootCmd = &cobra.Command{
 				errHalt(err)
 			}
 		}
-		for _, plugin := range node.Plugins {
-			err = plugins.RunPlugin(ctx, plugin.File, n, plugin.Params)
+		for _, service := range node.Services {
+			err = services.RunService(ctx, n, service)
 			if err != nil {
 				errHalt(err)
 			}

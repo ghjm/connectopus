@@ -136,7 +136,6 @@ func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, err
 	case <-time.After(time.Second):
 		log.Warnf("netns_shim slow to initialize")
 	}
-	log.Warnf("select done")
 	return ns, nil
 }
 

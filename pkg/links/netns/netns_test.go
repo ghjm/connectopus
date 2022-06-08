@@ -67,6 +67,9 @@ func TestAsRootNetns(t *testing.T) {
 	}
 	go func() {
 		err = command.Wait()
+		if ctx.Err() != nil {
+			return
+		}
 		if err != nil {
 			t.Error(err)
 		}
