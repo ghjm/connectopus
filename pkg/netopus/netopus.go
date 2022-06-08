@@ -339,18 +339,59 @@ func (n *netopus) netStackReadLoop() {
 	}
 }
 
+func (n *netopus) sendICMPv6Error(origPacket header.IPv6, icmpType header.ICMPv6Type, icmpCode header.ICMPv6Code) {
+	extraSize := header.IPv6MinimumSize + 8
+	if extraSize > len(origPacket) {
+		extraSize = len(origPacket)
+	}
+	replyPkt := header.IPv6(make([]byte, header.IPv6MinimumSize+header.ICMPv6MinimumSize+extraSize))
+	replyPkt.Encode(&header.IPv6Fields{
+		PayloadLength:     uint16(header.ICMPv6MinimumSize + extraSize),
+		TransportProtocol: header.ICMPv6ProtocolNumber,
+		HopLimit:          30,
+		SrcAddr:           tcpip.Address(n.addr),
+		DstAddr:           origPacket.SourceAddress(),
+	})
+	replyICMP := header.ICMPv6(replyPkt.Payload())
+	replyICMP.SetType(icmpType)
+	replyICMP.SetCode(icmpCode)
+	copy(replyICMP[header.ICMPv6MinimumSize:], origPacket[:extraSize])
+	cs := header.Checksumer{}
+	cs.Add(replyICMP.Payload())
+	replyICMP.SetChecksum(header.ICMPv6Checksum(header.ICMPv6ChecksumParams{
+		Header: replyICMP,
+		Src:    replyPkt.SourceAddress(),
+		Dst:    replyPkt.DestinationAddress(),
+	}))
+	_ = n.SendPacket(replyPkt)
+}
+
 // SendPacket sends a single IPv6 packet over the network.
 func (n *netopus) SendPacket(packet []byte) error {
 	if len(packet) < header.IPv6MinimumSize {
 		return fmt.Errorf("malformed packet: too small")
 	}
-	dest := header.IPv6(packet).DestinationAddress()
+	ipv6Pkt := header.IPv6(packet)
+	dest := ipv6Pkt.DestinationAddress()
 	if header.IsV6MulticastAddress(dest) {
 		return nil
 	}
+
+	// Check if we can deliver the packet locally
 	if dest == tcpip.Address(n.addr) {
 		return n.stack.SendPacket(packet)
 	}
+
+	// Packet is being forwarded, so check the hop count
+	limit := ipv6Pkt.HopLimit()
+	if limit <= 1 {
+		// No good - return an ICMPv6 Hop Limit Exceeded
+		n.sendICMPv6Error(ipv6Pkt, header.ICMPv6TimeExceeded, header.ICMPv6HopLimitExceeded)
+		return fmt.Errorf("hop limit expired")
+	}
+	ipv6Pkt.SetHopLimit(limit - 1)
+
+	// Check if this packet is destined to an external route
 	var opf func([]byte) error
 	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
 		for _, r := range *routes {
@@ -363,6 +404,8 @@ func (n *netopus) SendPacket(packet []byte) error {
 	if opf != nil {
 		return opf(packet)
 	}
+
+	// Send the packet to the next hop
 	nextHop := n.router.NextHop(dest.String())
 	if nextHop == "" {
 		log.Debugf("%s: trying to recover from no route to host", n.addr.String())
@@ -371,6 +414,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 		nextHop = n.router.NextHop(dest.String())
 	}
 	if nextHop == "" {
+		n.sendICMPv6Error(ipv6Pkt, header.ICMPv6DstUnreachable, header.ICMPv6NetworkUnreachable)
 		return fmt.Errorf("no route to host: %s", dest.String())
 	}
 	var nextHopSess *protoSession
