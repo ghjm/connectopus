@@ -2,7 +2,6 @@ VERSION_TAG ?= $(shell if VER=`git describe --match "v[0-9]*" --tags 2>/dev/null
 VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
 OS ?= $(shell sh -c 'uname 2>/dev/null || echo Unknown')
-export CGO_ENABLED = 0
 
 PROGRAMS := connectopus cpctl
 

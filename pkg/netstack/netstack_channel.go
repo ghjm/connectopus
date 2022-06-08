@@ -76,7 +76,6 @@ func NewStackChannel(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetSt
 		<-ctx.Done()
 		ns.endpointLock.Lock()
 		defer ns.endpointLock.Unlock()
-		ns.endpoint.Attach(nil)
 		ns.stack.Close()
 		ns.endpoint.Wait()
 	}()
