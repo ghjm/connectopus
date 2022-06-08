@@ -1,5 +1,6 @@
 type Query {
   netns(filter: NetnsFilter): [NetnsResult!]!
+  status: Status!
 }
 
 type Mutation {
@@ -20,3 +21,31 @@ type DummyResult {
   mutationId: ID!
 }
 
+type Status {
+  name: String!
+  addr: String!
+  NodeNames: [StatusNodeName!]!
+  RouterNodes: [StatusRouterNode!]!
+  Sessions: [StatusSession!]!
+}
+
+type StatusNodeName {
+  addr: String!
+  name: String!
+}
+
+type StatusRouterNode {
+  node: String!
+  peers: [StatusRouterNodePeer!]!
+}
+
+type StatusRouterNodePeer {
+  node: String!
+  cost: Float!
+}
+
+type StatusSession{
+  addr: String!
+  connected: Boolean!
+  conn_start: String!
+}

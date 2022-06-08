@@ -59,7 +59,7 @@ var rootCmd = &cobra.Command{
 		subnet := net.IPNet(config.Global.Subnet)
 		addr := net.IP(node.Address)
 		var n netopus.Netopus
-		n, err = netopus.NewNetopus(ctx, &subnet, addr)
+		n, err = netopus.New(ctx, subnet, addr, identity)
 		if err != nil {
 			errHalt(err)
 		}
@@ -119,7 +119,8 @@ var rootCmd = &cobra.Command{
 		}
 		if node.Cpctl.Enable {
 			csrv := cpctl.Resolver{
-				NsReg: nsreg,
+				NsReg:             nsreg,
+				NetopusStatusFunc: func() *netopus.Status { return n.Status() },
 			}
 			socketFile := path.Join(os.Getenv("HOME"), ".local", "share", "connectopus", "cpctl.sock")
 			if node.Cpctl.SocketFile != "" {

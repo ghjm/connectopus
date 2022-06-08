@@ -30,6 +30,7 @@ type InitMsg struct {
 // RoutingUpdate is a message type carrying routing information
 type RoutingUpdate struct {
 	Origin         net.IP
+	NodeName       string
 	UpdateEpoch    uint64
 	UpdateSequence uint64
 	Connections    RoutingConnections

@@ -1,0 +1,22 @@
+query GetStatus {
+  status {
+    name
+    addr
+    NodeNames {
+      addr
+      name
+    }
+    RouterNodes {
+      node
+      peers {
+        node
+        cost
+      }
+    }
+    Sessions {
+      addr
+      connected
+      conn_start
+    }
+  }
+}

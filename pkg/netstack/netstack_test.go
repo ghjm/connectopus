@@ -21,13 +21,13 @@ func testNetstackSubscribe(t *testing.T, stackBuilder NewStackFunc) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	subnet := &net.IPNet{
-		IP:   net.ParseIP("FD00::0"),
-		Mask: net.CIDRMask(8, 8*net.IPv6len),
-	}
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns, err := stackBuilder(ctx, subnet, localIP)
+	subnet := net.IPNet{
+		IP:   localIP,
+		Mask: net.CIDRMask(8, 8*net.IPv6len),
+	}
+	ns, err := stackBuilder(ctx, subnet)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}
@@ -96,13 +96,13 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	subnet := &net.IPNet{
-		IP:   net.ParseIP("FD00::0"),
-		Mask: net.CIDRMask(8, 8*net.IPv6len),
-	}
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns, err := stackBuilder(ctx, subnet, localIP)
+	subnet := net.IPNet{
+		IP:   localIP,
+		Mask: net.CIDRMask(8, 8*net.IPv6len),
+	}
+	ns, err := stackBuilder(ctx, subnet)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}
@@ -180,12 +180,12 @@ func testNetstack(t *testing.T, stackBuilder NewStackFunc) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	subnet := &net.IPNet{
-		IP:   net.ParseIP("FD00::0"),
+	localIP := net.ParseIP("FD00::1")
+	subnet := net.IPNet{
+		IP:   localIP,
 		Mask: net.CIDRMask(8, 8*net.IPv6len),
 	}
-	localIP := net.ParseIP("FD00::1")
-	ns, err := stackBuilder(ctx, subnet, localIP)
+	ns, err := stackBuilder(ctx, subnet)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}

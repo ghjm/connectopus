@@ -29,25 +29,21 @@ type Router[T ~string] interface {
 
 	// UnsubscribeUpdates unsubscribes a previously subscribed updates channel
 	UnsubscribeUpdates(ch <-chan map[T]T)
+
+	// Nodes returns a copy of the nodes and connections known to the router
+	Nodes() map[T]map[T]float32
 }
 
 // Implements Router[T]
 type router[T ~string] struct {
 	ctx           context.Context
 	myNode        T
-	nodes         map[T]map[T]float32
+	nodes         syncro.Map[T, map[T]float32]
 	policy        syncro.Map[T, T]
-	updateChan    chan nodeUpdate[T]
-	removeChan    chan T
 	updateWait    time.Duration
 	tr            timerunner.TimeRunner
 	zeroNode      T
 	updatesBroker broker.Broker[map[T]T]
-}
-
-type nodeUpdate[T ~string] struct {
-	node  T
-	conns map[T]float32
 }
 
 // New returns a new router.  UpdateWait specifies the maximum time after an UpdateNode that a recalculation should occur.
@@ -55,124 +51,110 @@ func New[T ~string](ctx context.Context, myNode T, updateWait time.Duration) Rou
 	r := &router[T]{
 		ctx:           ctx,
 		myNode:        myNode,
-		nodes:         make(map[T]map[T]float32),
+		nodes:         syncro.Map[T, map[T]float32]{},
 		policy:        syncro.Map[T, T]{},
-		updateChan:    make(chan nodeUpdate[T]),
-		removeChan:    make(chan T),
 		updateWait:    updateWait,
 		zeroNode:      *new(T),
 		updatesBroker: broker.New[map[T]T](ctx),
 	}
-	// updateNode and removeNode are run within the timerunner goroutine, to avoid the need for locks/mutexes
-	r.tr = timerunner.New(ctx, r.recalculate,
-		timerunner.EventChan(r.updateChan, r.updateNode),
-		timerunner.EventChan(r.removeChan, r.removeNode),
-	)
+	r.tr = timerunner.New(ctx, r.recalculate)
 	return r
-}
-
-func (r *router[T]) updateNode(u nodeUpdate[T]) {
-	if reflect.DeepEqual(r.nodes[u.node], u.conns) {
-		return
-	}
-	r.nodes[u.node] = u.conns
-	r.tr.RunWithin(r.updateWait)
 }
 
 func (r *router[T]) UpdateNode(node T, conns map[T]float32) {
 	if node == r.zeroNode {
 		panic("router node cannot be empty string")
 	}
-	select {
-	case <-r.ctx.Done():
-		return
-	case r.updateChan <- nodeUpdate[T]{
-		node:  node,
-		conns: conns,
-	}:
-	}
+	r.nodes.WorkWith(func(_n *map[T]map[T]float32) {
+		nodes := *_n
+		if reflect.DeepEqual(nodes[node], conns) {
+			return
+		}
+		nodes[node] = conns
+		r.tr.RunWithin(r.updateWait)
+	})
 }
 
-func (r *router[T]) removeNode(node T) {
-	delete(r.nodes, node)
-	r.tr.RunWithin(r.updateWait)
-}
-
-func (r *router[NT]) RemoveNode(node NT) {
-	select {
-	case <-r.ctx.Done():
-		return
-	case r.removeChan <- node:
-	}
+func (r *router[T]) RemoveNode(node T) {
+	r.nodes.WorkWith(func(_n *map[T]map[T]float32) {
+		nodes := *_n
+		_, ok := nodes[node]
+		if ok {
+			delete(nodes, node)
+			r.tr.RunWithin(r.updateWait)
+		}
+	})
 }
 
 // recalculate uses Dijkstra's algorithm to produce a routing policy
 func (r *router[T]) recalculate() {
-	Q := priorityQueue.New()
-	Q.Insert(r.myNode, 0.0)
-	cost := make(map[T]float32)
-	prev := make(map[T]T)
-	allNodes := make(map[T]struct{})
-	for node := range r.nodes {
-		allNodes[node] = struct{}{}
-		for conn := range r.nodes[node] {
-			allNodes[conn] = struct{}{}
-		}
-	}
-	for node := range allNodes {
-		if node == r.myNode {
-			cost[node] = 0.0
-		} else {
-			cost[node] = math.MaxFloat32
-		}
-		prev[node] = r.zeroNode
-		Q.Insert(node, float64(cost[node]))
-	}
-	for Q.Len() > 0 {
-		nodeIf, _ := Q.Pop()
-		node := nodeIf.(T)
-		for neighbor, edgeCost := range r.nodes[node] {
-			pathCost := cost[node] + edgeCost
-			if pathCost < cost[neighbor] {
-				cost[neighbor] = pathCost
-				prev[neighbor] = node
-				Q.Insert(neighbor, float64(pathCost))
+	r.nodes.WorkWithReadOnly(func(nodes map[T]map[T]float32) {
+		Q := priorityQueue.New()
+		Q.Insert(r.myNode, 0.0)
+		cost := make(map[T]float32)
+		prev := make(map[T]T)
+		allNodes := make(map[T]struct{})
+		for node := range nodes {
+			allNodes[node] = struct{}{}
+			for conn := range nodes[node] {
+				allNodes[conn] = struct{}{}
 			}
 		}
-	}
-	newPolicy := make(map[T]T)
-	for dest := range allNodes {
-		p := dest
-		for {
-			if prev[p] == r.myNode {
-				newPolicy[dest] = p
-				break
-			} else if prev[p] == r.zeroNode {
-				break
+		for node := range allNodes {
+			if node == r.myNode {
+				cost[node] = 0.0
+			} else {
+				cost[node] = math.MaxFloat32
 			}
-			p = prev[p]
+			prev[node] = r.zeroNode
+			Q.Insert(node, float64(cost[node]))
 		}
-	}
-	changed := false
-	r.policy.WorkWith(func(policy *map[T]T) {
-		if len(*policy) != len(newPolicy) {
-			changed = true
-		} else {
-			for k, v := range *policy {
-				nv, ok := newPolicy[k]
-				if !ok || nv != v {
-					changed = true
-					break
+		for Q.Len() > 0 {
+			nodeIf, _ := Q.Pop()
+			node := nodeIf.(T)
+			for neighbor, edgeCost := range nodes[node] {
+				pathCost := cost[node] + edgeCost
+				if pathCost < cost[neighbor] {
+					cost[neighbor] = pathCost
+					prev[neighbor] = node
+					Q.Insert(neighbor, float64(pathCost))
 				}
 			}
 		}
+		newPolicy := make(map[T]T)
+		for dest := range allNodes {
+			p := dest
+			for {
+				if prev[p] == r.myNode {
+					newPolicy[dest] = p
+					break
+				} else if prev[p] == r.zeroNode {
+					break
+				}
+				p = prev[p]
+			}
+		}
+		changed := false
+		r.policy.WorkWith(func(policy *map[T]T) {
+			if len(*policy) != len(newPolicy) {
+				changed = true
+			} else {
+				for k, v := range *policy {
+					nv, ok := newPolicy[k]
+					if !ok || nv != v {
+						changed = true
+						break
+					}
+				}
+			}
+			if changed {
+				*policy = newPolicy
+			}
+		})
 		if changed {
-			*policy = newPolicy
+			r.updatesBroker.Publish(newPolicy)
 		}
 	})
-	if changed {
-		r.updatesBroker.Publish(newPolicy)
-	}
 }
 
 func (r *router[T]) NextHop(dest T) T {
@@ -189,4 +171,17 @@ func (r *router[T]) SubscribeUpdates() <-chan map[T]T {
 
 func (r *router[T]) UnsubscribeUpdates(ch <-chan map[T]T) {
 	r.updatesBroker.Unsubscribe(ch)
+}
+
+func (r *router[T]) Nodes() map[T]map[T]float32 {
+	nodesCopy := make(map[T]map[T]float32)
+	r.nodes.WorkWithReadOnly(func(nodes map[T]map[T]float32) {
+		for k, v := range nodes {
+			nodesCopy[k] = make(map[T]float32)
+			for k2, v2 := range v {
+				nodesCopy[k][k2] = v2
+			}
+		}
+	})
+	return nodesCopy
 }

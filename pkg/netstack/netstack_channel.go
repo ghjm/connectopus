@@ -29,15 +29,12 @@ type netStackChannel struct {
 }
 
 // NewStackChannel creates a new network stack
-func NewStackChannel(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetStack, error) {
-	if len(addr) != net.IPv6len || len(subnet.IP) != net.IPv6len {
-		return nil, fmt.Errorf("subnet and address must be ipv6")
-	}
-	if !subnet.Contains(addr) {
-		return nil, fmt.Errorf("%s is not in the subnet %s", addr.String(), subnet.String())
+func NewStackChannel(ctx context.Context, addr net.IPNet) (NetStack, error) {
+	if len(addr.IP) != net.IPv6len {
+		return nil, fmt.Errorf("address must be ipv6")
 	}
 	ns := &netStackChannel{
-		addr:         addr,
+		addr:         addr.IP,
 		packetBroker: broker.New[[]byte](ctx),
 	}
 	ns.stack = stack.New(stack.Options{
@@ -55,15 +52,16 @@ func NewStackChannel(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetSt
 		tcpip.ProtocolAddress{
 			Protocol: ipv6.ProtocolNumber,
 			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(addr),
+				Address:   tcpip.Address(addr.IP),
 				PrefixLen: 128,
 			},
 		},
 		stack.AddressProperties{},
 	)
-	maskOnes, _ := subnet.Mask.Size()
+	maskOnes, _ := addr.Mask.Size()
+	tcpip.Address(addr.IP).WithPrefix()
 	localNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(subnet.IP),
+		Address:   tcpip.Address(addr.IP),
 		PrefixLen: maskOnes,
 	}
 	ns.stack.AddRoute(tcpip.Route{

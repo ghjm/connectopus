@@ -67,11 +67,11 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 			return nil, fmt.Errorf("duplicate address in spec")
 		}
 		usedAddrs[addrStr] = struct{}{}
-		subnet := &net.IPNet{
+		subnet := net.IPNet{
 			IP:   net.ParseIP("FD00::0"),
 			Mask: net.CIDRMask(8, 8*net.IPv6len),
 		}
-		n, err := NewNetopus(ctx, subnet, spec.Address)
+		n, err := New(ctx, subnet, spec.Address, "test")
 		if err != nil {
 			return nil, err
 		}

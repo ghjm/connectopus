@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/cpctl"
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slices"
 	"os"
 	"os/exec"
 	"path"
 	"strconv"
+	"strings"
 )
 
 func errExit(err error) {
@@ -20,6 +22,122 @@ var socketFile string
 var rootCmd = &cobra.Command{
 	Use:   "cpctl",
 	Short: "CLI for Connectopus",
+}
+
+func formatNode(addr string, nodeNames map[string]string) string {
+	name := nodeNames[addr]
+	if name == "" {
+		return fmt.Sprintf("[%s]", addr)
+	} else {
+		return fmt.Sprintf("%s [%s]", name, addr)
+	}
+}
+
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Get status",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		client, err := cpctl.NewSocketClient(socketFile)
+		if err != nil {
+			errExit(err)
+		}
+		var status *cpctl.GetStatus
+		status, err = client.GetStatus(context.Background())
+		if err != nil {
+			errExit(err)
+		}
+		if status == nil {
+			errExit(fmt.Errorf("no status returned"))
+		}
+		fmt.Printf("Node: %s [%s]\n", status.Status.Name, status.Status.Addr)
+		nodeNames := make(map[string]string)
+		if status.Status.NodeNames != nil {
+			for _, nn := range status.Status.NodeNames {
+				nodeNames[nn.Addr] = nn.Name
+			}
+		}
+		if status.Status.Sessions != nil {
+			fmt.Printf("  Sessions:\n")
+			slices.SortFunc(status.Status.Sessions, func(a, b *cpctl.GetStatus_Status_Sessions) bool {
+				if b == nil {
+					return false
+				}
+				if a == nil {
+					return true
+				}
+				return a.Addr < b.Addr
+			})
+			for _, sess := range status.Status.Sessions {
+				if sess != nil {
+					sessName := formatNode(sess.Addr, nodeNames)
+					if sess.Connected {
+						fmt.Printf("    %s (Connected since %s)\n", sessName, sess.ConnStart)
+					} else {
+						fmt.Printf("    %s (Disconnected)\n", sessName)
+					}
+				}
+			}
+		}
+		if status.Status.RouterNodes != nil {
+			fmt.Printf("  Routing Table:\n")
+			slices.SortFunc(status.Status.RouterNodes, func(a, b *cpctl.GetStatus_Status_RouterNodes) bool {
+				switch {
+				case b == nil:
+					return false
+				case a == nil:
+					return true
+				}
+				nna, aok := nodeNames[a.Node]
+				if nna == "" {
+					aok = false
+				}
+				nnb, bok := nodeNames[b.Node]
+				if nnb == "" {
+					bok = false
+				}
+				switch {
+				case aok && !bok:
+					return true
+				case !aok && bok:
+					return false
+				}
+				return a.Node < b.Node
+			})
+			for _, node := range status.Status.RouterNodes {
+				if node != nil {
+					slices.SortFunc(node.Peers, func(a, b *cpctl.GetStatus_Status_RouterNodes_Peers) bool {
+						switch {
+						case b == nil:
+							return false
+						case a == nil:
+							return true
+						}
+						nna, aok := nodeNames[a.Node]
+						if nna == "" {
+							aok = false
+						}
+						nnb, bok := nodeNames[b.Node]
+						if nnb == "" {
+							bok = false
+						}
+						switch {
+						case aok && !bok:
+							return true
+						case !aok && bok:
+							return false
+						}
+						return a.Node < b.Node
+					})
+					peerList := make([]string, 0)
+					for _, p := range node.Peers {
+						peerList = append(peerList, fmt.Sprintf("%s (%.2f)", formatNode(p.Node, nodeNames), p.Cost))
+					}
+					fmt.Printf("    %s --> %s\n", formatNode(node.Node, nodeNames), strings.Join(peerList, ", "))
+				}
+			}
+		}
+	},
 }
 
 var namespaceName string
@@ -88,7 +206,7 @@ func main() {
 		"Socket file to communicate with Connectopus")
 
 	nsenterCmd.Flags().StringVar(&namespaceName, "netns", "", "Name of network namespace")
-	rootCmd.AddCommand(nsenterCmd)
+	rootCmd.AddCommand(statusCmd, nsenterCmd)
 
 	err := rootCmd.Execute()
 	if err != nil {

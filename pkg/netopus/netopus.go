@@ -25,6 +25,7 @@ type Netopus interface {
 	backends.ProtocolRunner
 	netstack.UserStack
 	ExternalRouter
+	StatusGetter
 }
 
 // ExternalRouter is a device that can accept and send packets to external routes
@@ -37,10 +38,30 @@ type ExternalRouter interface {
 	SendPacket(packet []byte) error
 }
 
+type StatusGetter interface {
+	Status() *Status
+}
+
+// Status is returned by netopus.Status()
+type Status struct {
+	Name        string
+	Addr        net.IP
+	NodeNames   map[string]string
+	RouterNodes map[string]map[string]float32
+	Sessions    map[string]SessionStatus
+}
+
+// SessionStatus represents the status of a single session
+type SessionStatus struct {
+	Connected bool
+	ConnStart time.Time
+}
+
 // netopus implements Netopus
 type netopus struct {
 	ctx            context.Context
 	addr           net.IP
+	name           string
 	stack          netstack.NetStack
 	router         router.Router[string]
 	sessionInfo    syncro.Var[sessInfo]
@@ -75,22 +96,27 @@ type protoSession struct {
 
 // nodeInfo represents known information about a node
 type nodeInfo struct {
+	name     string
 	epoch    uint64
 	sequence uint64
 }
 
-// NewNetopus constructs and returns a new network node on a given address
-func NewNetopus(ctx context.Context, subnet *net.IPNet, addr net.IP) (Netopus, error) {
+// New constructs and returns a new network node on a given address
+func New(ctx context.Context, subnet net.IPNet, addr net.IP, name string) (Netopus, error) {
 	if len(addr) != net.IPv6len || len(subnet.IP) != net.IPv6len {
 		return nil, fmt.Errorf("subnet and address must be IPv6")
 	}
-	stack, err := netstack.NewStackDefault(ctx, subnet, addr)
+	stack, err := netstack.NewStackDefault(ctx, net.IPNet{
+		IP:   addr,
+		Mask: subnet.Mask,
+	})
 	if err != nil {
 		return nil, err
 	}
 	n := &netopus{
 		ctx:           ctx,
 		addr:          addr,
+		name:          name,
 		stack:         stack,
 		router:        router.New(ctx, addr.String(), 100*time.Millisecond),
 		sessionInfo:   syncro.NewVar(make(sessInfo)),
@@ -481,6 +507,7 @@ func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, err
 	})
 	up := &proto.RoutingUpdate{
 		Origin:      n.addr,
+		NodeName:    n.name,
 		UpdateEpoch: n.epoch,
 		Connections: conns,
 	}
@@ -516,11 +543,38 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 		}
 		retval = true
 		(*knownNodeInfo)[origin] = nodeInfo{
+			name:     r.NodeName,
 			epoch:    r.UpdateEpoch,
 			sequence: r.UpdateSequence,
 		}
 	})
 	return retval
+}
+
+// Status returns status of the Netopus instance
+func (n *netopus) Status() *Status {
+	s := Status{
+		Name: n.name,
+		Addr: n.addr,
+	}
+	s.NodeNames = make(map[string]string)
+	s.NodeNames[n.addr.String()] = n.name
+	n.knownNodeInfo.WorkWithReadOnly(func(kn map[string]nodeInfo) {
+		for k, v := range kn {
+			s.NodeNames[k] = v.name
+		}
+	})
+	s.RouterNodes = n.router.Nodes()
+	s.Sessions = make(map[string]SessionStatus)
+	n.sessionInfo.WorkWithReadOnly(func(si *sessInfo) {
+		for k, v := range *si {
+			s.Sessions[k] = SessionStatus{
+				Connected: v.connected.Get(),
+				ConnStart: v.connStart,
+			}
+		}
+	})
+	return &s
 }
 
 // DialTCP implements netstack.UserStack

@@ -30,19 +30,16 @@ type netStackFdbased struct {
 }
 
 // NewStackFdbased creates a new fdbased network stack
-func NewStackFdbased(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetStack, error) {
-	if len(addr) != net.IPv6len || len(subnet.IP) != net.IPv6len {
-		return nil, fmt.Errorf("subnet and address must be ipv6")
-	}
-	if !subnet.Contains(addr) {
-		return nil, fmt.Errorf("%s is not in the subnet %s", addr.String(), subnet.String())
+func NewStackFdbased(ctx context.Context, addr net.IPNet) (NetStack, error) {
+	if len(addr.IP) != net.IPv6len {
+		return nil, fmt.Errorf("address must be ipv6")
 	}
 	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_SEQPACKET, 0)
 	if err != nil {
 		return nil, err
 	}
 	ns := &netStackFdbased{
-		addr:         addr,
+		addr:         addr.IP,
 		packetBroker: broker.New[[]byte](ctx),
 		fds:          fds,
 	}
@@ -72,15 +69,15 @@ func NewStackFdbased(ctx context.Context, subnet *net.IPNet, addr net.IP) (NetSt
 		tcpip.ProtocolAddress{
 			Protocol: ipv6.ProtocolNumber,
 			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(addr),
+				Address:   tcpip.Address(addr.IP),
 				PrefixLen: 128,
 			},
 		},
 		stack.AddressProperties{},
 	)
-	maskOnes, _ := subnet.Mask.Size()
+	maskOnes, _ := addr.Mask.Size()
 	localNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(subnet.IP),
+		Address:   tcpip.Address(addr.IP),
 		PrefixLen: maskOnes,
 	}
 	ns.stack.AddRoute(tcpip.Route{

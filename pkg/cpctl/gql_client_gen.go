@@ -18,7 +18,8 @@ func NewClient(cli *http.Client, baseURL string, interceptors ...clientv2.Reques
 }
 
 type Query struct {
-	Netns []*NetnsResult "json:\"netns\" graphql:\"netns\""
+	Netns  []*NetnsResult "json:\"netns\" graphql:\"netns\""
+	Status Status         "json:\"status\" graphql:\"status\""
 }
 type Mutation struct {
 	Dummy DummyResult "json:\"dummy\" graphql:\"dummy\""
@@ -27,8 +28,35 @@ type GetNetns_Netns struct {
 	Name string "json:\"name\" graphql:\"name\""
 	Pid  int    "json:\"pid\" graphql:\"pid\""
 }
+type GetStatus_Status_NodeNames struct {
+	Addr string "json:\"addr\" graphql:\"addr\""
+	Name string "json:\"name\" graphql:\"name\""
+}
+type GetStatus_Status_RouterNodes_Peers struct {
+	Node string  "json:\"node\" graphql:\"node\""
+	Cost float64 "json:\"cost\" graphql:\"cost\""
+}
+type GetStatus_Status_RouterNodes struct {
+	Node  string                                "json:\"node\" graphql:\"node\""
+	Peers []*GetStatus_Status_RouterNodes_Peers "json:\"peers\" graphql:\"peers\""
+}
+type GetStatus_Status_Sessions struct {
+	Addr      string "json:\"addr\" graphql:\"addr\""
+	Connected bool   "json:\"connected\" graphql:\"connected\""
+	ConnStart string "json:\"conn_start\" graphql:\"conn_start\""
+}
+type GetStatus_Status struct {
+	Name        string                          "json:\"name\" graphql:\"name\""
+	Addr        string                          "json:\"addr\" graphql:\"addr\""
+	NodeNames   []*GetStatus_Status_NodeNames   "json:\"NodeNames\" graphql:\"NodeNames\""
+	RouterNodes []*GetStatus_Status_RouterNodes "json:\"RouterNodes\" graphql:\"RouterNodes\""
+	Sessions    []*GetStatus_Status_Sessions    "json:\"Sessions\" graphql:\"Sessions\""
+}
 type GetNetns struct {
 	Netns []*GetNetns_Netns "json:\"netns\" graphql:\"netns\""
+}
+type GetStatus struct {
+	Status GetStatus_Status "json:\"status\" graphql:\"status\""
 }
 
 const GetNetnsDocument = `query GetNetns ($name: String) {
@@ -46,6 +74,41 @@ func (c *Client) GetNetns(ctx context.Context, name *string, interceptors ...cli
 
 	var res GetNetns
 	if err := c.Client.Post(ctx, "GetNetns", GetNetnsDocument, &res, vars, interceptors...); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const GetStatusDocument = `query GetStatus {
+	status {
+		name
+		addr
+		NodeNames {
+			addr
+			name
+		}
+		RouterNodes {
+			node
+			peers {
+				node
+				cost
+			}
+		}
+		Sessions {
+			addr
+			connected
+			conn_start
+		}
+	}
+}
+`
+
+func (c *Client) GetStatus(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetStatus, error) {
+	vars := map[string]interface{}{}
+
+	var res GetStatus
+	if err := c.Client.Post(ctx, "GetStatus", GetStatusDocument, &res, vars, interceptors...); err != nil {
 		return nil, err
 	}
 
