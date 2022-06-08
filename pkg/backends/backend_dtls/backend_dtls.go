@@ -53,7 +53,6 @@ func (b *dtlsBackend) SetWriteDeadline(t time.Time) error {
 }
 
 func getDtlsConfig(ctx context.Context) *dtls.Config {
-	// TODO: certificates
 	return &dtls.Config{
 		PSK: func(hint []byte) ([]byte, error) {
 			return []byte{0xAB, 0xC1, 0x23}, nil
@@ -79,9 +78,8 @@ func RunDialer(ctx context.Context, pr backends.ProtocolRunner, destAddr net.IP,
 			<-ctx.Done()
 			_ = conn.Close()
 		}()
-		// TODO: get MTU from transport layer
 		return &dtlsBackend{
-			mtu:  1200,
+			mtu:  1400,
 			conn: conn,
 		}, nil
 	})
@@ -117,9 +115,8 @@ func RunListener(ctx context.Context, pr backends.ProtocolRunner, listenPort uin
 			<-ctx.Done()
 			_ = conn.Close()
 		}()
-		// TODO: get MTU from transport
 		return &dtlsBackend{
-			mtu:  1200,
+			mtu:  1400,
 			conn: conn.(*dtls.Conn),
 		}, nil
 	})

@@ -37,7 +37,7 @@ var nsenterCmd = &cobra.Command{
 			nsName = nil
 		}
 		var list *cpctl.GetNetns
-		list, err = client.GetNetns(context.TODO(), nsName)
+		list, err = client.GetNetns(context.Background(), nsName)
 		if err != nil {
 			errExit(err)
 		}
@@ -62,7 +62,6 @@ var nsenterCmd = &cobra.Command{
 			}
 			args = []string{shell}
 		}
-		//TODO: do this in Go code rather than shelling out to nsenter
 		args = append([]string{"--preserve-credentials", "--user", "--mount", "--net",
 			"--uts", "-t", strconv.Itoa(pid)}, args...)
 		command := exec.Command("nsenter", args...)
