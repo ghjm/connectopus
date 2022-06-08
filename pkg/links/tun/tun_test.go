@@ -31,10 +31,10 @@ func checkPacket(pkt []byte, port int, message string) bool {
 }
 
 func TestAsRootTun(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
-	goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	rand.Seed(time.Now().UnixNano())
 
 	if !checkroot.CheckRoot() && !checkroot.CheckNetAdmin() {
 		fmt.Printf("Skipping tun link tests due to lack of permissions\n")
