@@ -8,6 +8,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/netstack"
 	"go.uber.org/goleak"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -57,7 +58,7 @@ func TestService(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			if s != message {
+			if strings.TrimSpace(s) != strings.TrimSpace(message) {
 				t.Error("received message did not match sent")
 				return
 			}
