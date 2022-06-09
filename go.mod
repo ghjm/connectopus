@@ -3,8 +3,10 @@ module github.com/ghjm/connectopus
 go 1.18
 
 require (
+	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121
 	github.com/99designs/gqlgen v0.17.9
 	github.com/Yamashou/gqlgenc v0.0.6
+	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/pion/dtls/v2 v2.1.3
@@ -16,6 +18,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.4.4
 	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/goleak v1.1.12
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
@@ -39,7 +42,6 @@ require (
 	github.com/urfave/cli/v2 v2.8.1 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.1.10 // indirect
