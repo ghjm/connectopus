@@ -1,4 +1,4 @@
-# Connectopus
+![Connectopus](./docs/logo.png)
 
 ### What is this
 
