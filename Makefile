@@ -4,7 +4,8 @@ LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(
 
 PROGRAMS := connectopus cpctl
 UI_DEP := internal/ui_embed/embed/dist/main.bundle.js
-EXTRA_DEPS_connectopus := $(UI_DEP)
+NPM_DEP := ui/node_modules/rimraf/rimraf.js
+EXTRA_DEPS_connectopus := $(UI_DEP) $(NPM_DEP)
 
 .PHONY: all
 all: $(PROGRAMS) $(UI_DEP)
@@ -74,10 +75,13 @@ ctun:
 version:
 	@echo "$(VERSION)"
 
+$(NPM_DEP):
+	@cd ui && npm ci --legacy-peer-deps
+
 .PHONY: ui
 ui: $(UI_DEP)
 
-$(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(shell find ui/src -type f)
+$(UI_DEP): $(NPM_DEP) ui/package.json ui/package-lock.json ui/*.js $(shell find ui/src -type f)
 	@cd ui && npm version --allow-same-version $(VERSION) && npm run build
 
 .PHONY: ui-dev
@@ -107,4 +111,8 @@ clean:
 	@rm -fv $(PROGRAMS) coverage.html
 	@rm -rf internal/ui_embed/embed/dist/*
 	@find . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir make clean --no-print-directory \;
+
+.PHONY: distclean
+distclean: clean
+	@rm -rf ui/node_modules
 
