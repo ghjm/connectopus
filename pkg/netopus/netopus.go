@@ -63,7 +63,7 @@ type netopus struct {
 	addr           net.IP
 	name           string
 	stack          netstack.NetStack
-	router         router.Router[string]
+	router         router.Router
 	sessionInfo    syncro.Var[sessInfo]
 	epoch          uint64
 	sequence       syncro.Var[uint64]
