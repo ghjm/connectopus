@@ -8,8 +8,16 @@ repos:
       - id: go-unit-tests
   - repo: local
     hooks:
+      - id: ui-lint
+        name: UI linting & formatting
+        files: \.tsx?$
+        types: [file]
+        language: script
+        entry: .pre-commit-scripts/ui-lint.sh
       - id: build-platforms
         name: Build Platforms
+        files: \.go$
+        types: [file]
         language: script
         entry: .pre-commit-scripts/build-platforms.sh
 

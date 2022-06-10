@@ -27,6 +27,13 @@ type newParams struct {
 	shimBin string
 }
 
+// Link implements link.Link for a local private network namespace
+type Link struct {
+	packet_publisher.Publisher
+	shimFd int
+	pid    int
+}
+
 // New creates a new Linux network namespace based network stack
 func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, error) {
 	params := &newParams{}

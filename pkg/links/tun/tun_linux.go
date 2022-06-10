@@ -9,8 +9,15 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
+	"io"
 	"net"
 )
+
+type Link struct {
+	packet_publisher.Publisher
+	ctx    context.Context
+	tunRWC io.ReadWriteCloser
+}
 
 // New returns a link.Link connected to a newly created Linux tun/tap device.
 func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (*Link, error) {
@@ -103,4 +110,15 @@ func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (*
 	l.Publisher = *packet_publisher.New(ctx, tunIf, chanreader.WithBufferSize(1500))
 
 	return l, nil
+}
+
+func (l *Link) SendPacket(packet []byte) error {
+	n, err := l.tunRWC.Write(packet)
+	if err != nil {
+		return err
+	}
+	if n != len(packet) {
+		return fmt.Errorf("tun device only wrote %d bytes of %d", n, len(packet))
+	}
+	return nil
 }

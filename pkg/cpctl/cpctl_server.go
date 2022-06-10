@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/ghjm/connectopus/internal/ui_embed"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
@@ -67,7 +68,8 @@ func (r *Resolver) ServeHTTP(ctx context.Context, port int) error {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", playground.Handler("GraphQL playground", "/query"))
+	mux.Handle("/", ui_embed.GetUIHandler())
+	mux.Handle("/api", playground.Handler("GraphQL playground", "/query"))
 	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
 
 	r.runServer(ctx, li, mux)

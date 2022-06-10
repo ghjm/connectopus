@@ -9,36 +9,8 @@ on:
 
 jobs:
 
-  lint:
+  ci_checks:
     name: ci_checks
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-
-      - name: Run linters
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
-
-      - name: Check formatting
-        run: gofmt -l .
-
-      - name: Check that generated code is up to date
-        run: |
-          go generate ./...
-          git diff --exit-code
-
-  test:
-    name: test
     strategy:
       matrix:
         go-version:
@@ -58,7 +30,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: 1.18
 
       - name: Cache Go build dirs
         uses: actions/cache@v3
@@ -66,10 +38,42 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install Node modules
+        run: cd ui && npm ci --legacy-peer-deps
+
+      - name: Build the UI
+        run: make ui
+
+      - name: Run Go linters
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          skip-cache: true
+
+      - name: Run JS linters
+        run: |
+          cd ui
+          npx prettier --check './**/*.{tsx,ts,js}' --loglevel warn
+          npx eslint --ext .tsx,.ts,.js ./src/ --max-warnings 0
+
+      - name: Check formatting
+        run: gofmt -l .
+
+      - name: Check that generated code is up to date
+        run: |
+          go generate ./...
+          git diff --exit-code
       - name: Run tests
         run: go test ./... -count=1 -race
 

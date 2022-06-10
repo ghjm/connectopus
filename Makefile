@@ -3,9 +3,11 @@ VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
 
 PROGRAMS := connectopus cpctl
+UI_DEP := internal/ui_embed/embed/dist/main.bundle.js
+EXTRA_DEPS_connectopus := $(UI_DEP)
 
 .PHONY: all
-all: $(PROGRAMS)
+all: $(PROGRAMS) $(UI_DEP)
 
 # go_deps finds all of the non-test/non-generated .go files under the
 # current directory, which are in directories reported as being dependencies
@@ -29,10 +31,12 @@ gen:
 .PHONY: lint
 lint:
 	@golangci-lint run --timeout 5m
+	@cd ui && npm run --silent lint
 
 .PHONY: fmt
 fmt:
 	@go fmt ./...
+	@cd ui && npm run --silent format
 
 .PHONY: test
 test:
@@ -70,6 +74,16 @@ ctun:
 version:
 	@echo "$(VERSION)"
 
+.PHONY: ui
+ui: $(UI_DEP)
+
+$(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(shell find ui/src -type f)
+	@cd ui && npm version --allow-same-version $(VERSION) && npm run build
+
+.PHONY: ui-dev
+ui-dev:
+	@cd up && npm run dev
+
 # The prod build target performs a build inside a standard golang build
 # container which uses glibc 2.31.  The resulting binaries should be
 # broadly compatible across Linux distributions.
@@ -91,5 +105,6 @@ prod-arm64: prod
 .PHONY: clean
 clean:
 	@rm -fv $(PROGRAMS) coverage.html
-	@find . -name Makefile -and -not -path ./Makefile -execdir make clean --no-print-directory \;
+	@rm -rf internal/ui_embed/embed/dist/*
+	@find . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir make clean --no-print-directory \;
 
