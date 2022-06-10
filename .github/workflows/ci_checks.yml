@@ -6,6 +6,19 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**/*.go'
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.graphqls'
+      - '**/*.graphql'
+      - '**/*.sh'
+      - '**/*.html'
+      - '**/*.css'
+      - '**/Makefile'
+      - '**/package.json'
+      - '**/package-lock.json'
 
 jobs:
 
