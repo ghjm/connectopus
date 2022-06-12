@@ -18,7 +18,7 @@
       sudo apt install -y nodejs
       ```
 
-* Install Go 1.18.3
+* Install Go 1.18 or better
   ```
   mkdir $HOME/go-1.18.3 && \
     curl -L https://go.dev/dl/go1.18.3.linux-amd64.tar.gz | \
@@ -26,7 +26,7 @@
   ```
 
 * Add direnv hook to the shell and authorize the directory.    
-  This will put Go 1.18.3 in your path whenever you cd into this directory.  If you use a shell other than bash, consult https://direnv.net/docs/hook.html.
+  This will put Go 1.18 in your path whenever you cd into this directory.  If you use a shell other than bash, consult https://direnv.net/docs/hook.html.
   ```
   echo PATH_add $HOME/go-1.18.3/bin > .envrc.local
   echo 'eval "$(direnv hook bash)"' >> $HOME/.bashrc
