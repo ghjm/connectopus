@@ -2,6 +2,8 @@ package router
 
 import (
 	"context"
+	"fmt"
+	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/x/broker"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"github.com/ghjm/connectopus/pkg/x/timerunner"
@@ -11,59 +13,64 @@ import (
 	"time"
 )
 
+// RoutingNodes stores the known connection information for a network of nodes
+type RoutingNodes map[proto.IP]proto.RoutingConns
+
+// RoutingPolicy is a routing table giving the next hop for a list of subnets
+type RoutingPolicy map[proto.Subnet]proto.IP
+
 type Router interface {
 
 	// UpdateNode updates the connection information for a node.
-	UpdateNode(string, map[string]float32)
+	UpdateNode(proto.IP, proto.RoutingConns)
 
 	// RemoveNode removes the connection information for a node
-	RemoveNode(string)
+	RemoveNode(proto.IP)
 
 	// NextHop returns the next hop according to the routing policy.  Note that the policy may be out of date with the
 	// latest connection information, if new information has been received within the duration specified by updateWait.
-	// If there is no route to the node, the zero value is returned.
-	NextHop(string) string
+	NextHop(proto.IP) (proto.IP, error)
 
 	// SubscribeUpdates returns a channel which will be sent a routing policy whenever it is updated
-	SubscribeUpdates() <-chan map[string]string
+	SubscribeUpdates() <-chan RoutingPolicy
 
 	// UnsubscribeUpdates unsubscribes a previously subscribed updates channel
-	UnsubscribeUpdates(ch <-chan map[string]string)
+	UnsubscribeUpdates(ch <-chan RoutingPolicy)
 
 	// Nodes returns a copy of the nodes and connections known to the router
-	Nodes() map[string]map[string]float32
+	Nodes() RoutingNodes
 }
 
 // Implements Router
 type router struct {
 	ctx           context.Context
-	myNode        string
-	nodes         syncro.Map[string, map[string]float32]
-	policy        syncro.Map[string, string]
+	myAddr        proto.IP
+	nodes         syncro.Map[proto.IP, proto.RoutingConns]
+	policy        syncro.Map[proto.Subnet, proto.IP]
 	updateWait    time.Duration
 	tr            timerunner.TimeRunner
-	updatesBroker broker.Broker[map[string]string]
+	updatesBroker broker.Broker[RoutingPolicy]
 }
 
 // New returns a new router.  UpdateWait specifies the maximum time after an UpdateNode that a recalculation should occur.
-func New(ctx context.Context, myNode string, updateWait time.Duration) Router {
+func New(ctx context.Context, myAddr proto.IP, updateWait time.Duration) Router {
 	r := &router{
 		ctx:           ctx,
-		myNode:        myNode,
-		nodes:         syncro.Map[string, map[string]float32]{},
-		policy:        syncro.Map[string, string]{},
+		myAddr:        myAddr,
+		nodes:         syncro.Map[proto.IP, proto.RoutingConns]{},
+		policy:        syncro.Map[proto.Subnet, proto.IP]{},
 		updateWait:    updateWait,
-		updatesBroker: broker.New[map[string]string](ctx),
+		updatesBroker: broker.New[RoutingPolicy](ctx),
 	}
 	r.tr = timerunner.New(ctx, r.recalculate)
 	return r
 }
 
-func (r *router) UpdateNode(node string, conns map[string]float32) {
+func (r *router) UpdateNode(node proto.IP, conns proto.RoutingConns) {
 	if node == "" {
 		panic("router node cannot be empty string")
 	}
-	r.nodes.WorkWith(func(_n *map[string]map[string]float32) {
+	r.nodes.WorkWith(func(_n *map[proto.IP]proto.RoutingConns) {
 		nodes := *_n
 		if reflect.DeepEqual(nodes[node], conns) {
 			return
@@ -73,8 +80,8 @@ func (r *router) UpdateNode(node string, conns map[string]float32) {
 	})
 }
 
-func (r *router) RemoveNode(node string) {
-	r.nodes.WorkWith(func(_n *map[string]map[string]float32) {
+func (r *router) RemoveNode(node proto.IP) {
+	r.nodes.WorkWith(func(_n *map[proto.IP]proto.RoutingConns) {
 		nodes := *_n
 		_, ok := nodes[node]
 		if ok {
@@ -86,20 +93,38 @@ func (r *router) RemoveNode(node string) {
 
 // recalculate uses Dijkstra's algorithm to produce a routing policy
 func (r *router) recalculate() {
-	r.nodes.WorkWithReadOnly(func(nodes map[string]map[string]float32) {
-		Q := priorityQueue.New()
-		Q.Insert(r.myNode, 0.0)
-		cost := make(map[string]float32)
-		prev := make(map[string]string)
-		allNodes := make(map[string]struct{})
+	r.nodes.WorkWithReadOnly(func(nodes map[proto.IP]proto.RoutingConns) {
+		interconnect := make(map[proto.IP]map[proto.IP]float32)
+		subnets := make(map[proto.Subnet]map[proto.IP]struct{})
 		for node := range nodes {
-			allNodes[node] = struct{}{}
+			interconnect[node] = make(map[proto.IP]float32)
+			for peer := range nodes {
+				for conn, cost := range nodes[node] {
+					if conn.Contains(peer) {
+						interconnect[node][peer] = cost
+					}
+				}
+			}
 			for conn := range nodes[node] {
-				allNodes[conn] = struct{}{}
+				if conn.Prefix() == 128 {
+					_, ok := nodes[conn.IP()]
+					if ok {
+						continue
+					}
+				}
+				_, ok := subnets[conn]
+				if !ok {
+					subnets[conn] = make(map[proto.IP]struct{})
+				}
+				subnets[conn][node] = struct{}{}
 			}
 		}
-		for node := range allNodes {
-			if node == r.myNode {
+		Q := priorityQueue.New()
+		Q.Insert(r.myAddr, 0.0)
+		cost := make(map[proto.IP]float32)
+		prev := make(map[proto.IP]proto.IP)
+		for node := range nodes {
+			if node == r.myAddr {
 				cost[node] = 0.0
 			} else {
 				cost[node] = math.MaxFloat32
@@ -109,8 +134,8 @@ func (r *router) recalculate() {
 		}
 		for Q.Len() > 0 {
 			nodeIf, _ := Q.Pop()
-			node := nodeIf.(string)
-			for neighbor, edgeCost := range nodes[node] {
+			node := nodeIf.(proto.IP)
+			for neighbor, edgeCost := range interconnect[node] {
 				pathCost := cost[node] + edgeCost
 				if pathCost < cost[neighbor] {
 					cost[neighbor] = pathCost
@@ -119,12 +144,12 @@ func (r *router) recalculate() {
 				}
 			}
 		}
-		newPolicy := make(map[string]string)
-		for dest := range allNodes {
+		newPolicy := make(RoutingPolicy)
+		for dest := range nodes {
 			p := dest
 			for {
-				if prev[p] == r.myNode {
-					newPolicy[dest] = p
+				if prev[p] == r.myAddr {
+					newPolicy[proto.NewHostOnlySubnet(dest)] = p
 					break
 				} else if prev[p] == "" {
 					break
@@ -132,8 +157,22 @@ func (r *router) recalculate() {
 				p = prev[p]
 			}
 		}
+		for subnet, candidates := range subnets {
+			var bestCandidate proto.IP
+			lowestCost := float32(math.MaxFloat32)
+			for candidate := range candidates {
+				via := newPolicy[proto.NewHostOnlySubnet(candidate)]
+				if cost[via] < lowestCost {
+					lowestCost = cost[via]
+					bestCandidate = via
+				}
+			}
+			if bestCandidate != "" {
+				newPolicy[subnet] = bestCandidate
+			}
+		}
 		changed := false
-		r.policy.WorkWith(func(policy *map[string]string) {
+		r.policy.WorkWith(func(policy *map[proto.Subnet]proto.IP) {
 			if len(*policy) != len(newPolicy) {
 				changed = true
 			} else {
@@ -155,27 +194,41 @@ func (r *router) recalculate() {
 	})
 }
 
-func (r *router) NextHop(dest string) string {
-	hop, ok := r.policy.Get(dest)
-	if !ok {
-		return ""
+var ErrNoRouteToHost = fmt.Errorf("no route to host")
+
+func (r *router) NextHop(dest proto.IP) (proto.IP, error) {
+	var hop proto.IP
+	longestPrefix := -1
+	r.policy.WorkWithReadOnly(func(p map[proto.Subnet]proto.IP) {
+		for k, v := range p {
+			if k.Contains(dest) {
+				prefix := k.Prefix()
+				if prefix > longestPrefix {
+					hop = v
+					longestPrefix = prefix
+				}
+			}
+		}
+	})
+	if longestPrefix == -1 {
+		return "", ErrNoRouteToHost
 	}
-	return hop
+	return hop, nil
 }
 
-func (r *router) SubscribeUpdates() <-chan map[string]string {
+func (r *router) SubscribeUpdates() <-chan RoutingPolicy {
 	return r.updatesBroker.Subscribe()
 }
 
-func (r *router) UnsubscribeUpdates(ch <-chan map[string]string) {
+func (r *router) UnsubscribeUpdates(ch <-chan RoutingPolicy) {
 	r.updatesBroker.Unsubscribe(ch)
 }
 
-func (r *router) Nodes() map[string]map[string]float32 {
-	nodesCopy := make(map[string]map[string]float32)
-	r.nodes.WorkWithReadOnly(func(nodes map[string]map[string]float32) {
+func (r *router) Nodes() RoutingNodes {
+	nodesCopy := make(RoutingNodes)
+	r.nodes.WorkWithReadOnly(func(nodes map[proto.IP]proto.RoutingConns) {
 		for k, v := range nodes {
-			nodesCopy[k] = make(map[string]float32)
+			nodesCopy[k] = make(proto.RoutingConns)
 			for k2, v2 := range v {
 				nodesCopy[k][k2] = v2
 			}

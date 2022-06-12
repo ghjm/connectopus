@@ -7,7 +7,7 @@ import (
 	"net"
 )
 
-func NewStackDefault(ctx context.Context, addr net.IPNet) (NetStack, error) {
+func NewStackDefault(ctx context.Context, addr net.IP) (NetStack, error) {
 	return NewStackFdbased(ctx, addr)
 }
 

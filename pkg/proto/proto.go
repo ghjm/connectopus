@@ -3,7 +3,6 @@ package proto
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 )
 
 // Data structures for the Netopus wire protocol
@@ -24,26 +23,20 @@ const (
 
 // InitMsg is a message type sent at connection initialization time
 type InitMsg struct {
-	MyAddr net.IP
+	MyAddr IP
 }
+
+// RoutingConns stores the known connections and costs directly connected to a node
+type RoutingConns map[Subnet]float32
 
 // RoutingUpdate is a message type carrying routing information
 type RoutingUpdate struct {
-	Origin         net.IP
+	Origin         IP
 	NodeName       string
 	UpdateEpoch    uint64
 	UpdateSequence uint64
-	Connections    RoutingConnections
+	Connections    RoutingConns
 }
-
-// RoutingConnection is the information of a single connection in a routing update
-type RoutingConnection struct {
-	Peer net.IP
-	Cost float32
-}
-
-// RoutingConnections is a slice of RoutingConnection
-type RoutingConnections []RoutingConnection
 
 var ErrUnknownMessageType = fmt.Errorf("unknown message type")
 
@@ -115,11 +108,31 @@ func (ru *RoutingUpdate) String() string {
 	return fmt.Sprintf("%s/%d/%d", ru.Origin.String(), ru.UpdateEpoch, ru.UpdateSequence)
 }
 
-// GetConnMap gets a map of connection costs, suitable for use in router.UpdateNode
-func (rc RoutingConnections) GetConnMap() map[string]float32 {
+//goland:noinspection GoMixedReceiverTypes
+func (rc RoutingConns) MarshalJSON() ([]byte, error) {
 	m := make(map[string]float32)
-	for _, c := range rc {
-		m[c.Peer.String()] = 1.0
+	for k, v := range rc {
+		m[k.String()] = v
 	}
-	return m
+	return json.Marshal(m)
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (rc *RoutingConns) UnmarshalJSON(data []byte) error {
+	m := make(map[string]float32)
+	err := json.Unmarshal(data, &m)
+	if err != nil {
+		return err
+	}
+	newRc := make(RoutingConns)
+	for k, v := range m {
+		var subnet Subnet
+		_, subnet, err = ParseCIDR(k)
+		if err != nil {
+			return err
+		}
+		newRc[subnet] = v
+	}
+	*rc = newRc
+	return nil
 }

@@ -1,8 +1,8 @@
 package config
 
 import (
+	"github.com/ghjm/connectopus/pkg/proto"
 	"io/ioutil"
-	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -10,7 +10,7 @@ import (
 
 var testYaml = `---
 global:
-  subnet: FD00::0/8
+  domain: connectopus.foo
 
 nodes:
 
@@ -37,21 +37,21 @@ nodes:
 
 `
 
-func MustParseCIDR(s string) IPNet {
-	_, ipnet, err := net.ParseCIDR(s)
+func MustParseCIDR(s string) proto.Subnet {
+	_, subnet, err := proto.ParseCIDR(s)
 	if err != nil {
 		panic(err)
 	}
-	return IPNet(*ipnet)
+	return subnet
 }
 
 var correctConfig = Config{
 	Global: Global{
-		Subnet: MustParseCIDR("FD00::0/8"),
+		Domain: "connectopus.foo",
 	},
 	Nodes: map[string]Node{
 		"foo": {
-			Address: IP(net.ParseIP("FD00::1")),
+			Address: proto.ParseIP("FD00::1"),
 			Backends: []Backend{
 				{
 					BackendType: "dtls-dialer",
@@ -62,7 +62,7 @@ var correctConfig = Config{
 			},
 		},
 		"bar": {
-			Address: IP(net.ParseIP("FD00::2")),
+			Address: proto.ParseIP("FD00::2"),
 			Backends: []Backend{
 				{
 					BackendType: "dtls-listener",
@@ -73,7 +73,7 @@ var correctConfig = Config{
 			},
 		},
 		"baz": {
-			Address: IP(net.ParseIP("FD00::3")),
+			Address: proto.ParseIP("FD00::3"),
 			Backends: []Backend{
 				{
 					BackendType: "dtls-dialer",

@@ -29,12 +29,12 @@ type netStackChannel struct {
 }
 
 // NewStackChannel creates a new network stack
-func NewStackChannel(ctx context.Context, addr net.IPNet) (NetStack, error) {
-	if len(addr.IP) != net.IPv6len {
+func NewStackChannel(ctx context.Context, addr net.IP) (NetStack, error) {
+	if len(addr) != net.IPv6len {
 		return nil, fmt.Errorf("address must be ipv6")
 	}
 	ns := &netStackChannel{
-		addr:         addr.IP,
+		addr:         addr,
 		packetBroker: broker.New[[]byte](ctx),
 	}
 	ns.stack = stack.New(stack.Options{
@@ -52,20 +52,26 @@ func NewStackChannel(ctx context.Context, addr net.IPNet) (NetStack, error) {
 		tcpip.ProtocolAddress{
 			Protocol: ipv6.ProtocolNumber,
 			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(addr.IP),
+				Address:   tcpip.Address(addr),
 				PrefixLen: 128,
 			},
 		},
 		stack.AddressProperties{},
 	)
-	maskOnes, _ := addr.Mask.Size()
-	tcpip.Address(addr.IP).WithPrefix()
 	localNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(addr.IP),
-		PrefixLen: maskOnes,
+		Address:   tcpip.Address(addr),
+		PrefixLen: len(addr) * 8,
 	}
 	ns.stack.AddRoute(tcpip.Route{
 		Destination: localNet.Subnet(),
+		NIC:         1,
+	})
+	defaultNet := tcpip.AddressWithPrefix{
+		Address:   tcpip.Address(addr),
+		PrefixLen: 0,
+	}
+	ns.stack.AddRoute(tcpip.Route{
+		Destination: defaultNet.Subnet(),
 		NIC:         1,
 	})
 

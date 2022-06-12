@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/ghjm/connectopus/pkg/proto"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"net"
@@ -14,22 +15,22 @@ type Config struct {
 }
 
 type Global struct {
-	Subnet IPNet  `yaml:"subnet"`
-	Domain string `yaml:"domain"`
+	Domain string       `yaml:"domain"`
+	Subnet proto.Subnet `yaml:"subnet"`
 }
 
 type Node struct {
-	Address    IP          `yaml:"address"`
-	Tun        Tun         `yaml:"tun"`
-	Backends   []Backend   `yaml:"backends"`
-	Services   []Service   `yaml:"services"`
-	Namespaces []Namespace `yaml:"namespaces"`
-	Cpctl      Cpctl       `yaml:"cpctl"`
+	Address    proto.IP    `yaml:"address"`
+	Tun        Tun         `yaml:"tun,omitempty"`
+	Backends   []Backend   `yaml:"backends,omitempty"`
+	Services   []Service   `yaml:"services,omitempty"`
+	Namespaces []Namespace `yaml:"namespaces,omitempty"`
+	Cpctl      Cpctl       `yaml:"cpctl,omitempty"`
 }
 
 type Tun struct {
-	Name    string `yaml:"name"`
-	Address IP     `yaml:"address"`
+	Name    string   `yaml:"name"`
+	Address proto.IP `yaml:"address"`
 }
 
 type Backend struct {
@@ -44,8 +45,8 @@ type Service struct {
 }
 
 type Namespace struct {
-	Name    string `yaml:"name"`
-	Address IP     `yaml:"address"`
+	Name    string   `yaml:"name"`
+	Address proto.IP `yaml:"address"`
 }
 
 type Cpctl struct {
@@ -55,10 +56,6 @@ type Cpctl struct {
 }
 
 type Params map[string]string
-
-type IP net.IP
-
-type IPNet net.IPNet
 
 func LoadConfig(filename string) (*Config, error) {
 	data, err := ioutil.ReadFile(filename)
@@ -112,54 +109,4 @@ func (p Params) GetHostPort(name string) (net.IP, uint16, error) {
 		ip = ips[0]
 	}
 	return ip, uint16(port), nil
-}
-
-// UnmarshalYAML unmarshals an IP address from YAML.
-func (i *IP) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	err := unmarshal(&s)
-	if err != nil {
-		return err
-	}
-	ip := net.ParseIP(s)
-	if ip == nil {
-		return fmt.Errorf("unmarshal YAML error: invalid IP address: %s", s)
-	}
-	*i = IP(ip)
-	return nil
-}
-
-// MarshalYAML marshals an IP address to YAML.
-func (i IP) MarshalYAML() (interface{}, error) {
-	if i == nil {
-		return nil, nil
-	} else {
-		return net.IP(i).String(), nil
-	}
-}
-
-// UnmarshalYAML unmarshals an IP subnet from YAML.
-func (ipnet *IPNet) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	err := unmarshal(&s)
-	if err != nil {
-		return err
-	}
-	var netIpNet *net.IPNet
-	_, netIpNet, err = net.ParseCIDR(s)
-	if err != nil {
-		return fmt.Errorf("unmarshal YAML error: invalid CIDR network: %s", s)
-	}
-	*ipnet = IPNet(*netIpNet)
-	return nil
-}
-
-// MarshalYAML marshals an IP subnet to YAML.
-func (ipnet *IPNet) MarshalYAML() (interface{}, error) {
-	if ipnet == nil {
-		return nil, nil
-	} else {
-		ipn := net.IPNet(*ipnet)
-		return ipn.String(), nil
-	}
 }

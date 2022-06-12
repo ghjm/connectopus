@@ -31,9 +31,9 @@ type Netopus interface {
 // ExternalRouter is a device that can accept and send packets to external routes
 type ExternalRouter interface {
 	// AddExternalRoute adds an external route.  When packets arrive for this destination, outgoingPacketFunc will be called.
-	AddExternalRoute(net.IP, func([]byte) error)
+	AddExternalRoute(proto.Subnet, func([]byte) error)
 	// DelExternalRoute removes a previously added external route.  If the route does not exist, this has no effect.
-	DelExternalRoute(net.IP)
+	DelExternalRoute(proto.IP)
 	// SendPacket routes and sends a packet
 	SendPacket(packet []byte) error
 }
@@ -45,7 +45,7 @@ type StatusGetter interface {
 // Status is returned by netopus.Status()
 type Status struct {
 	Name        string
-	Addr        net.IP
+	Addr        proto.IP
 	NodeNames   map[string]string
 	RouterNodes map[string]map[string]float32
 	Sessions    map[string]SessionStatus
@@ -60,7 +60,7 @@ type SessionStatus struct {
 // netopus implements Netopus
 type netopus struct {
 	ctx            context.Context
-	addr           net.IP
+	addr           proto.IP
 	name           string
 	stack          netstack.NetStack
 	router         router.Router
@@ -74,12 +74,12 @@ type netopus struct {
 
 // externalRouteInfo stores information about a route
 type externalRouteInfo struct {
-	dest               net.IP
+	dest               proto.Subnet
 	outgoingPacketFunc func(data []byte) error
 }
 
 // sessInfo stores information about sessions
-type sessInfo map[string]*protoSession
+type sessInfo map[proto.IP]*protoSession
 
 // protoSession represents one running session of a protocol
 type protoSession struct {
@@ -88,7 +88,7 @@ type protoSession struct {
 	cancel     context.CancelFunc
 	conn       backends.BackendConnection
 	readChan   chan proto.Msg
-	remoteAddr syncro.Var[net.IP]
+	remoteAddr syncro.Var[proto.IP]
 	connected  syncro.Var[bool]
 	connStart  time.Time
 	lastInit   time.Time
@@ -102,14 +102,11 @@ type nodeInfo struct {
 }
 
 // New constructs and returns a new network node on a given address
-func New(ctx context.Context, subnet net.IPNet, addr net.IP, name string) (Netopus, error) {
-	if len(addr) != net.IPv6len || len(subnet.IP) != net.IPv6len {
-		return nil, fmt.Errorf("subnet and address must be IPv6")
+func New(ctx context.Context, addr proto.IP, name string) (Netopus, error) {
+	if len(addr) != net.IPv6len {
+		return nil, fmt.Errorf("address must be IPv6")
 	}
-	stack, err := netstack.NewStackDefault(ctx, net.IPNet{
-		IP:   addr,
-		Mask: subnet.Mask,
-	})
+	stack, err := netstack.NewStackDefault(ctx, net.IP(addr))
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +115,7 @@ func New(ctx context.Context, subnet net.IPNet, addr net.IP, name string) (Netop
 		addr:          addr,
 		name:          name,
 		stack:         stack,
-		router:        router.New(ctx, addr.String(), 100*time.Millisecond),
+		router:        router.New(ctx, addr, 100*time.Millisecond),
 		sessionInfo:   syncro.NewVar(make(sessInfo)),
 		epoch:         uint64(time.Now().UnixNano()),
 		sequence:      syncro.Var[uint64]{},
@@ -159,7 +156,7 @@ func New(ctx context.Context, subnet net.IPNet, addr net.IP, name string) (Netop
 					log.Errorf("error generating routing update: %s", uerr)
 					return
 				}
-				n.router.UpdateNode(n.addr.String(), conns.GetConnMap())
+				n.router.UpdateNode(n.addr, conns)
 				n.flood(upb)
 			}()
 		},
@@ -228,13 +225,14 @@ func (p *protoSession) initSelect() bool {
 			p.connected.Set(true)
 			p.n.sessionInfo.WorkWith(func(s *sessInfo) {
 				si := *s
-				oldSess, ok := si[msg.MyAddr.String()]
+				oldSess, ok := si[msg.MyAddr]
 				if ok {
 					log.Infof("%s: closing old connection to %s", p.n.addr.String(), msg.MyAddr.String())
 					oldSess.cancel()
 				}
-				si[msg.MyAddr.String()] = p
+				si[msg.MyAddr] = p
 			})
+			p.n.updateSender.RunWithin(100 * time.Millisecond)
 			return true
 		default:
 			log.Debugf("%s: received non-init message while in init mode", p.n.addr.String())
@@ -261,11 +259,11 @@ func (p *protoSession) mainSelect() bool {
 				log.Warnf("packet sending error: %s", err)
 			}
 		case *proto.RoutingUpdate:
-			viaNode := p.remoteAddr.Get().String()
+			viaNode := p.remoteAddr.Get()
 			log.Debugf("%s: received routing update %d from %s via %s", p.n.addr.String(),
 				msg.UpdateSequence, msg.Origin.String(), viaNode)
 			if p.n.handleRoutingUpdate(msg) {
-				p.n.router.UpdateNode(msg.Origin.String(), msg.Connections.GetConnMap())
+				p.n.router.UpdateNode(msg.Origin, msg.Connections)
 				p.n.floodExcept(data, viaNode)
 			}
 		case *proto.InitMsg:
@@ -398,13 +396,13 @@ func (n *netopus) SendPacket(packet []byte) error {
 		return fmt.Errorf("malformed packet: too small")
 	}
 	ipv6Pkt := header.IPv6(packet)
-	dest := ipv6Pkt.DestinationAddress()
-	if header.IsV6MulticastAddress(dest) {
+	dest := proto.IP(ipv6Pkt.DestinationAddress())
+	if header.IsV6MulticastAddress(tcpip.Address(dest)) {
 		return nil
 	}
 
 	// Check if we can deliver the packet locally
-	if dest == tcpip.Address(n.addr) {
+	if dest.Equal(n.addr) {
 		return n.stack.SendPacket(packet)
 	}
 
@@ -421,7 +419,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 	var opf func([]byte) error
 	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
 		for _, r := range *routes {
-			if dest == tcpip.Address(r.dest) {
+			if r.dest.Contains(dest) {
 				opf = r.outgoingPacketFunc
 				break
 			}
@@ -432,14 +430,9 @@ func (n *netopus) SendPacket(packet []byte) error {
 	}
 
 	// Send the packet to the next hop
-	nextHop := n.router.NextHop(dest.String())
-	if nextHop == "" {
-		log.Debugf("%s: trying to recover from no route to host", n.addr.String())
+	nextHop, err := n.router.NextHop(dest)
+	if err != nil {
 		n.updateSender.RunWithin(100 * time.Millisecond)
-		time.Sleep(500 * time.Millisecond)
-		nextHop = n.router.NextHop(dest.String())
-	}
-	if nextHop == "" {
 		n.sendICMPv6Error(ipv6Pkt, header.ICMPv6DstUnreachable, header.ICMPv6NetworkUnreachable)
 		return fmt.Errorf("no route to host: %s", dest.String())
 	}
@@ -461,7 +454,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 }
 
 // floodExcept forwards a message to all neighbors except one (likely the one we received it from)
-func (n *netopus) floodExcept(message proto.Msg, except string) {
+func (n *netopus) floodExcept(message proto.Msg, except proto.IP) {
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
 		for node, sess := range *s {
 			if node == except {
@@ -485,24 +478,18 @@ func (n *netopus) flood(message proto.Msg) {
 }
 
 // generateRoutingUpdate produces a routing update suitable for being sent to peers.
-func (n *netopus) generateRoutingUpdate() (proto.RoutingConnections, []byte, error) {
-	conns := make(proto.RoutingConnections, 0)
+func (n *netopus) generateRoutingUpdate() (proto.RoutingConns, []byte, error) {
+	conns := make(proto.RoutingConns)
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
 		for _, sess := range *s {
 			if sess.connected.Get() {
-				conns = append(conns, proto.RoutingConnection{
-					Peer: sess.remoteAddr.Get(),
-					Cost: 1.0,
-				})
+				conns[proto.NewSubnet(sess.remoteAddr.Get(), proto.CIDRMask(128, 128))] = 1.0
 			}
 		}
 	})
 	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
 		for _, r := range *routes {
-			conns = append(conns, proto.RoutingConnection{
-				Peer: r.dest,
-				Cost: 1.0,
-			})
+			conns[r.dest] = 1.0
 		}
 	})
 	up := &proto.RoutingUpdate{
@@ -564,11 +551,20 @@ func (n *netopus) Status() *Status {
 			s.NodeNames[k] = v.name
 		}
 	})
-	s.RouterNodes = n.router.Nodes()
+	s.RouterNodes = make(map[string]map[string]float32)
+	{
+		for k, v := range n.router.Nodes() {
+			r := make(map[string]float32)
+			for k2, v2 := range v {
+				r[k2.String()] = v2
+			}
+			s.RouterNodes[k.String()] = r
+		}
+	}
 	s.Sessions = make(map[string]SessionStatus)
 	n.sessionInfo.WorkWithReadOnly(func(si *sessInfo) {
 		for k, v := range *si {
-			s.Sessions[k] = SessionStatus{
+			s.Sessions[k.String()] = SessionStatus{
 				Connected: v.connected.Get(),
 				ConnStart: v.connStart,
 			}
@@ -598,7 +594,7 @@ func (n *netopus) DialUDP(lport uint16, addr net.IP, rport uint16) (netstack.UDP
 }
 
 // AddExternalRoute implements ExternalRouter
-func (n *netopus) AddExternalRoute(dest net.IP, outgoingPacketFunc func([]byte) error) {
+func (n *netopus) AddExternalRoute(dest proto.Subnet, outgoingPacketFunc func([]byte) error) {
 	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
 		*routes = append(*routes, externalRouteInfo{
 			dest:               dest,
@@ -608,7 +604,7 @@ func (n *netopus) AddExternalRoute(dest net.IP, outgoingPacketFunc func([]byte) 
 }
 
 // DelExternalRoute implements ExternalRouter
-func (n *netopus) DelExternalRoute(dest net.IP) {
+func (n *netopus) DelExternalRoute(dest proto.IP) {
 	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
 		newRoutes := make([]externalRouteInfo, 0, len(*routes))
 		for _, r := range *routes {

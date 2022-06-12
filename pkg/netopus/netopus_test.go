@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends/backend_pair"
+	"github.com/ghjm/connectopus/pkg/proto"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/goleak"
 	"io"
@@ -17,7 +18,7 @@ import (
 
 // NodeSpec defines a node (Netopus instance) in a mesh
 type NodeSpec struct {
-	Address net.IP
+	Address proto.IP
 	Conns   []string
 }
 
@@ -67,11 +68,7 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 			return nil, fmt.Errorf("duplicate address in spec")
 		}
 		usedAddrs[addrStr] = struct{}{}
-		subnet := net.IPNet{
-			IP:   net.ParseIP("FD00::0"),
-			Mask: net.CIDRMask(8, 8*net.IPv6len),
-		}
-		n, err := New(ctx, subnet, spec.Address, "test")
+		n, err := New(ctx, spec.Address, "test")
 		if err != nil {
 			return nil, err
 		}
@@ -84,21 +81,28 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 		}
 	}
 	startTime := time.Now()
-	for _, conn := range connections {
+	for {
 		allGood := true
-		for n, c := range map[string]string{conn.N1: conn.N2, conn.N2: conn.N1} {
-			good := false
-			mesh[n].(*netopus).sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-				si := *s
-				for _, v := range si {
-					if v.connected.Get() && v.remoteAddr.Get().Equal(meshSpec[c].Address) {
-						good = true
-						return
+		for nodeA := range meshSpec {
+			status := mesh[nodeA].(*netopus).Status()
+			for nodeB := range meshSpec {
+				if nodeB == nodeA {
+					continue
+				}
+				found := false
+				for k := range status.RouterNodes {
+					_, ok := status.RouterNodes[k][proto.NewHostOnlySubnet(meshSpec[nodeB].Address).String()]
+					if ok {
+						found = true
+						break
 					}
 				}
-			})
-			if !good {
-				allGood = false
+				if !found {
+					allGood = false
+					break
+				}
+			}
+			if !allGood {
 				break
 			}
 		}
@@ -196,7 +200,7 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 			defer func() {
 				wg.Done()
 			}()
-			c, err := client.DialContextTCP(ctx, serverAddr, 1234)
+			c, err := client.DialContextTCP(ctx, net.IP(serverAddr), 1234)
 			if ctx.Err() != nil {
 				return
 			}
@@ -230,7 +234,7 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 			defer func() {
 				wg.Done()
 			}()
-			udc, err := client.DialUDP(0, serverAddr, 2345)
+			udc, err := client.DialUDP(0, net.IP(serverAddr), 2345)
 			if ctx.Err() != nil {
 				return
 			}
@@ -302,48 +306,48 @@ func TestNetopus(t *testing.T) {
 	log.SetOutput(os.Stdout)
 	t.Logf("2 node test\n")
 	runTest(t, map[string]NodeSpec{
-		"server": {net.ParseIP("FD00::1"), []string{"client"}},
-		"client": {net.ParseIP("FD00::2"), []string{"server"}},
+		"server": {proto.ParseIP("FD00::1"), []string{"client"}},
+		"client": {proto.ParseIP("FD00::2"), []string{"server"}},
 	}, stackTest)
 	t.Logf("3 node test, linear\n")
 	runTest(t, map[string]NodeSpec{
-		"server": {net.ParseIP("FD00::1"), []string{"A"}},
-		"client": {net.ParseIP("FD00::2"), []string{"A"}},
-		"A":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
+		"server": {proto.ParseIP("FD00::1"), []string{"A"}},
+		"client": {proto.ParseIP("FD00::2"), []string{"A"}},
+		"A":      {proto.ParseIP("FD00::3"), []string{"server", "client"}},
 	}, stackTest)
 	t.Logf("3 node test, circular\n")
 	runTest(t, map[string]NodeSpec{
-		"server": {net.ParseIP("FD00::1"), []string{"A", "client"}},
-		"client": {net.ParseIP("FD00::2"), []string{"server", "A"}},
-		"A":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
+		"server": {proto.ParseIP("FD00::1"), []string{"A", "client"}},
+		"client": {proto.ParseIP("FD00::2"), []string{"server", "A"}},
+		"A":      {proto.ParseIP("FD00::3"), []string{"server", "client"}},
 	}, stackTest)
 	t.Logf("4 node test\n")
 	runTest(t, map[string]NodeSpec{
-		"server": {net.ParseIP("FD00::1"), []string{"A", "B"}},
-		"client": {net.ParseIP("FD00::2"), []string{"A", "B"}},
-		"A":      {net.ParseIP("FD00::3"), []string{"server", "client"}},
-		"B":      {net.ParseIP("FD00::4"), []string{"server", "client"}},
+		"server": {proto.ParseIP("FD00::1"), []string{"A", "B"}},
+		"client": {proto.ParseIP("FD00::2"), []string{"A", "B"}},
+		"A":      {proto.ParseIP("FD00::3"), []string{"server", "client"}},
+		"B":      {proto.ParseIP("FD00::4"), []string{"server", "client"}},
 	}, stackTest)
 	t.Logf("8 node test, linear\n")
 	runTest(t, map[string]NodeSpec{
-		"server": {net.ParseIP("FD00::1"), []string{"A"}},
-		"A":      {net.ParseIP("FD00::2"), []string{"server", "B"}},
-		"B":      {net.ParseIP("FD00::3"), []string{"A", "C"}},
-		"C":      {net.ParseIP("FD00::4"), []string{"B", "D"}},
-		"D":      {net.ParseIP("FD00::5"), []string{"C", "E"}},
-		"E":      {net.ParseIP("FD00::6"), []string{"D", "F"}},
-		"F":      {net.ParseIP("FD00::7"), []string{"E", "client"}},
-		"client": {net.ParseIP("FD00::8"), []string{"F"}},
+		"server": {proto.ParseIP("FD00::1"), []string{"A"}},
+		"A":      {proto.ParseIP("FD00::2"), []string{"server", "B"}},
+		"B":      {proto.ParseIP("FD00::3"), []string{"A", "C"}},
+		"C":      {proto.ParseIP("FD00::4"), []string{"B", "D"}},
+		"D":      {proto.ParseIP("FD00::5"), []string{"C", "E"}},
+		"E":      {proto.ParseIP("FD00::6"), []string{"D", "F"}},
+		"F":      {proto.ParseIP("FD00::7"), []string{"E", "client"}},
+		"client": {proto.ParseIP("FD00::8"), []string{"F"}},
 	}, stackTest)
 	t.Logf("8 node test, circular\n")
 	runTest(t, map[string]NodeSpec{
-		"server": {net.ParseIP("FD00::1"), []string{"A"}},
-		"client": {net.ParseIP("FD00::2"), []string{"F"}},
-		"A":      {net.ParseIP("FD00::3"), []string{"B", "C", "server"}},
-		"B":      {net.ParseIP("FD00::4"), []string{"A", "D"}},
-		"C":      {net.ParseIP("FD00::5"), []string{"A", "E"}},
-		"D":      {net.ParseIP("FD00::6"), []string{"B", "F"}},
-		"E":      {net.ParseIP("FD00::7"), []string{"C", "F"}},
-		"F":      {net.ParseIP("FD00::8"), []string{"D", "E", "client"}},
+		"server": {proto.ParseIP("FD00::1"), []string{"A"}},
+		"client": {proto.ParseIP("FD00::2"), []string{"F"}},
+		"A":      {proto.ParseIP("FD00::3"), []string{"B", "C", "server"}},
+		"B":      {proto.ParseIP("FD00::4"), []string{"A", "D"}},
+		"C":      {proto.ParseIP("FD00::5"), []string{"A", "E"}},
+		"D":      {proto.ParseIP("FD00::6"), []string{"B", "F"}},
+		"E":      {proto.ParseIP("FD00::7"), []string{"C", "F"}},
+		"F":      {proto.ParseIP("FD00::8"), []string{"D", "E", "client"}},
 	}, stackTest, idleTest)
 }

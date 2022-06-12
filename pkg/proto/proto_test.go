@@ -36,7 +36,7 @@ func TestType(t *testing.T) {
 }
 
 func TestInitMsg(t *testing.T) {
-	im := &InitMsg{MyAddr: net.ParseIP("FE00::1")}
+	im := &InitMsg{MyAddr: ParseIP("FE00::1")}
 	b, err := im.Marshal()
 	if err != nil {
 		t.Errorf("error marshaling InitMsg: %s", err)
@@ -52,10 +52,12 @@ func TestInitMsg(t *testing.T) {
 
 func TestRoutingUpdate(t *testing.T) {
 	r := &RoutingUpdate{
-		Origin:         net.ParseIP("FD00::1"),
+		Origin:         ParseIP("FD00::1"),
 		UpdateEpoch:    5678,
 		UpdateSequence: 9012,
-		Connections:    []RoutingConnection{{net.ParseIP("FD00:1"), 1.0}},
+		Connections: map[Subnet]float32{
+			NewHostOnlySubnet(ParseIP("FD00::1")): 1.0,
+		},
 	}
 	b, err := r.Marshal()
 	if err != nil {

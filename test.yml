@@ -1,5 +1,6 @@
 ---
 global:
+  domain: connectopus.test
   subnet: FD00::0/8
 
 nodes:

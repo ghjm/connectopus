@@ -11,6 +11,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/links/tun"
 	"github.com/ghjm/connectopus/pkg/netopus"
+	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -56,16 +57,14 @@ var rootCmd = &cobra.Command{
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		subnet := net.IPNet(config.Global.Subnet)
-		addr := net.IP(node.Address)
 		var n netopus.Netopus
-		n, err = netopus.New(ctx, subnet, addr, identity)
+		n, err = netopus.New(ctx, node.Address, identity)
 		if err != nil {
 			errHalt(err)
 		}
 		if len(node.Tun.Address) > 0 {
 			var tunLink links.Link
-			tunLink, err = tun.New(ctx, node.Tun.Name, net.IP(node.Tun.Address), &subnet)
+			tunLink, err = tun.New(ctx, node.Tun.Name, net.IP(node.Tun.Address), config.Global.Subnet.AsIPNet())
 			if err != nil {
 				errHalt(err)
 			}
@@ -81,7 +80,7 @@ var rootCmd = &cobra.Command{
 					}
 				}
 			}()
-			n.AddExternalRoute(net.IP(node.Tun.Address), tunLink.SendPacket)
+			n.AddExternalRoute(proto.NewHostOnlySubnet(node.Tun.Address), tunLink.SendPacket)
 		}
 		for _, backend := range node.Backends {
 			err = backend_registry.RunBackend(ctx, n, backend.BackendType, backend.Params)
@@ -114,7 +113,7 @@ var rootCmd = &cobra.Command{
 					}
 				}
 			}()
-			n.AddExternalRoute(net.IP(namespace.Address), ns.SendPacket)
+			n.AddExternalRoute(proto.NewHostOnlySubnet(namespace.Address), ns.SendPacket)
 			nsreg.Add(namespace.Name, ns.PID())
 		}
 		if node.Cpctl.Enable {
