@@ -24,23 +24,18 @@ type DummyResult {
 type Status {
   name: String!
   addr: String!
-  NodeNames: [StatusNodeName!]!
-  RouterNodes: [StatusRouterNode!]!
-  Sessions: [StatusSession!]!
+  nodes: [StatusNode!]!
+  sessions: [StatusSession!]!
 }
 
-type StatusNodeName {
-  addr: String!
+type StatusNode {
   name: String!
+  addr: String!
+  conns: [StatusNodeConn!]!
 }
 
-type StatusRouterNode {
-  node: String!
-  peers: [StatusRouterNodePeer!]!
-}
-
-type StatusRouterNodePeer {
-  node: String!
+type StatusNodeConn {
+  subnet: String!
   cost: Float!
 }
 

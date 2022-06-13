@@ -63,26 +63,21 @@ type ComplexityRoot struct {
 	}
 
 	Status struct {
-		Addr        func(childComplexity int) int
-		Name        func(childComplexity int) int
-		NodeNames   func(childComplexity int) int
-		RouterNodes func(childComplexity int) int
-		Sessions    func(childComplexity int) int
+		Addr     func(childComplexity int) int
+		Name     func(childComplexity int) int
+		Nodes    func(childComplexity int) int
+		Sessions func(childComplexity int) int
 	}
 
-	StatusNodeName struct {
-		Addr func(childComplexity int) int
-		Name func(childComplexity int) int
+	StatusNode struct {
+		Addr  func(childComplexity int) int
+		Conns func(childComplexity int) int
+		Name  func(childComplexity int) int
 	}
 
-	StatusRouterNode struct {
-		Node  func(childComplexity int) int
-		Peers func(childComplexity int) int
-	}
-
-	StatusRouterNodePeer struct {
-		Cost func(childComplexity int) int
-		Node func(childComplexity int) int
+	StatusNodeConn struct {
+		Cost   func(childComplexity int) int
+		Subnet func(childComplexity int) int
 	}
 
 	StatusSession struct {
@@ -176,68 +171,54 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Status.Name(childComplexity), true
 
-	case "Status.NodeNames":
-		if e.complexity.Status.NodeNames == nil {
+	case "Status.nodes":
+		if e.complexity.Status.Nodes == nil {
 			break
 		}
 
-		return e.complexity.Status.NodeNames(childComplexity), true
+		return e.complexity.Status.Nodes(childComplexity), true
 
-	case "Status.RouterNodes":
-		if e.complexity.Status.RouterNodes == nil {
-			break
-		}
-
-		return e.complexity.Status.RouterNodes(childComplexity), true
-
-	case "Status.Sessions":
+	case "Status.sessions":
 		if e.complexity.Status.Sessions == nil {
 			break
 		}
 
 		return e.complexity.Status.Sessions(childComplexity), true
 
-	case "StatusNodeName.addr":
-		if e.complexity.StatusNodeName.Addr == nil {
+	case "StatusNode.addr":
+		if e.complexity.StatusNode.Addr == nil {
 			break
 		}
 
-		return e.complexity.StatusNodeName.Addr(childComplexity), true
+		return e.complexity.StatusNode.Addr(childComplexity), true
 
-	case "StatusNodeName.name":
-		if e.complexity.StatusNodeName.Name == nil {
+	case "StatusNode.conns":
+		if e.complexity.StatusNode.Conns == nil {
 			break
 		}
 
-		return e.complexity.StatusNodeName.Name(childComplexity), true
+		return e.complexity.StatusNode.Conns(childComplexity), true
 
-	case "StatusRouterNode.node":
-		if e.complexity.StatusRouterNode.Node == nil {
+	case "StatusNode.name":
+		if e.complexity.StatusNode.Name == nil {
 			break
 		}
 
-		return e.complexity.StatusRouterNode.Node(childComplexity), true
+		return e.complexity.StatusNode.Name(childComplexity), true
 
-	case "StatusRouterNode.peers":
-		if e.complexity.StatusRouterNode.Peers == nil {
+	case "StatusNodeConn.cost":
+		if e.complexity.StatusNodeConn.Cost == nil {
 			break
 		}
 
-		return e.complexity.StatusRouterNode.Peers(childComplexity), true
+		return e.complexity.StatusNodeConn.Cost(childComplexity), true
 
-	case "StatusRouterNodePeer.cost":
-		if e.complexity.StatusRouterNodePeer.Cost == nil {
+	case "StatusNodeConn.subnet":
+		if e.complexity.StatusNodeConn.Subnet == nil {
 			break
 		}
 
-		return e.complexity.StatusRouterNodePeer.Cost(childComplexity), true
-
-	case "StatusRouterNodePeer.node":
-		if e.complexity.StatusRouterNodePeer.Node == nil {
-			break
-		}
-
-		return e.complexity.StatusRouterNodePeer.Node(childComplexity), true
+		return e.complexity.StatusNodeConn.Subnet(childComplexity), true
 
 	case "StatusSession.addr":
 		if e.complexity.StatusSession.Addr == nil {
@@ -700,12 +681,10 @@ func (ec *executionContext) fieldContext_Query_status(ctx context.Context, field
 				return ec.fieldContext_Status_name(ctx, field)
 			case "addr":
 				return ec.fieldContext_Status_addr(ctx, field)
-			case "NodeNames":
-				return ec.fieldContext_Status_NodeNames(ctx, field)
-			case "RouterNodes":
-				return ec.fieldContext_Status_RouterNodes(ctx, field)
-			case "Sessions":
-				return ec.fieldContext_Status_Sessions(ctx, field)
+			case "nodes":
+				return ec.fieldContext_Status_nodes(ctx, field)
+			case "sessions":
+				return ec.fieldContext_Status_sessions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Status", field.Name)
 		},
@@ -930,8 +909,8 @@ func (ec *executionContext) fieldContext_Status_addr(ctx context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _Status_NodeNames(ctx context.Context, field graphql.CollectedField, obj *Status) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Status_NodeNames(ctx, field)
+func (ec *executionContext) _Status_nodes(ctx context.Context, field graphql.CollectedField, obj *Status) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Status_nodes(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -944,7 +923,7 @@ func (ec *executionContext) _Status_NodeNames(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.NodeNames, nil
+		return obj.Nodes, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -956,12 +935,12 @@ func (ec *executionContext) _Status_NodeNames(ctx context.Context, field graphql
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*StatusNodeName)
+	res := resTmp.([]*StatusNode)
 	fc.Result = res
-	return ec.marshalNStatusNodeName2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeNameᚄ(ctx, field.Selections, res)
+	return ec.marshalNStatusNode2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Status_NodeNames(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Status_nodes(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Status",
 		Field:      field,
@@ -969,69 +948,21 @@ func (ec *executionContext) fieldContext_Status_NodeNames(ctx context.Context, f
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "addr":
-				return ec.fieldContext_StatusNodeName_addr(ctx, field)
 			case "name":
-				return ec.fieldContext_StatusNodeName_name(ctx, field)
+				return ec.fieldContext_StatusNode_name(ctx, field)
+			case "addr":
+				return ec.fieldContext_StatusNode_addr(ctx, field)
+			case "conns":
+				return ec.fieldContext_StatusNode_conns(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type StatusNodeName", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type StatusNode", field.Name)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Status_RouterNodes(ctx context.Context, field graphql.CollectedField, obj *Status) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Status_RouterNodes(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.RouterNodes, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*StatusRouterNode)
-	fc.Result = res
-	return ec.marshalNStatusRouterNode2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNodeᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Status_RouterNodes(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Status",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "node":
-				return ec.fieldContext_StatusRouterNode_node(ctx, field)
-			case "peers":
-				return ec.fieldContext_StatusRouterNode_peers(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type StatusRouterNode", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Status_Sessions(ctx context.Context, field graphql.CollectedField, obj *Status) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Status_Sessions(ctx, field)
+func (ec *executionContext) _Status_sessions(ctx context.Context, field graphql.CollectedField, obj *Status) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Status_sessions(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1061,7 +992,7 @@ func (ec *executionContext) _Status_Sessions(ctx context.Context, field graphql.
 	return ec.marshalNStatusSession2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusSessionᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Status_Sessions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Status_sessions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Status",
 		Field:      field,
@@ -1082,52 +1013,8 @@ func (ec *executionContext) fieldContext_Status_Sessions(ctx context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _StatusNodeName_addr(ctx context.Context, field graphql.CollectedField, obj *StatusNodeName) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatusNodeName_addr(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Addr, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_StatusNodeName_addr(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "StatusNodeName",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _StatusNodeName_name(ctx context.Context, field graphql.CollectedField, obj *StatusNodeName) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatusNodeName_name(ctx, field)
+func (ec *executionContext) _StatusNode_name(ctx context.Context, field graphql.CollectedField, obj *StatusNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusNode_name(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1157,9 +1044,9 @@ func (ec *executionContext) _StatusNodeName_name(ctx context.Context, field grap
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatusNodeName_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_StatusNode_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatusNodeName",
+		Object:     "StatusNode",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -1170,8 +1057,8 @@ func (ec *executionContext) fieldContext_StatusNodeName_name(ctx context.Context
 	return fc, nil
 }
 
-func (ec *executionContext) _StatusRouterNode_node(ctx context.Context, field graphql.CollectedField, obj *StatusRouterNode) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatusRouterNode_node(ctx, field)
+func (ec *executionContext) _StatusNode_addr(ctx context.Context, field graphql.CollectedField, obj *StatusNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusNode_addr(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1184,7 +1071,7 @@ func (ec *executionContext) _StatusRouterNode_node(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Node, nil
+		return obj.Addr, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1201,9 +1088,9 @@ func (ec *executionContext) _StatusRouterNode_node(ctx context.Context, field gr
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatusRouterNode_node(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_StatusNode_addr(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatusRouterNode",
+		Object:     "StatusNode",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -1214,8 +1101,8 @@ func (ec *executionContext) fieldContext_StatusRouterNode_node(ctx context.Conte
 	return fc, nil
 }
 
-func (ec *executionContext) _StatusRouterNode_peers(ctx context.Context, field graphql.CollectedField, obj *StatusRouterNode) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatusRouterNode_peers(ctx, field)
+func (ec *executionContext) _StatusNode_conns(ctx context.Context, field graphql.CollectedField, obj *StatusNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusNode_conns(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1228,7 +1115,7 @@ func (ec *executionContext) _StatusRouterNode_peers(ctx context.Context, field g
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Peers, nil
+		return obj.Conns, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1240,32 +1127,32 @@ func (ec *executionContext) _StatusRouterNode_peers(ctx context.Context, field g
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*StatusRouterNodePeer)
+	res := resTmp.([]*StatusNodeConn)
 	fc.Result = res
-	return ec.marshalNStatusRouterNodePeer2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNodePeerᚄ(ctx, field.Selections, res)
+	return ec.marshalNStatusNodeConn2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeConnᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatusRouterNode_peers(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_StatusNode_conns(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatusRouterNode",
+		Object:     "StatusNode",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "node":
-				return ec.fieldContext_StatusRouterNodePeer_node(ctx, field)
+			case "subnet":
+				return ec.fieldContext_StatusNodeConn_subnet(ctx, field)
 			case "cost":
-				return ec.fieldContext_StatusRouterNodePeer_cost(ctx, field)
+				return ec.fieldContext_StatusNodeConn_cost(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type StatusRouterNodePeer", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type StatusNodeConn", field.Name)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _StatusRouterNodePeer_node(ctx context.Context, field graphql.CollectedField, obj *StatusRouterNodePeer) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatusRouterNodePeer_node(ctx, field)
+func (ec *executionContext) _StatusNodeConn_subnet(ctx context.Context, field graphql.CollectedField, obj *StatusNodeConn) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusNodeConn_subnet(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1278,7 +1165,7 @@ func (ec *executionContext) _StatusRouterNodePeer_node(ctx context.Context, fiel
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Node, nil
+		return obj.Subnet, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1295,9 +1182,9 @@ func (ec *executionContext) _StatusRouterNodePeer_node(ctx context.Context, fiel
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatusRouterNodePeer_node(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_StatusNodeConn_subnet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatusRouterNodePeer",
+		Object:     "StatusNodeConn",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -1308,8 +1195,8 @@ func (ec *executionContext) fieldContext_StatusRouterNodePeer_node(ctx context.C
 	return fc, nil
 }
 
-func (ec *executionContext) _StatusRouterNodePeer_cost(ctx context.Context, field graphql.CollectedField, obj *StatusRouterNodePeer) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_StatusRouterNodePeer_cost(ctx, field)
+func (ec *executionContext) _StatusNodeConn_cost(ctx context.Context, field graphql.CollectedField, obj *StatusNodeConn) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusNodeConn_cost(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1339,9 +1226,9 @@ func (ec *executionContext) _StatusRouterNodePeer_cost(ctx context.Context, fiel
 	return ec.marshalNFloat2float64(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_StatusRouterNodePeer_cost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_StatusNodeConn_cost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "StatusRouterNodePeer",
+		Object:     "StatusNodeConn",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -3502,23 +3389,16 @@ func (ec *executionContext) _Status(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "NodeNames":
+		case "nodes":
 
-			out.Values[i] = ec._Status_NodeNames(ctx, field, obj)
-
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "RouterNodes":
-
-			out.Values[i] = ec._Status_RouterNodes(ctx, field, obj)
+			out.Values[i] = ec._Status_nodes(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "Sessions":
+		case "sessions":
 
-			out.Values[i] = ec._Status_Sessions(ctx, field, obj)
+			out.Values[i] = ec._Status_sessions(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -3534,26 +3414,33 @@ func (ec *executionContext) _Status(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var statusNodeNameImplementors = []string{"StatusNodeName"}
+var statusNodeImplementors = []string{"StatusNode"}
 
-func (ec *executionContext) _StatusNodeName(ctx context.Context, sel ast.SelectionSet, obj *StatusNodeName) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, statusNodeNameImplementors)
+func (ec *executionContext) _StatusNode(ctx context.Context, sel ast.SelectionSet, obj *StatusNode) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, statusNodeImplementors)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("StatusNodeName")
-		case "addr":
-
-			out.Values[i] = ec._StatusNodeName_addr(ctx, field, obj)
-
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
+			out.Values[i] = graphql.MarshalString("StatusNode")
 		case "name":
 
-			out.Values[i] = ec._StatusNodeName_name(ctx, field, obj)
+			out.Values[i] = ec._StatusNode_name(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "addr":
+
+			out.Values[i] = ec._StatusNode_addr(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "conns":
+
+			out.Values[i] = ec._StatusNode_conns(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -3569,61 +3456,26 @@ func (ec *executionContext) _StatusNodeName(ctx context.Context, sel ast.Selecti
 	return out
 }
 
-var statusRouterNodeImplementors = []string{"StatusRouterNode"}
+var statusNodeConnImplementors = []string{"StatusNodeConn"}
 
-func (ec *executionContext) _StatusRouterNode(ctx context.Context, sel ast.SelectionSet, obj *StatusRouterNode) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, statusRouterNodeImplementors)
+func (ec *executionContext) _StatusNodeConn(ctx context.Context, sel ast.SelectionSet, obj *StatusNodeConn) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, statusNodeConnImplementors)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("StatusRouterNode")
-		case "node":
+			out.Values[i] = graphql.MarshalString("StatusNodeConn")
+		case "subnet":
 
-			out.Values[i] = ec._StatusRouterNode_node(ctx, field, obj)
-
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "peers":
-
-			out.Values[i] = ec._StatusRouterNode_peers(ctx, field, obj)
-
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch()
-	if invalids > 0 {
-		return graphql.Null
-	}
-	return out
-}
-
-var statusRouterNodePeerImplementors = []string{"StatusRouterNodePeer"}
-
-func (ec *executionContext) _StatusRouterNodePeer(ctx context.Context, sel ast.SelectionSet, obj *StatusRouterNodePeer) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, statusRouterNodePeerImplementors)
-	out := graphql.NewFieldSet(fields)
-	var invalids uint32
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("StatusRouterNodePeer")
-		case "node":
-
-			out.Values[i] = ec._StatusRouterNodePeer_node(ctx, field, obj)
+			out.Values[i] = ec._StatusNodeConn_subnet(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "cost":
 
-			out.Values[i] = ec._StatusRouterNodePeer_cost(ctx, field, obj)
+			out.Values[i] = ec._StatusNodeConn_cost(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -4141,7 +3993,7 @@ func (ec *executionContext) marshalNStatus2ᚖgithubᚗcomᚋghjmᚋconnectopus�
 	return ec._Status(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNStatusNodeName2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeNameᚄ(ctx context.Context, sel ast.SelectionSet, v []*StatusNodeName) graphql.Marshaler {
+func (ec *executionContext) marshalNStatusNode2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeᚄ(ctx context.Context, sel ast.SelectionSet, v []*StatusNode) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4165,7 +4017,7 @@ func (ec *executionContext) marshalNStatusNodeName2ᚕᚖgithubᚗcomᚋghjmᚋc
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNStatusNodeName2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeName(ctx, sel, v[i])
+			ret[i] = ec.marshalNStatusNode2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNode(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4185,17 +4037,17 @@ func (ec *executionContext) marshalNStatusNodeName2ᚕᚖgithubᚗcomᚋghjmᚋc
 	return ret
 }
 
-func (ec *executionContext) marshalNStatusNodeName2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeName(ctx context.Context, sel ast.SelectionSet, v *StatusNodeName) graphql.Marshaler {
+func (ec *executionContext) marshalNStatusNode2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNode(ctx context.Context, sel ast.SelectionSet, v *StatusNode) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._StatusNodeName(ctx, sel, v)
+	return ec._StatusNode(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNStatusRouterNode2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNodeᚄ(ctx context.Context, sel ast.SelectionSet, v []*StatusRouterNode) graphql.Marshaler {
+func (ec *executionContext) marshalNStatusNodeConn2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeConnᚄ(ctx context.Context, sel ast.SelectionSet, v []*StatusNodeConn) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4219,7 +4071,7 @@ func (ec *executionContext) marshalNStatusRouterNode2ᚕᚖgithubᚗcomᚋghjm�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNStatusRouterNode2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNode(ctx, sel, v[i])
+			ret[i] = ec.marshalNStatusNodeConn2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeConn(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4239,68 +4091,14 @@ func (ec *executionContext) marshalNStatusRouterNode2ᚕᚖgithubᚗcomᚋghjm�
 	return ret
 }
 
-func (ec *executionContext) marshalNStatusRouterNode2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNode(ctx context.Context, sel ast.SelectionSet, v *StatusRouterNode) graphql.Marshaler {
+func (ec *executionContext) marshalNStatusNodeConn2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeConn(ctx context.Context, sel ast.SelectionSet, v *StatusNodeConn) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._StatusRouterNode(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNStatusRouterNodePeer2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNodePeerᚄ(ctx context.Context, sel ast.SelectionSet, v []*StatusRouterNodePeer) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNStatusRouterNodePeer2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNodePeer(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNStatusRouterNodePeer2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusRouterNodePeer(ctx context.Context, sel ast.SelectionSet, v *StatusRouterNodePeer) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._StatusRouterNodePeer(ctx, sel, v)
+	return ec._StatusNodeConn(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNStatusSession2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusSessionᚄ(ctx context.Context, sel ast.SelectionSet, v []*StatusSession) graphql.Marshaler {

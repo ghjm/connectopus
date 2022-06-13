@@ -52,8 +52,8 @@ var statusCmd = &cobra.Command{
 		}
 		fmt.Printf("Node: %s [%s]\n", status.Status.Name, status.Status.Addr)
 		nodeNames := make(map[string]string)
-		if status.Status.NodeNames != nil {
-			for _, nn := range status.Status.NodeNames {
+		if status.Status.Nodes != nil {
+			for _, nn := range status.Status.Nodes {
 				nodeNames[nn.Addr] = nn.Name
 			}
 		}
@@ -79,61 +79,37 @@ var statusCmd = &cobra.Command{
 				}
 			}
 		}
-		if status.Status.RouterNodes != nil {
-			fmt.Printf("  Routing Table:\n")
-			slices.SortFunc(status.Status.RouterNodes, func(a, b *cpctl.GetStatus_Status_RouterNodes) bool {
+		if status.Status.Nodes != nil {
+			fmt.Printf("  Network Map:\n")
+			slices.SortFunc(status.Status.Nodes, func(a, b *cpctl.GetStatus_Status_Nodes) bool {
 				switch {
 				case b == nil:
 					return false
 				case a == nil:
 					return true
-				}
-				nna, aok := nodeNames[a.Node]
-				if nna == "" {
-					aok = false
-				}
-				nnb, bok := nodeNames[b.Node]
-				if nnb == "" {
-					bok = false
-				}
-				switch {
-				case aok && !bok:
-					return true
-				case !aok && bok:
+				case a.Name == "" && b.Name != "":
 					return false
+				case a.Name != "" && b.Name == "":
+					return true
 				}
-				return a.Node < b.Node
+				return a.Addr < b.Addr
 			})
-			for _, node := range status.Status.RouterNodes {
+			for _, node := range status.Status.Nodes {
 				if node != nil {
-					slices.SortFunc(node.Peers, func(a, b *cpctl.GetStatus_Status_RouterNodes_Peers) bool {
+					slices.SortFunc(node.Conns, func(a, b *cpctl.GetStatus_Status_Nodes_Conns) bool {
 						switch {
 						case b == nil:
 							return false
 						case a == nil:
 							return true
 						}
-						nna, aok := nodeNames[a.Node]
-						if nna == "" {
-							aok = false
-						}
-						nnb, bok := nodeNames[b.Node]
-						if nnb == "" {
-							bok = false
-						}
-						switch {
-						case aok && !bok:
-							return true
-						case !aok && bok:
-							return false
-						}
-						return a.Node < b.Node
+						return a.Subnet < b.Subnet
 					})
 					peerList := make([]string, 0)
-					for _, p := range node.Peers {
-						peerList = append(peerList, fmt.Sprintf("%s (%.2f)", formatNode(p.Node, nodeNames), p.Cost))
+					for _, p := range node.Conns {
+						peerList = append(peerList, fmt.Sprintf("%s (%.2f)", formatNode(p.Subnet, nodeNames), p.Cost))
 					}
-					fmt.Printf("    %s --> %s\n", formatNode(node.Node, nodeNames), strings.Join(peerList, ", "))
+					fmt.Printf("    %s --> %s\n", formatNode(node.Addr, nodeNames), strings.Join(peerList, ", "))
 				}
 			}
 		}

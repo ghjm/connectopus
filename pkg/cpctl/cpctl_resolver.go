@@ -45,26 +45,21 @@ func (r *Resolver) Status(ctx context.Context) (*Status, error) {
 		Name: ns.Name,
 		Addr: ns.Addr.String(),
 	}
-	stat.NodeNames = make([]*StatusNodeName, 0)
-	for nodeAddr, nodeName := range ns.NodeNames {
-		stat.NodeNames = append(stat.NodeNames, &StatusNodeName{
-			Addr: nodeAddr,
-			Name: nodeName,
-		})
-	}
-	stat.RouterNodes = make([]*StatusRouterNode, 0)
+	stat.Nodes = make([]*StatusNode, 0)
 	for routerNode, routerRoutes := range ns.RouterNodes {
-		rn := &StatusRouterNode{
-			Node: routerNode,
+		rn := &StatusNode{
+			Addr:  routerNode,
+			Name:  ns.NodeNames[routerNode],
+			Conns: nil,
 		}
-		rn.Peers = make([]*StatusRouterNodePeer, 0)
+		rn.Conns = make([]*StatusNodeConn, 0)
 		for node, cost := range routerRoutes {
-			rn.Peers = append(rn.Peers, &StatusRouterNodePeer{
-				Node: node,
-				Cost: float64(cost),
+			rn.Conns = append(rn.Conns, &StatusNodeConn{
+				Subnet: node,
+				Cost:   float64(cost),
 			})
 		}
-		stat.RouterNodes = append(stat.RouterNodes, rn)
+		stat.Nodes = append(stat.Nodes, rn)
 	}
 	stat.Sessions = make([]*StatusSession, 0)
 	for sessAddr, sessStatus := range ns.Sessions {

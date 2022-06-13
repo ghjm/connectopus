@@ -2,18 +2,15 @@ query GetStatus {
   status {
     name
     addr
-    NodeNames {
-      addr
+    nodes {
       name
-    }
-    RouterNodes {
-      node
-      peers {
-        node
+      addr
+      conns {
+        subnet
         cost
       }
     }
-    Sessions {
+    sessions {
       addr
       connected
       conn_start

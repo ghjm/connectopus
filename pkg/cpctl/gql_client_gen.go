@@ -28,17 +28,14 @@ type GetNetns_Netns struct {
 	Name string "json:\"name\" graphql:\"name\""
 	Pid  int    "json:\"pid\" graphql:\"pid\""
 }
-type GetStatus_Status_NodeNames struct {
-	Addr string "json:\"addr\" graphql:\"addr\""
-	Name string "json:\"name\" graphql:\"name\""
+type GetStatus_Status_Nodes_Conns struct {
+	Subnet string  "json:\"subnet\" graphql:\"subnet\""
+	Cost   float64 "json:\"cost\" graphql:\"cost\""
 }
-type GetStatus_Status_RouterNodes_Peers struct {
-	Node string  "json:\"node\" graphql:\"node\""
-	Cost float64 "json:\"cost\" graphql:\"cost\""
-}
-type GetStatus_Status_RouterNodes struct {
-	Node  string                                "json:\"node\" graphql:\"node\""
-	Peers []*GetStatus_Status_RouterNodes_Peers "json:\"peers\" graphql:\"peers\""
+type GetStatus_Status_Nodes struct {
+	Name  string                          "json:\"name\" graphql:\"name\""
+	Addr  string                          "json:\"addr\" graphql:\"addr\""
+	Conns []*GetStatus_Status_Nodes_Conns "json:\"conns\" graphql:\"conns\""
 }
 type GetStatus_Status_Sessions struct {
 	Addr      string "json:\"addr\" graphql:\"addr\""
@@ -46,11 +43,10 @@ type GetStatus_Status_Sessions struct {
 	ConnStart string "json:\"conn_start\" graphql:\"conn_start\""
 }
 type GetStatus_Status struct {
-	Name        string                          "json:\"name\" graphql:\"name\""
-	Addr        string                          "json:\"addr\" graphql:\"addr\""
-	NodeNames   []*GetStatus_Status_NodeNames   "json:\"NodeNames\" graphql:\"NodeNames\""
-	RouterNodes []*GetStatus_Status_RouterNodes "json:\"RouterNodes\" graphql:\"RouterNodes\""
-	Sessions    []*GetStatus_Status_Sessions    "json:\"Sessions\" graphql:\"Sessions\""
+	Name     string                       "json:\"name\" graphql:\"name\""
+	Addr     string                       "json:\"addr\" graphql:\"addr\""
+	Nodes    []*GetStatus_Status_Nodes    "json:\"nodes\" graphql:\"nodes\""
+	Sessions []*GetStatus_Status_Sessions "json:\"sessions\" graphql:\"sessions\""
 }
 type GetNetns struct {
 	Netns []*GetNetns_Netns "json:\"netns\" graphql:\"netns\""
@@ -84,18 +80,15 @@ const GetStatusDocument = `query GetStatus {
 	status {
 		name
 		addr
-		NodeNames {
-			addr
+		nodes {
 			name
-		}
-		RouterNodes {
-			node
-			peers {
-				node
+			addr
+			conns {
+				subnet
 				cost
 			}
 		}
-		Sessions {
+		sessions {
 			addr
 			connected
 			conn_start

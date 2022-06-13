@@ -16,26 +16,21 @@ type NetnsResult struct {
 }
 
 type Status struct {
-	Name        string              `json:"name"`
-	Addr        string              `json:"addr"`
-	NodeNames   []*StatusNodeName   `json:"NodeNames"`
-	RouterNodes []*StatusRouterNode `json:"RouterNodes"`
-	Sessions    []*StatusSession    `json:"Sessions"`
+	Name     string           `json:"name"`
+	Addr     string           `json:"addr"`
+	Nodes    []*StatusNode    `json:"nodes"`
+	Sessions []*StatusSession `json:"sessions"`
 }
 
-type StatusNodeName struct {
-	Addr string `json:"addr"`
-	Name string `json:"name"`
+type StatusNode struct {
+	Name  string            `json:"name"`
+	Addr  string            `json:"addr"`
+	Conns []*StatusNodeConn `json:"conns"`
 }
 
-type StatusRouterNode struct {
-	Node  string                  `json:"node"`
-	Peers []*StatusRouterNodePeer `json:"peers"`
-}
-
-type StatusRouterNodePeer struct {
-	Node string  `json:"node"`
-	Cost float64 `json:"cost"`
+type StatusNodeConn struct {
+	Subnet string  `json:"subnet"`
+	Cost   float64 `json:"cost"`
 }
 
 type StatusSession struct {
