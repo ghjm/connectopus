@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/bits"
 	"net"
-	"strings"
 )
 
 // This package attempts to produce "best of both worlds" types representing TCP/IP addresses and subnets,
@@ -58,6 +57,13 @@ func ParseCIDR(s string) (IP, Subnet, error) {
 //goland:noinspection GoMixedReceiverTypes
 func (a IP) String() string {
 	return net.IP(a).String()
+}
+
+// DebugString returns a representation to show in debuggers.  Gor compatibility with GoLand this function must
+// be able to be statically evaluated, so it cannot call other functions.
+//goland:noinspection GoMixedReceiverTypes
+func (a IP) DebugString() string {
+	return fmt.Sprintf("IP %x", string(a))
 }
 
 // Equal returns true if the two IPs are equivalent, including IPv6 address equivalencies to IPv4.
@@ -123,6 +129,13 @@ func (m Mask) String() string {
 	return net.IPMask(m).String()
 }
 
+// DebugString returns a representation to show in debuggers.  Gor compatibility with GoLand this function must
+// be able to be statically evaluated, so it cannot call other functions.
+//goland:noinspection GoMixedReceiverTypes
+func (m Mask) DebugString() string {
+	return fmt.Sprintf("Mask %x", string(m))
+}
+
 // Prefix returns the number of leading 1 bits in the netmask
 func (m Mask) Prefix() int {
 	p := 0
@@ -147,8 +160,7 @@ func NewSubnet(a IP, m Mask) Subnet {
 
 // NewHostOnlySubnet creates a subnet containing only a single IP address (ie, a /32 for IPv4 or a /128 for IPv6).
 func NewHostOnlySubnet(a IP) Subnet {
-	m := Mask(strings.Repeat("\xff", len(a)))
-	return Subnet(string(a) + string(m))
+	return Subnet(string(a) + string(net.CIDRMask(len(a)*8, len(a)*8)))
 }
 
 // String returns the human-readable string representation of this subnet.
@@ -161,6 +173,13 @@ func (s Subnet) String() string {
 		return "<invalid>"
 	}
 	return s.AsIPNet().String()
+}
+
+// DebugString returns a representation to show in debuggers.  Gor compatibility with GoLand this function must
+// be able to be statically evaluated, so it cannot call other functions.
+//goland:noinspection GoMixedReceiverTypes
+func (s Subnet) DebugString() string {
+	return fmt.Sprintf("Subnet %x", string(s))
 }
 
 // IP returns the IP address (network ID) of the subnet
