@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/netopus"
+	"golang.org/x/exp/slices"
 	"time"
 )
 
@@ -59,8 +60,14 @@ func (r *Resolver) Status(ctx context.Context) (*Status, error) {
 				Cost:   float64(cost),
 			})
 		}
+		slices.SortFunc(rn.Conns, func(a, b *StatusNodeConn) bool {
+			return a.Subnet < b.Subnet
+		})
 		stat.Nodes = append(stat.Nodes, rn)
 	}
+	slices.SortFunc(stat.Nodes, func(a, b *StatusNode) bool {
+		return a.Addr < b.Addr
+	})
 	stat.Sessions = make([]*StatusSession, 0)
 	for sessAddr, sessStatus := range ns.Sessions {
 		stat.Sessions = append(stat.Sessions, &StatusSession{
@@ -69,6 +76,9 @@ func (r *Resolver) Status(ctx context.Context) (*Status, error) {
 			ConnStart: sessStatus.ConnStart.Format(time.RFC3339),
 		})
 	}
+	slices.SortFunc(stat.Sessions, func(a, b *StatusSession) bool {
+		return a.Addr < b.Addr
+	})
 	return stat, nil
 }
 

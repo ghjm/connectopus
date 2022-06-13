@@ -7,6 +7,9 @@ import (
 	"net/http"
 )
 
+// UI routes list
+//go:generate go run routegen/routegen.go
+
 // UI embedded files
 //go:embed embed
 var uiFiles embed.FS
@@ -21,13 +24,16 @@ func GetUIHandler() http.Handler {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		isRoute := false
+		for _, rt := range uiRoutes {
+			if r.URL.Path == rt {
+				isRoute = true
+				break
+			}
+		}
 		if (r.URL.Path == "/") ||
 			(r.URL.Path == "/index.html") ||
-			(r.URL.Path == "/Dashboard") ||
-			(r.URL.Path == "/Settings") ||
-			(r.URL.Path == "/Backends") ||
-			(r.URL.Path == "/Services") ||
-			(r.URL.Path == "/GraphQL") {
+			isRoute {
 			_, _ = w.Write(indexHTML)
 		} else {
 			subServer.ServeHTTP(w, r)

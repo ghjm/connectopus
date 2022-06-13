@@ -86,7 +86,7 @@ $(UI_DEP): $(NPM_DEP) ui/package.json ui/package-lock.json ui/*.js $(shell find 
 
 .PHONY: ui-dev
 ui-dev:
-	@cd up && npm run dev
+	@cd ui && npm run dev
 
 # The prod build target performs a build inside a standard golang build
 # container which uses glibc 2.31.  The resulting binaries should be

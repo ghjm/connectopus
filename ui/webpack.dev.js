@@ -14,6 +14,10 @@ module.exports = merge(common('development'), {
     compress: true,
     historyApiFallback: true,
     open: true,
+    proxy: {
+      '/query': 'http://localhost:8123',
+      '/api': 'http://localhost:8123',
+    },
   },
   module: {
     rules: [

@@ -1,14 +1,14 @@
 import * as React from 'react';
 import { Route, RouteComponentProps, Switch } from 'react-router-dom';
 import { accessibleRouteChangeHandler } from '@app/utils/utils';
-import { Dashboard } from '@app/Dashboard/Dashboard';
-import { Settings } from '@app/Settings/Settings';
+import { Network } from '@app/Network/Network';
 import { Backends } from '@app/Backends/Backends';
 import { Services } from '@app/Services/Services';
 import { GraphQL } from '@app/GraphQL/GraphQL';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
+import { Status } from '@app/Status/Status';
 
 let routeFocusTimer: number;
 export interface IAppRoute {
@@ -32,19 +32,19 @@ export type AppRouteConfig = IAppRoute | IAppRouteGroup;
 
 const routes: AppRouteConfig[] = [
   {
-    component: Dashboard,
+    component: Network,
     exact: true,
-    label: 'Dashboard',
+    label: 'Network',
     path: '/',
-    title: 'Connectopus | GraphQL',
+    title: 'Connectopus | Network',
   },
   {
-    component: Settings,
+    component: Status,
     exact: true,
     isAsync: true,
-    label: 'Settings',
-    path: '/Settings',
-    title: 'Connectopus | Settings',
+    label: 'Status',
+    path: '/Status',
+    title: 'Connectopus | Status',
   },
   {
     component: Backends,
