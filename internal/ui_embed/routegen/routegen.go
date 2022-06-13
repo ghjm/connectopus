@@ -65,7 +65,7 @@ func main() {
 		errExit(err)
 	}
 	for _, route := range routes {
-		_, err = f.WriteString(fmt.Sprintf("    \"%s\",\n", route))
+		_, err = f.WriteString(fmt.Sprintf("	\"%s\",\n", route))
 		if err != nil {
 			errExit(err)
 		}

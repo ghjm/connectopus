@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import Cytoscape from 'cytoscape';
 import CytoscapeComponent from 'react-cytoscapejs';
 import nodeImage from '@app/images/node.png';
+import equal from 'fast-deep-equal/react';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -15,6 +16,7 @@ Cytoscape.use(COSEBilkent);
 
 const statusQuery = `{
   status {
+    addr
     nodes {
       name
       addr
@@ -27,7 +29,8 @@ const statusQuery = `{
 }`;
 
 const Network: React.FunctionComponent = () => {
-  const cyRef = useRef<Cytoscape.Core>();
+  const [elementData, setElementData] = useState<Array<Record<string, unknown>> | undefined>(undefined);
+  const [graphKey, setGraphKey] = useState(1);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const pageVisible = useRef(true);
   pageVisible.current = usePageVisibility();
@@ -78,9 +81,10 @@ const Network: React.FunctionComponent = () => {
     return `${name} [${addr}]`;
   };
 
-  const elements: object[] = [];
+  const elements: Record<string, unknown>[] = [];
   for (const node in nodes) {
-    elements.push({ data: { id: node, label: nodeName(node) } });
+    const selected = node === result.data['status']['addr'];
+    elements.push({ data: { id: node, label: nodeName(node) }, selected: selected });
     for (const conn in nodes[node]) {
       const connNode = nodes[node][conn];
       if (nodes[connNode] === undefined) {
@@ -90,27 +94,24 @@ const Network: React.FunctionComponent = () => {
     }
   }
 
+  if (!equal(elements, elementData)) {
+    setElementData(elements);
+    setGraphKey(graphKey + 1);
+  }
+
   if (elements.length === 0) {
     return <React.Fragment></React.Fragment>;
   }
 
-  if (cyRef.current != undefined) {
-    try {
-      cyRef.current.fit();
-    } catch (error) {
-      console.log(`caught Cytoscape error: ${error}`);
-    }
-  }
-
   return (
     <CytoscapeComponent
+      key={graphKey}
       elements={elements}
-      cy={(cy): void => {
-        cyRef.current = cy;
-      }}
       userPanningEnabled={false}
       userZoomingEnabled={false}
       boxSelectionEnabled={false}
+      autoungrabify={true}
+      autounselectify={true}
       layout={{ name: 'cose-bilkent', animate: false }}
       autoFit={true}
       style={{ width: '100%', height: '100%' }}

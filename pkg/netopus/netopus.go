@@ -67,7 +67,7 @@ type netopus struct {
 	sessionInfo    syncro.Var[sessInfo]
 	epoch          uint64
 	sequence       syncro.Var[uint64]
-	knownNodeInfo  syncro.Map[string, nodeInfo]
+	knownNodeInfo  syncro.Map[proto.IP, nodeInfo]
 	externalRoutes syncro.Var[[]externalRouteInfo]
 	updateSender   timerunner.TimeRunner
 }
@@ -96,9 +96,10 @@ type protoSession struct {
 
 // nodeInfo represents known information about a node
 type nodeInfo struct {
-	name     string
-	epoch    uint64
-	sequence uint64
+	name       string
+	epoch      uint64
+	sequence   uint64
+	lastUpdate time.Time
 }
 
 // New constructs and returns a new network node on a given address
@@ -119,7 +120,7 @@ func New(ctx context.Context, addr proto.IP, name string) (Netopus, error) {
 		sessionInfo:   syncro.NewVar(make(sessInfo)),
 		epoch:         uint64(time.Now().UnixNano()),
 		sequence:      syncro.Var[uint64]{},
-		knownNodeInfo: syncro.Map[string, nodeInfo]{},
+		knownNodeInfo: syncro.Map[proto.IP, nodeInfo]{},
 	}
 	n.sessionInfo.WorkWith(func(s *sessInfo) {
 		*s = make(sessInfo)
@@ -162,6 +163,7 @@ func New(ctx context.Context, addr proto.IP, name string) (Netopus, error) {
 		},
 		timerunner.Periodic(2*time.Second),
 		timerunner.AtStart)
+	go n.monitorDeadNodes()
 	return n, nil
 }
 
@@ -517,9 +519,9 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 		return false
 	}
 	var retval bool
-	n.knownNodeInfo.WorkWith(func(knownNodeInfo *map[string]nodeInfo) {
-		origin := r.Origin.String()
-		ni, ok := (*knownNodeInfo)[origin]
+	n.knownNodeInfo.WorkWith(func(_knownNodeInfo *map[proto.IP]nodeInfo) {
+		knownNodeInfo := *_knownNodeInfo
+		ni, ok := (knownNodeInfo)[r.Origin]
 		if ok && (r.UpdateEpoch < ni.epoch || (r.UpdateEpoch == ni.epoch && r.UpdateSequence < ni.sequence)) {
 			log.Debugf("%s: ignoring outdated routing update", n.addr.String())
 			return
@@ -529,13 +531,35 @@ func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
 			return
 		}
 		retval = true
-		(*knownNodeInfo)[origin] = nodeInfo{
-			name:     r.NodeName,
-			epoch:    r.UpdateEpoch,
-			sequence: r.UpdateSequence,
+		knownNodeInfo[r.Origin] = nodeInfo{
+			name:       r.NodeName,
+			epoch:      r.UpdateEpoch,
+			sequence:   r.UpdateSequence,
+			lastUpdate: time.Now(),
 		}
 	})
 	return retval
+}
+
+// monitorDeadNodes prunes nodes that haven't had an update in a long time
+func (n *netopus) monitorDeadNodes() {
+	for {
+		n.knownNodeInfo.WorkWith(func(_knownNodeInfo *map[proto.IP]nodeInfo) {
+			knownNodeInfo := *_knownNodeInfo
+			for node, info := range knownNodeInfo {
+				if info.lastUpdate.Before(time.Now().Add(-10 * time.Second)) {
+					log.Warnf("Removing dead node: %s", node.String())
+					delete(knownNodeInfo, node)
+					n.router.RemoveNode(node)
+				}
+			}
+		})
+		select {
+		case <-n.ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 // Status returns status of the Netopus instance
@@ -546,9 +570,9 @@ func (n *netopus) Status() *Status {
 	}
 	s.NodeNames = make(map[string]string)
 	s.NodeNames[n.addr.String()] = n.name
-	n.knownNodeInfo.WorkWithReadOnly(func(kn map[string]nodeInfo) {
+	n.knownNodeInfo.WorkWithReadOnly(func(kn map[proto.IP]nodeInfo) {
 		for k, v := range kn {
-			s.NodeNames[k] = v.name
+			s.NodeNames[k.String()] = v.name
 		}
 	})
 	s.RouterNodes = make(map[string]map[string]float32)
