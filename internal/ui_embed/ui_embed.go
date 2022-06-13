@@ -23,11 +23,11 @@ func GetUIHandler() http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if (r.URL.Path == "/") ||
 			(r.URL.Path == "/index.html") ||
-			(r.URL.Path == "/dashboard") ||
-			(r.URL.Path == "/settings") ||
-			(r.URL.Path == "/backends") ||
-			(r.URL.Path == "/services") ||
-			(r.URL.Path == "/graphql") {
+			(r.URL.Path == "/Dashboard") ||
+			(r.URL.Path == "/Settings") ||
+			(r.URL.Path == "/Backends") ||
+			(r.URL.Path == "/Services") ||
+			(r.URL.Path == "/GraphQL") {
 			_, _ = w.Write(indexHTML)
 		} else {
 			subServer.ServeHTTP(w, r)
