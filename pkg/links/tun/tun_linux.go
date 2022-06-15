@@ -20,9 +20,9 @@ type Link struct {
 }
 
 // New returns a link.Link connected to a newly created Linux tun/tap device.
-func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (*Link, error) {
+func New(ctx context.Context, deviceName string, tunAddr net.IP, subnet *net.IPNet) (*Link, error) {
 	persistTun := true
-	nl, err := netlink.LinkByName(name)
+	nl, err := netlink.LinkByName(deviceName)
 	if _, ok := err.(netlink.LinkNotFoundError); ok {
 		persistTun = false
 	} else if err != nil {
@@ -32,7 +32,7 @@ func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (*
 	tunIf, err = water.New(water.Config{
 		DeviceType: water.TUN,
 		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name:    name,
+			Name:    deviceName,
 			Persist: persistTun,
 		},
 	})
@@ -40,7 +40,7 @@ func New(ctx context.Context, name string, tunAddr net.IP, subnet *net.IPNet) (*
 		return nil, err
 	}
 	if nl == nil {
-		nl, err = netlink.LinkByName(name)
+		nl, err = netlink.LinkByName(deviceName)
 		if err != nil {
 			return nil, fmt.Errorf("error accessing tun device: %s", err)
 		}

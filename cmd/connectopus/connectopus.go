@@ -25,6 +25,13 @@ func errHalt(err error) {
 	os.Exit(1)
 }
 
+func defaultCost(cost float32) float32 {
+	if cost <= 0 {
+		return 1.0
+	}
+	return cost
+}
+
 var configFile string
 var identity string
 var logLevel string
@@ -62,9 +69,9 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			errHalt(err)
 		}
-		if len(node.Tun.Address) > 0 {
+		for _, tunDev := range node.TunDevs {
 			var tunLink links.Link
-			tunLink, err = tun.New(ctx, node.Tun.Name, net.IP(node.Tun.Address), config.Global.Subnet.AsIPNet())
+			tunLink, err = tun.New(ctx, tunDev.DeviceName, net.IP(tunDev.Address), config.Global.Subnet.AsIPNet())
 			if err != nil {
 				errHalt(err)
 			}
@@ -80,13 +87,7 @@ var rootCmd = &cobra.Command{
 					}
 				}
 			}()
-			n.AddExternalRoute(proto.NewHostOnlySubnet(node.Tun.Address), tunLink.SendPacket)
-		}
-		for _, backend := range node.Backends {
-			err = backend_registry.RunBackend(ctx, n, backend.BackendType, backend.Params)
-			if err != nil {
-				errHalt(err)
-			}
+			n.AddExternalRoute(tunDev.Name, proto.NewHostOnlySubnet(tunDev.Address), defaultCost(tunDev.Cost), tunLink.SendPacket)
 		}
 		for _, service := range node.Services {
 			err = services.RunService(ctx, n, service)
@@ -113,7 +114,7 @@ var rootCmd = &cobra.Command{
 					}
 				}
 			}()
-			n.AddExternalRoute(proto.NewHostOnlySubnet(namespace.Address), ns.SendPacket)
+			n.AddExternalRoute(namespace.Name, proto.NewHostOnlySubnet(namespace.Address), defaultCost(namespace.Cost), ns.SendPacket)
 			nsreg.Add(namespace.Name, ns.PID())
 		}
 		if node.Cpctl.Enable {
@@ -134,6 +135,12 @@ var rootCmd = &cobra.Command{
 				if err != nil {
 					errHalt(err)
 				}
+			}
+		}
+		for _, backend := range node.Backends {
+			err = backend_registry.RunBackend(ctx, n, backend.BackendType, defaultCost(backend.Cost), backend.Params)
+			if err != nil {
+				errHalt(err)
 			}
 		}
 		<-ctx.Done()

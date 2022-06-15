@@ -23,7 +23,7 @@ type BackendConnection interface {
 
 // ProtocolRunner is called by backends to run a protocol over a connection
 type ProtocolRunner interface {
-	RunProtocol(context.Context, BackendConnection)
+	RunProtocol(context.Context, float32, BackendConnection)
 }
 
 var ErrExceedsMDU = fmt.Errorf("payload size exceeds MTU")
@@ -32,7 +32,7 @@ var ErrExceedsMDU = fmt.Errorf("payload size exceeds MTU")
 type ConnFunc func() (BackendConnection, error)
 
 // RunDialer abstractly implements retry logic for repeatedly dialing a peer until it connects
-func RunDialer(ctx context.Context, pr ProtocolRunner, dialer ConnFunc) {
+func RunDialer(ctx context.Context, pr ProtocolRunner, cost float32, dialer ConnFunc) {
 	var nextTimeout time.Duration
 	for {
 		if nextTimeout > 0 {
@@ -58,12 +58,12 @@ func RunDialer(ctx context.Context, pr ProtocolRunner, dialer ConnFunc) {
 			continue
 		}
 		nextTimeout = 0
-		pr.RunProtocol(ctx, conn)
+		pr.RunProtocol(ctx, cost, conn)
 	}
 }
 
 // RunListener abstractly implements the accept loop of a listener
-func RunListener(ctx context.Context, pr ProtocolRunner, acceptor ConnFunc) {
+func RunListener(ctx context.Context, pr ProtocolRunner, cost float32, acceptor ConnFunc) {
 	for {
 		conn, err := acceptor()
 		if err != nil {
@@ -72,6 +72,6 @@ func RunListener(ctx context.Context, pr ProtocolRunner, acceptor ConnFunc) {
 			}
 			return
 		}
-		go pr.RunProtocol(ctx, conn)
+		go pr.RunProtocol(ctx, cost, conn)
 	}
 }

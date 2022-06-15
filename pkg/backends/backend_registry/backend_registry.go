@@ -9,7 +9,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 )
 
-type BackendRunFunc func(context.Context, backends.ProtocolRunner, config.Params) error
+type BackendRunFunc func(context.Context, backends.ProtocolRunner, float32, config.Params) error
 
 var backendMap = syncro.NewMap[string, BackendRunFunc](map[string]BackendRunFunc{
 	"dtls-dialer":   backend_dtls.RunDialerFromConfig,
@@ -18,10 +18,10 @@ var backendMap = syncro.NewMap[string, BackendRunFunc](map[string]BackendRunFunc
 
 var ErrUnknownBackend = fmt.Errorf("unknown backend")
 
-func RunBackend(ctx context.Context, pr backends.ProtocolRunner, name string, params config.Params) error {
+func RunBackend(ctx context.Context, pr backends.ProtocolRunner, name string, cost float32, params config.Params) error {
 	runner, ok := backendMap.Get(name)
 	if !ok {
 		return ErrUnknownBackend
 	}
-	return runner(ctx, pr, params)
+	return runner(ctx, pr, cost, params)
 }

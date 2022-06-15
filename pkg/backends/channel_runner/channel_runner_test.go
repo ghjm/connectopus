@@ -88,7 +88,7 @@ func TestChannelRunner(t *testing.T) {
 		}
 	}()
 
-	go c.RunProtocol(ctx, b)
+	go c.RunProtocol(ctx, 1.0, b)
 
 	startTime := time.Now()
 	for {

@@ -31,9 +31,9 @@ type Netopus interface {
 // ExternalRouter is a device that can accept and send packets to external routes
 type ExternalRouter interface {
 	// AddExternalRoute adds an external route.  When packets arrive for this destination, outgoingPacketFunc will be called.
-	AddExternalRoute(proto.Subnet, func([]byte) error)
+	AddExternalRoute(string, proto.Subnet, float32, func([]byte) error)
 	// DelExternalRoute removes a previously added external route.  If the route does not exist, this has no effect.
-	DelExternalRoute(proto.IP)
+	DelExternalRoute(string)
 	// SendPacket routes and sends a packet
 	SendPacket(packet []byte) error
 }
@@ -74,7 +74,9 @@ type netopus struct {
 
 // externalRouteInfo stores information about a route
 type externalRouteInfo struct {
+	name               string
 	dest               proto.Subnet
+	cost               float32
 	outgoingPacketFunc func(data []byte) error
 }
 
@@ -87,6 +89,7 @@ type protoSession struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	conn       backends.BackendConnection
+	cost       float32
 	readChan   chan proto.Msg
 	remoteAddr syncro.Var[proto.IP]
 	connected  syncro.Var[bool]
@@ -317,7 +320,10 @@ func (p *protoSession) protoLoop() {
 }
 
 // RunProtocol runs the Netopus protocol over a given backend connection
-func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnection) {
+func (n *netopus) RunProtocol(ctx context.Context, cost float32, conn backends.BackendConnection) {
+	if cost <= 0 {
+		cost = 1.0
+	}
 	protoCtx, protoCancel := context.WithCancel(ctx)
 	defer func() {
 		protoCancel()
@@ -327,6 +333,7 @@ func (n *netopus) RunProtocol(ctx context.Context, conn backends.BackendConnecti
 		ctx:      protoCtx,
 		cancel:   protoCancel,
 		conn:     conn,
+		cost:     cost,
 		readChan: make(chan proto.Msg),
 	}
 	defer func() {
@@ -485,13 +492,13 @@ func (n *netopus) generateRoutingUpdate() (proto.RoutingConns, []byte, error) {
 	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
 		for _, sess := range *s {
 			if sess.connected.Get() {
-				conns[proto.NewSubnet(sess.remoteAddr.Get(), proto.CIDRMask(128, 128))] = 1.0
+				conns[proto.NewSubnet(sess.remoteAddr.Get(), proto.CIDRMask(128, 128))] = sess.cost
 			}
 		}
 	})
 	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
 		for _, r := range *routes {
-			conns[r.dest] = 1.0
+			conns[r.dest] = r.cost
 		}
 	})
 	up := &proto.RoutingUpdate{
@@ -618,21 +625,26 @@ func (n *netopus) DialUDP(lport uint16, addr net.IP, rport uint16) (netstack.UDP
 }
 
 // AddExternalRoute implements ExternalRouter
-func (n *netopus) AddExternalRoute(dest proto.Subnet, outgoingPacketFunc func([]byte) error) {
+func (n *netopus) AddExternalRoute(name string, dest proto.Subnet, cost float32, outgoingPacketFunc func([]byte) error) {
+	if cost <= 0 {
+		cost = 1.0
+	}
 	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
 		*routes = append(*routes, externalRouteInfo{
+			name:               name,
 			dest:               dest,
+			cost:               cost,
 			outgoingPacketFunc: outgoingPacketFunc,
 		})
 	})
 }
 
 // DelExternalRoute implements ExternalRouter
-func (n *netopus) DelExternalRoute(dest proto.IP) {
+func (n *netopus) DelExternalRoute(name string) {
 	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
 		newRoutes := make([]externalRouteInfo, 0, len(*routes))
 		for _, r := range *routes {
-			if string(r.dest) != string(dest) {
+			if r.name != name {
 				newRoutes = append(newRoutes, r)
 			}
 		}

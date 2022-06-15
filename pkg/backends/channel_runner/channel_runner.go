@@ -32,7 +32,7 @@ func (p *channelRunner) WriteChan() chan<- []byte {
 	return p.writeChan
 }
 
-func (p *channelRunner) RunProtocol(ctx context.Context, conn backends.BackendConnection) {
+func (p *channelRunner) RunProtocol(ctx context.Context, cost float32, conn backends.BackendConnection) {
 	protoCtx, protoCancel := context.WithCancel(ctx)
 
 	// Goroutine that reads from conn and writes to readChan

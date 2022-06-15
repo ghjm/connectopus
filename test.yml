@@ -7,11 +7,12 @@ nodes:
 
   foo:
     address: FD00::1:1
-    tun:
-      name: ctun
-      address: FD00::1:2
+    tun_devs:
+      - name: foo-tun
+        device: ctun
+        address: FD00::1:2
     namespaces:
-      - name: foo
+      - name: foo-ns
         address: FD00::1:3
     backends:
       - type: dtls-dialer

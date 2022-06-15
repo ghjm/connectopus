@@ -15,7 +15,7 @@ func TestBackendDtls(t *testing.T) {
 	defer cancel()
 	n1 := channel_runner.NewChannelRunner()
 	n2 := channel_runner.NewChannelRunner()
-	addr, err := RunListener(ctx, n1, 0)
+	addr, err := RunListener(ctx, n1, 1.00, 0)
 	if err != nil {
 		t.Fatalf("listener backend error %s", err)
 	}
@@ -29,7 +29,7 @@ func TestBackendDtls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error converting port to integer: %s", err)
 	}
-	err = RunDialer(ctx, n2, net.ParseIP("127.0.0.1"), uint16(port))
+	err = RunDialer(ctx, n2, 1.0, net.ParseIP("127.0.0.1"), uint16(port))
 	if err != nil {
 		t.Fatalf("dialer backend error %s", err)
 	}

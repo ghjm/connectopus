@@ -21,21 +21,17 @@ type Global struct {
 
 type Node struct {
 	Address    proto.IP    `yaml:"address"`
-	Tun        Tun         `yaml:"tun,omitempty"`
 	Backends   []Backend   `yaml:"backends,omitempty"`
 	Services   []Service   `yaml:"services,omitempty"`
+	TunDevs    []TunDev    `yaml:"tun_devs,omitempty"`
 	Namespaces []Namespace `yaml:"namespaces,omitempty"`
 	Cpctl      Cpctl       `yaml:"cpctl,omitempty"`
 }
 
-type Tun struct {
-	Name    string   `yaml:"name"`
-	Address proto.IP `yaml:"address"`
-}
-
 type Backend struct {
-	BackendType string `yaml:"type"`
-	Params      Params `yaml:"params"`
+	BackendType string  `yaml:"type"`
+	Cost        float32 `yaml:"cost"`
+	Params      Params  `yaml:"params"`
 }
 
 type Service struct {
@@ -44,9 +40,17 @@ type Service struct {
 	WinCommand string `yaml:"win_command"`
 }
 
+type TunDev struct {
+	Name       string   `yaml:"name"`
+	DeviceName string   `yaml:"device"`
+	Address    proto.IP `yaml:"address"`
+	Cost       float32  `yaml:"cost"`
+}
+
 type Namespace struct {
 	Name    string   `yaml:"name"`
 	Address proto.IP `yaml:"address"`
+	Cost    float32  `yaml:"cost"`
 }
 
 type Cpctl struct {

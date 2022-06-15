@@ -100,7 +100,7 @@ func RunPair(ctx context.Context, pr1 backends.ProtocolRunner, pr2 backends.Prot
 		sendChan:      pair2to1chan,
 		writeDeadline: time.Time{},
 	}
-	go pr1.RunProtocol(pairCtx, pair1)
-	go pr2.RunProtocol(pairCtx, pair2)
+	go pr1.RunProtocol(pairCtx, 1.0, pair1)
+	go pr2.RunProtocol(pairCtx, 1.0, pair2)
 	return nil
 }

@@ -44,6 +44,12 @@ const Network: React.FunctionComponent = () => {
     }, 1000);
     return () => clearTimeout(timerId);
   }, [result.fetching, reexecuteQuery]);
+  useEffect(() => {
+    function handleResize() {
+      setGraphKey(graphKey + 1);
+    }
+    window.addEventListener('resize', handleResize);
+  });
   if (!result.fetching && isPageLoading) {
     setIsPageLoading(false);
   }
@@ -65,10 +71,13 @@ const Network: React.FunctionComponent = () => {
   for (const node in result.data['status']['nodes']) {
     const nodeData = result.data['status']['nodes'][node];
     nodeNames[nodeData['addr']] = nodeData['name'];
-    const nodeConns: string[] = [];
+    const nodeConns: Record<string, unknown>[] = [];
     for (const conn in nodeData['conns']) {
       const connData = nodeData['conns'][conn];
-      nodeConns.push(connData['subnet'].replace(/\/128$/, ''));
+      nodeConns.push({
+        addr: connData['subnet'].replace(/\/128$/, ''),
+        cost: connData['cost'],
+      });
     }
     nodes[nodeData['addr']] = nodeConns;
   }
@@ -85,12 +94,16 @@ const Network: React.FunctionComponent = () => {
   for (const node in nodes) {
     const selected = node === result.data['status']['addr'];
     elements.push({ data: { id: node, label: nodeName(node) }, selected: selected });
-    for (const conn in nodes[node]) {
-      const connNode = nodes[node][conn];
+    for (const i in nodes[node]) {
+      const connNode = nodes[node][i];
       if (nodes[connNode] === undefined) {
-        elements.push({ data: { id: connNode, label: nodeName(connNode) } });
+        elements.push({ data: { id: connNode.addr, label: nodeName(connNode.addr) } });
       }
-      elements.push({ data: { source: node, target: connNode } });
+      let edgeLabel = `cost: ${connNode.cost}`;
+      if (connNode.cost === 1.0) {
+        edgeLabel = '';
+      }
+      elements.push({ data: { source: node, target: connNode.addr, label: edgeLabel } });
     }
   }
 
@@ -138,7 +151,11 @@ const Network: React.FunctionComponent = () => {
           selector: 'edge',
           style: {
             width: 1,
+            'source-label': 'data(label)',
+            'source-text-offset': '15',
             'line-color': 'darkgrey',
+            'font-size': 3,
+            'target-arrow-shape': 'triangle',
           },
         },
       ]}
