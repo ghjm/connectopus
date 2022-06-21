@@ -3,13 +3,18 @@ package cpctl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"time"
 )
 
-func NewSocketClient(socketFile string) (*Client, error) {
+func NewSocketClient(socketFile string, proxyTo string) (*Client, error) {
+	clientURL := "http://cpctl.sock/query"
+	if proxyTo != "" {
+		clientURL = fmt.Sprintf("http://cpctl.sock/proxy/%s/query", proxyTo)
+	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	_, err := os.Stat(socketFile)
 	if errors.Is(err, os.ErrNotExist) {
@@ -23,5 +28,5 @@ func NewSocketClient(socketFile string) (*Client, error) {
 		Transport: transport,
 		Timeout:   10 * time.Second,
 	}
-	return NewClient(client, "http://cpctl.sock/query"), nil
+	return NewClient(client, clientURL), nil
 }

@@ -19,6 +19,8 @@ func errExit(err error) {
 }
 
 var socketFile string
+var proxyNode string
+
 var rootCmd = &cobra.Command{
 	Use:   "cpctl",
 	Short: "CLI for Connectopus",
@@ -38,7 +40,7 @@ var statusCmd = &cobra.Command{
 	Short: "Get status",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := cpctl.NewSocketClient(socketFile)
+		client, err := cpctl.NewSocketClient(socketFile, proxyNode)
 		if err != nil {
 			errExit(err)
 		}
@@ -122,7 +124,10 @@ var nsenterCmd = &cobra.Command{
 	Short: "Run a command within a network namespace",
 	Args:  cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := cpctl.NewSocketClient(socketFile)
+		if proxyNode != "" {
+			errExit(fmt.Errorf("cannot enter a non-local namespace"))
+		}
+		client, err := cpctl.NewSocketClient(socketFile, proxyNode)
 		if err != nil {
 			errExit(err)
 		}
@@ -180,6 +185,8 @@ func main() {
 	}
 	rootCmd.PersistentFlags().StringVar(&socketFile, "socket-file", defaultSocketFile,
 		"Socket file to communicate with Connectopus")
+	rootCmd.PersistentFlags().StringVar(&proxyNode, "proxy-to", "",
+		"Node to communicate with (non-local implies proxy)")
 
 	nsenterCmd.Flags().StringVar(&namespaceName, "netns", "", "Name of network namespace")
 	rootCmd.AddCommand(statusCmd, nsenterCmd)

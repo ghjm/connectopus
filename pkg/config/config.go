@@ -54,7 +54,6 @@ type Namespace struct {
 }
 
 type Cpctl struct {
-	Enable     bool   `yaml:"enable"`
 	SocketFile string `yaml:"socket_file"`
 	Port       int    `yaml:"port"`
 }

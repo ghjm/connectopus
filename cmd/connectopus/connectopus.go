@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"net"
 	"os"
-	"path"
 )
 
 func errHalt(err error) {
@@ -64,7 +63,7 @@ var rootCmd = &cobra.Command{
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		var n netopus.Netopus
+		var n proto.Netopus
 		n, err = netopus.New(ctx, node.Address, identity)
 		if err != nil {
 			errHalt(err)
@@ -117,24 +116,35 @@ var rootCmd = &cobra.Command{
 			n.AddExternalRoute(namespace.Name, proto.NewHostOnlySubnet(namespace.Address), defaultCost(namespace.Cost), ns.SendPacket)
 			nsreg.Add(namespace.Name, ns.PID())
 		}
-		if node.Cpctl.Enable {
-			csrv := cpctl.Resolver{
-				NsReg:             nsreg,
-				NetopusStatusFunc: func() *netopus.Status { return n.Status() },
+		csrv := cpctl.Resolver{
+			N:     n,
+			NsReg: nsreg,
+		}
+		{
+			li, err := n.ListenTCP(277)
+			if err != nil {
+				errHalt(err)
 			}
-			socketFile := path.Join(os.Getenv("HOME"), ".local", "share", "connectopus", "cpctl.sock")
-			if node.Cpctl.SocketFile != "" {
-				socketFile = node.Cpctl.SocketFile
+			err = csrv.ServeAPI(ctx, li)
+			if err != nil {
+				errHalt(err)
 			}
+		}
+		if node.Cpctl.SocketFile != "" {
+			socketFile := os.ExpandEnv(node.Cpctl.SocketFile)
 			err = csrv.ServeUnix(ctx, socketFile)
 			if err != nil {
 				errHalt(err)
 			}
-			if node.Cpctl.Port != 0 {
-				err = csrv.ServeHTTP(ctx, node.Cpctl.Port)
-				if err != nil {
-					errHalt(err)
-				}
+		}
+		if node.Cpctl.Port != 0 {
+			li, err := net.Listen("tcp", fmt.Sprintf(":%d", node.Cpctl.Port))
+			if err != nil {
+				errHalt(err)
+			}
+			err = csrv.ServeHTTP(ctx, li)
+			if err != nil {
+				errHalt(err)
 			}
 		}
 		for _, backend := range node.Backends {

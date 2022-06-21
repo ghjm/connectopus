@@ -20,44 +20,7 @@ import (
 	"time"
 )
 
-// Netopus is the aggregate interface providing all the functionality of a netopus instance
-type Netopus interface {
-	backends.ProtocolRunner
-	netstack.UserStack
-	ExternalRouter
-	StatusGetter
-}
-
-// ExternalRouter is a device that can accept and send packets to external routes
-type ExternalRouter interface {
-	// AddExternalRoute adds an external route.  When packets arrive for this destination, outgoingPacketFunc will be called.
-	AddExternalRoute(string, proto.Subnet, float32, func([]byte) error)
-	// DelExternalRoute removes a previously added external route.  If the route does not exist, this has no effect.
-	DelExternalRoute(string)
-	// SendPacket routes and sends a packet
-	SendPacket(packet []byte) error
-}
-
-type StatusGetter interface {
-	Status() *Status
-}
-
-// Status is returned by netopus.Status()
-type Status struct {
-	Name        string
-	Addr        proto.IP
-	NodeNames   map[string]string
-	RouterNodes map[string]map[string]float32
-	Sessions    map[string]SessionStatus
-}
-
-// SessionStatus represents the status of a single session
-type SessionStatus struct {
-	Connected bool
-	ConnStart time.Time
-}
-
-// netopus implements Netopus
+// netopus implements proto.Netopus
 type netopus struct {
 	ctx            context.Context
 	addr           proto.IP
@@ -106,7 +69,7 @@ type nodeInfo struct {
 }
 
 // New constructs and returns a new network node on a given address
-func New(ctx context.Context, addr proto.IP, name string) (Netopus, error) {
+func New(ctx context.Context, addr proto.IP, name string) (proto.Netopus, error) {
 	if len(addr) != net.IPv6len {
 		return nil, fmt.Errorf("address must be IPv6")
 	}
@@ -570,16 +533,19 @@ func (n *netopus) monitorDeadNodes() {
 }
 
 // Status returns status of the Netopus instance
-func (n *netopus) Status() *Status {
-	s := Status{
+func (n *netopus) Status() *proto.Status {
+	s := proto.Status{
 		Name: n.name,
 		Addr: n.addr,
 	}
-	s.NodeNames = make(map[string]string)
-	s.NodeNames[n.addr.String()] = n.name
+	s.NameToAddr = make(map[string]string)
+	s.AddrToName = make(map[string]string)
+	s.NameToAddr[n.name] = n.addr.String()
+	s.AddrToName[n.addr.String()] = n.name
 	n.knownNodeInfo.WorkWithReadOnly(func(kn map[proto.IP]nodeInfo) {
 		for k, v := range kn {
-			s.NodeNames[k.String()] = v.name
+			s.NameToAddr[v.name] = k.String()
+			s.AddrToName[k.String()] = v.name
 		}
 	})
 	s.RouterNodes = make(map[string]map[string]float32)
@@ -592,10 +558,10 @@ func (n *netopus) Status() *Status {
 			s.RouterNodes[k.String()] = r
 		}
 	}
-	s.Sessions = make(map[string]SessionStatus)
+	s.Sessions = make(map[string]proto.SessionStatus)
 	n.sessionInfo.WorkWithReadOnly(func(si *sessInfo) {
 		for k, v := range *si {
-			s.Sessions[k.String()] = SessionStatus{
+			s.Sessions[k.String()] = proto.SessionStatus{
 				Connected: v.connected.Get(),
 				ConnStart: v.connStart,
 			}

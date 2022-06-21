@@ -29,7 +29,7 @@ type ConnSpec struct {
 }
 
 // MakeMesh constructs Netopus instances and backends, according to a spec
-func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Netopus, error) {
+func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]*netopus, error) {
 	connections := make([]ConnSpec, 0)
 	for node, spec := range meshSpec {
 		for _, conn := range spec.Conns {
@@ -59,7 +59,7 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 			}
 		}
 	}
-	mesh := make(map[string]Netopus)
+	mesh := make(map[string]*netopus)
 	usedAddrs := make(map[string]struct{})
 	for node, spec := range meshSpec {
 		addrStr := spec.Address.String()
@@ -72,7 +72,7 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 		if err != nil {
 			return nil, err
 		}
-		mesh[node] = n
+		mesh[node] = n.(*netopus)
 	}
 	for _, conn := range connections {
 		err := backend_pair.RunPair(ctx, mesh[conn.N1], mesh[conn.N2], 1500)
@@ -84,7 +84,7 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 	for {
 		allGood := true
 		for nodeA := range meshSpec {
-			status := mesh[nodeA].(*netopus).Status()
+			status := mesh[nodeA].Status()
 			for nodeB := range meshSpec {
 				if nodeB == nodeA {
 					continue
@@ -117,7 +117,7 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]Net
 	return mesh, nil
 }
 
-func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh map[string]Netopus) {
+func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh map[string]*netopus) {
 	server := mesh["server"]
 	serverAddr := spec["server"].Address
 	client := mesh["client"]
@@ -282,11 +282,11 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 	wg.Wait()
 }
 
-func idleTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh map[string]Netopus) {
+func idleTest(_ context.Context, _ *testing.T, _ map[string]NodeSpec, _ map[string]*netopus) {
 }
 
 func runTest(t *testing.T, spec map[string]NodeSpec,
-	tests ...func(context.Context, *testing.T, map[string]NodeSpec, map[string]Netopus)) {
+	tests ...func(context.Context, *testing.T, map[string]NodeSpec, map[string]*netopus)) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer func() {
 		cancel()

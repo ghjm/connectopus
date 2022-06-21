@@ -2,23 +2,22 @@ package cpctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/ghjm/connectopus/pkg/links/netns"
-	"github.com/ghjm/connectopus/pkg/netopus"
+	"github.com/ghjm/connectopus/pkg/proto"
 	"golang.org/x/exp/slices"
 	"time"
 )
 
 type Resolver struct {
-	NsReg             *netns.Registry
-	NetopusStatusFunc func() *netopus.Status
+	N     proto.Netopus
+	NsReg *netns.Registry
 }
 
 func (r *Resolver) Query() QueryResolver {
 	return r
 }
 
-func (r *Resolver) Netns(ctx context.Context, filter *NetnsFilter) ([]*NetnsResult, error) {
+func (r *Resolver) Netns(_ context.Context, filter *NetnsFilter) ([]*NetnsResult, error) {
 	var nspid []netns.NamePID
 	if r.NsReg != nil {
 		if filter == nil || filter.Name == nil {
@@ -37,11 +36,8 @@ func (r *Resolver) Netns(ctx context.Context, filter *NetnsFilter) ([]*NetnsResu
 	return nsr, nil
 }
 
-func (r *Resolver) Status(ctx context.Context) (*Status, error) {
-	if r.NetopusStatusFunc == nil {
-		return nil, fmt.Errorf("unable to retrieve status")
-	}
-	ns := r.NetopusStatusFunc()
+func (r *Resolver) Status(_ context.Context) (*Status, error) {
+	ns := r.N.Status()
 	stat := &Status{
 		Name: ns.Name,
 		Addr: ns.Addr.String(),
@@ -50,7 +46,7 @@ func (r *Resolver) Status(ctx context.Context) (*Status, error) {
 	for routerNode, routerRoutes := range ns.RouterNodes {
 		rn := &StatusNode{
 			Addr:  routerNode,
-			Name:  ns.NodeNames[routerNode],
+			Name:  ns.AddrToName[routerNode],
 			Conns: nil,
 		}
 		rn.Conns = make([]*StatusNodeConn, 0)
@@ -86,6 +82,6 @@ func (r *Resolver) Mutation() MutationResolver {
 	return r
 }
 
-func (r *Resolver) Dummy(ctx context.Context) (*DummyResult, error) {
+func (r *Resolver) Dummy(_ context.Context) (*DummyResult, error) {
 	return &DummyResult{}, nil
 }

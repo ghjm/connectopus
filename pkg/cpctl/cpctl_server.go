@@ -2,7 +2,6 @@ package cpctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/ghjm/connectopus/internal/ui_embed"
@@ -53,24 +52,28 @@ func (r *Resolver) ServeUnix(ctx context.Context, socketFile string) error {
 	if err != nil {
 		return err
 	}
+	return r.ServeAPI(ctx, li)
+}
 
+func (r *Resolver) ServeAPI(ctx context.Context, li net.Listener) error {
 	mux := http.NewServeMux()
 	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
+
+	p := NewProxy(r.N)
+	mux.Handle("/proxy/", p)
 
 	r.runServer(ctx, li, mux)
 	return nil
 }
 
-func (r *Resolver) ServeHTTP(ctx context.Context, port int) error {
-	li, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return err
-	}
-
+func (r *Resolver) ServeHTTP(ctx context.Context, li net.Listener) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", ui_embed.GetUIHandler())
 	mux.Handle("/api", playground.Handler("GraphQL playground", "/query"))
 	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
+
+	p := NewProxy(r.N)
+	mux.Handle("/proxy/", p)
 
 	r.runServer(ctx, li, mux)
 	return nil
