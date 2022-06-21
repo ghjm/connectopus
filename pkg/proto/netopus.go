@@ -22,6 +22,10 @@ type ExternalRouter interface {
 	DelExternalRoute(string)
 	// SendPacket routes and sends a packet
 	SendPacket(packet []byte) error
+	// SubscribeUpdates returns a channel that will be sent to whenever the routing policy changes
+	SubscribeUpdates() <-chan RoutingPolicy
+	// UnsubscribeUpdates unsubscribes a previously subscribed updates channel
+	UnsubscribeUpdates(<-chan RoutingPolicy)
 }
 
 type StatusGetter interface {

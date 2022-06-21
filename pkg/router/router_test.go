@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type testNodes RoutingNodes
+type testNodes proto.RoutingNodes
 type testResults map[proto.IP]proto.IP
 type testInstance struct {
 	myAddr proto.IP

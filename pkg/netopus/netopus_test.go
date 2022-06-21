@@ -80,39 +80,47 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]*ne
 			return nil, err
 		}
 	}
-	startTime := time.Now()
-	for {
-		allGood := true
-		for nodeA := range meshSpec {
-			status := mesh[nodeA].Status()
-			for nodeB := range meshSpec {
-				if nodeB == nodeA {
-					continue
-				}
-				found := false
-				for k := range status.RouterNodes {
-					_, ok := status.RouterNodes[k][proto.NewHostOnlySubnet(meshSpec[nodeB].Address).String()]
-					if ok {
-						found = true
-						break
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer timeoutCancel()
+	wg := sync.WaitGroup{}
+	wg.Add(len(meshSpec))
+	for node := range meshSpec {
+		go func(node string) {
+			defer wg.Done()
+			updCh := mesh[node].SubscribeUpdates()
+			defer mesh[node].UnsubscribeUpdates(updCh)
+			for {
+				select {
+				case <-timeoutCtx.Done():
+					return
+				case policy := <-updCh:
+					allGood := true
+					for nodeB := range meshSpec {
+						if nodeB == node {
+							continue
+						}
+						found := false
+						for s := range policy {
+							if s.Contains(mesh[nodeB].addr) {
+								found = true
+								break
+							}
+						}
+						if !found {
+							allGood = false
+							break
+						}
+					}
+					if allGood {
+						return
 					}
 				}
-				if !found {
-					allGood = false
-					break
-				}
 			}
-			if !allGood {
-				break
-			}
-		}
-		if allGood {
-			break
-		}
-		if time.Since(startTime) > 5*time.Second {
-			return nil, fmt.Errorf("timeout initializing mesh")
-		}
-		time.Sleep(100 * time.Millisecond)
+		}(node)
+	}
+	wg.Wait()
+	if timeoutCtx.Err() != nil {
+		return nil, timeoutCtx.Err()
 	}
 	return mesh, nil
 }

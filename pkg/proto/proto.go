@@ -26,8 +26,14 @@ type InitMsg struct {
 	MyAddr IP
 }
 
+// RoutingNodes stores the known connection information for a network of nodes
+type RoutingNodes map[IP]RoutingConns
+
 // RoutingConns stores the known connections and costs directly connected to a node
 type RoutingConns map[Subnet]float32
+
+// RoutingPolicy is a routing table giving the next hop for a list of subnets
+type RoutingPolicy map[Subnet]IP
 
 // RoutingUpdate is a message type carrying routing information
 type RoutingUpdate struct {

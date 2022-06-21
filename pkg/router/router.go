@@ -13,12 +13,6 @@ import (
 	"time"
 )
 
-// RoutingNodes stores the known connection information for a network of nodes
-type RoutingNodes map[proto.IP]proto.RoutingConns
-
-// RoutingPolicy is a routing table giving the next hop for a list of subnets
-type RoutingPolicy map[proto.Subnet]proto.IP
-
 type Router interface {
 
 	// UpdateNode updates the connection information for a node.
@@ -32,13 +26,13 @@ type Router interface {
 	NextHop(proto.IP) (proto.IP, error)
 
 	// SubscribeUpdates returns a channel which will be sent a routing policy whenever it is updated
-	SubscribeUpdates() <-chan RoutingPolicy
+	SubscribeUpdates() <-chan proto.RoutingPolicy
 
 	// UnsubscribeUpdates unsubscribes a previously subscribed updates channel
-	UnsubscribeUpdates(ch <-chan RoutingPolicy)
+	UnsubscribeUpdates(ch <-chan proto.RoutingPolicy)
 
 	// Nodes returns a copy of the nodes and connections known to the router
-	Nodes() RoutingNodes
+	Nodes() proto.RoutingNodes
 }
 
 // Implements Router
@@ -49,7 +43,7 @@ type router struct {
 	policy        syncro.Map[proto.Subnet, proto.IP]
 	updateWait    time.Duration
 	tr            timerunner.TimeRunner
-	updatesBroker broker.Broker[RoutingPolicy]
+	updatesBroker broker.Broker[proto.RoutingPolicy]
 }
 
 // New returns a new router.  UpdateWait specifies the maximum time after an UpdateNode that a recalculation should occur.
@@ -60,7 +54,7 @@ func New(ctx context.Context, myAddr proto.IP, updateWait time.Duration) Router 
 		nodes:         syncro.Map[proto.IP, proto.RoutingConns]{},
 		policy:        syncro.Map[proto.Subnet, proto.IP]{},
 		updateWait:    updateWait,
-		updatesBroker: broker.New[RoutingPolicy](ctx),
+		updatesBroker: broker.New[proto.RoutingPolicy](ctx),
 	}
 	r.tr = timerunner.New(ctx, r.recalculate)
 	return r
@@ -144,7 +138,7 @@ func (r *router) recalculate() {
 				}
 			}
 		}
-		newPolicy := make(RoutingPolicy)
+		newPolicy := make(proto.RoutingPolicy)
 		for dest := range nodes {
 			p := dest
 			for {
@@ -216,16 +210,16 @@ func (r *router) NextHop(dest proto.IP) (proto.IP, error) {
 	return hop, nil
 }
 
-func (r *router) SubscribeUpdates() <-chan RoutingPolicy {
+func (r *router) SubscribeUpdates() <-chan proto.RoutingPolicy {
 	return r.updatesBroker.Subscribe()
 }
 
-func (r *router) UnsubscribeUpdates(ch <-chan RoutingPolicy) {
+func (r *router) UnsubscribeUpdates(ch <-chan proto.RoutingPolicy) {
 	r.updatesBroker.Unsubscribe(ch)
 }
 
-func (r *router) Nodes() RoutingNodes {
-	nodesCopy := make(RoutingNodes)
+func (r *router) Nodes() proto.RoutingNodes {
+	nodesCopy := make(proto.RoutingNodes)
 	r.nodes.WorkWithReadOnly(func(nodes map[proto.IP]proto.RoutingConns) {
 		for k, v := range nodes {
 			nodesCopy[k] = make(proto.RoutingConns)

@@ -617,3 +617,13 @@ func (n *netopus) DelExternalRoute(name string) {
 		*routes = newRoutes
 	})
 }
+
+// SubscribeUpdates implements ExternalRouter
+func (n *netopus) SubscribeUpdates() <-chan proto.RoutingPolicy {
+	return n.router.SubscribeUpdates()
+}
+
+// UnsubscribeUpdates implements ExternalRouter
+func (n *netopus) UnsubscribeUpdates(ch <-chan proto.RoutingPolicy) {
+	n.router.UnsubscribeUpdates(ch)
+}
