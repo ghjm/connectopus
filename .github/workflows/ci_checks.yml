@@ -2,6 +2,7 @@
 name: ci_checks
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -22,17 +23,9 @@ on:
 
 jobs:
 
-  ci_checks:
-    name: ci_checks
-    strategy:
-      matrix:
-        go-version:
-          - 1.18
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
+  linux_checks:
+    name: linux_checks
+    runs-on: ubuntu-latest
     steps:
 
       - name: Checkout
@@ -87,12 +80,59 @@ jobs:
         run: |
           go generate ./...
           git diff --exit-code
+
       - name: Run tests
         run: go test ./... -count=1 -race
 
       - name: Run root tests
-        if: runner.os == 'Linux'
         run: |
           make connectopus
           sudo GOPATH=$HOME/go $(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
+
+  platforms_checks:
+    name: platforms_checks
+    needs: linux_checks
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+
+      - name: Cache Go build dirs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install Node modules
+        run: cd ui && npm ci --legacy-peer-deps
+
+      - name: Build the UI
+        run: make ui
+
+      - name: Run tests
+        run: go test ./... -count=1
 
