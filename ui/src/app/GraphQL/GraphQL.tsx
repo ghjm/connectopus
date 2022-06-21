@@ -1,6 +1,11 @@
+import { AppContext } from '@app/AppLayout/AppLayout';
 import * as React from 'react';
 
-const GraphQL: React.FunctionComponent = () => (
+interface IGraphQLFrameProps {
+  url: string;
+}
+
+const GraphQLFrame: React.FunctionComponent<IGraphQLFrameProps> = (props) => (
   <div
     style={{
       position: 'relative',
@@ -17,7 +22,7 @@ const GraphQL: React.FunctionComponent = () => (
     }}
   >
     <iframe
-      src="/api"
+      src={props.url}
       style={{
         position: 'relative',
         top: 0,
@@ -35,6 +40,21 @@ const GraphQL: React.FunctionComponent = () => (
       Your browser doesn&apos;t support iframes
     </iframe>
   </div>
+);
+
+const GraphQL: React.FunctionComponent = () => (
+  <AppContext.Consumer>
+    {(value) => {
+      let url = '/api';
+      if (value !== null) {
+        const [activeNode] = value.activeNodeState;
+        if (activeNode !== '') {
+          url = `/api?proxyTo=${activeNode}`;
+        }
+      }
+      return GraphQLFrame({ url: url });
+    }}
+  </AppContext.Consumer>
 );
 
 export { GraphQL };

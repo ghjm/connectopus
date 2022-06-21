@@ -30,6 +30,7 @@ const statusQuery = `{
 
 const Network: React.FunctionComponent = () => {
   const [elementData, setElementData] = useState<Array<Record<string, unknown>> | undefined>(undefined);
+  const [myNode, setMyNode] = useState('');
   const [graphKey, setGraphKey] = useState(1);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const pageVisible = useRef(true);
@@ -90,10 +91,18 @@ const Network: React.FunctionComponent = () => {
     return `${name} [${addr}]`;
   };
 
+  const curMyNode = result.data['status']['addr'];
+  if (curMyNode != myNode) {
+    setMyNode(curMyNode);
+    setGraphKey(graphKey + 1);
+  }
+
   const elements: Record<string, unknown>[] = [];
   for (const node in nodes) {
-    const selected = node === result.data['status']['addr'];
+    const selected = node === myNode;
     elements.push({ data: { id: node, label: nodeName(node) }, selected: selected });
+  }
+  for (const node in nodes) {
     for (const i in nodes[node]) {
       const connNode = nodes[node][i];
       if (nodes[connNode] === undefined) {

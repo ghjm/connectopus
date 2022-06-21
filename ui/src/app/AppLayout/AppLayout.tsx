@@ -9,18 +9,58 @@ import {
   PageHeader,
   PageSidebar,
   SkipToContent,
+  PageHeaderTools,
+  ContextSelector,
+  ContextSelectorItem,
 } from '@patternfly/react-core';
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
 import logo from '@app/images/connectopus.png';
+import { Client, createClient, Provider, useQuery } from 'urql';
+import { createContext, useEffect } from 'react';
 
 interface IAppLayout {
   children: React.ReactNode;
 }
 
-const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
+interface IAppContext {
+  activeNodeState: [string, React.Dispatch<React.SetStateAction<string>>];
+}
+
+interface IAppContent extends IAppLayout, IAppContext {
+  mainClient: Client;
+}
+
+const AppContext = createContext<IAppContext | null>(null);
+
+const statusQuery = `{
+  status {
+    nodes {
+      name
+      addr
+    }
+  }
+}`;
+
+const AppLayoutContent: React.FunctionComponent<IAppContent> = ({ activeNodeState, mainClient, children }) => {
+  const [activeNode, setActiveNode] = activeNodeState;
   const [isNavOpen, setIsNavOpen] = React.useState(true);
   const [isMobileView, setIsMobileView] = React.useState(true);
   const [isNavOpenMobile, setIsNavOpenMobile] = React.useState(false);
+  const [contextSelectorSelected, setContextSelectorSelected] = React.useState(activeNode);
+  const [isContextSelectorOpen, setIsContextSelectorOpen] = React.useState(false);
+  const [searchText, setSearchText] = React.useState('');
+  const [searchValue, setSearchValue] = React.useState('');
+  const [result, reexecuteQuery] = useQuery({
+    query: statusQuery,
+  });
+  useEffect(() => {
+    if (result.fetching) return;
+    const timerId = setTimeout(() => {
+      reexecuteQuery({ requestPolicy: 'network-only' });
+    }, 1000);
+    return () => clearTimeout(timerId);
+  }, [result.fetching, reexecuteQuery]);
+
   const onNavToggleMobile = () => {
     setIsNavOpenMobile(!isNavOpenMobile);
   };
@@ -42,12 +82,63 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     return <img src={logo} onClick={handleClick} alt="Connectopus Logo" />;
   }
 
+  const onToggle = (event: unknown, isOpen: boolean) => {
+    setIsContextSelectorOpen(isOpen);
+  };
+
+  const onSearchInputChange = (value: string) => {
+    setSearchValue(value);
+  };
+
+  const onSearchButtonClick = () => {
+    setSearchText(searchValue);
+  };
+
+  const onSelect = (event: unknown, value: React.ReactNode) => {
+    if (value !== undefined && value !== null) {
+      const newNode = value.toString();
+      setActiveNode(newNode);
+      setContextSelectorSelected(newNode);
+      sessionStorage.setItem('activeNode', newNode);
+      setIsContextSelectorOpen(false);
+    }
+  };
+
+  const getContextSelectors = () => {
+    if (!('data' in result && result.data !== undefined && 'status' in result.data)) {
+      return null;
+    }
+    return result.data['status']['nodes']
+      .filter((node) => {
+        if (searchText === '') {
+          return true;
+        }
+        return node.name.includes(searchText);
+      })
+      .map((node) => <ContextSelectorItem key={node.name}>{`${node.name}`}</ContextSelectorItem>);
+  };
+
+  const Selector = (
+    <ContextSelector
+      toggleText={contextSelectorSelected}
+      searchInputValue={searchValue}
+      isOpen={isContextSelectorOpen}
+      onToggle={onToggle}
+      onSelect={onSelect}
+      onSearchInputChange={onSearchInputChange}
+      onSearchButtonClick={onSearchButtonClick}
+    >
+      {getContextSelectors()}
+    </ContextSelector>
+  );
+
   const Header = (
     <PageHeader
       logo={<LogoImg />}
       showNavToggle
       isNavOpen={isNavOpen}
       onNavToggle={isMobileView ? onNavToggleMobile : onNavToggle}
+      headerTools={<PageHeaderTools>{Selector}</PageHeaderTools>}
     />
   );
 
@@ -111,9 +202,43 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
       onPageResize={onPageResize}
       skipToContent={PageSkipToContent}
     >
-      {children}
+      <Provider value={mainClient}>{children}</Provider>
     </Page>
   );
 };
 
-export { AppLayout };
+const urlFromActiveNode = (activeNode: string): string => {
+  if (activeNode === '') {
+    return '/query';
+  } else {
+    return `/proxy/${activeNode}/query`;
+  }
+};
+
+const getInitialActiveNode = (): string => {
+  return sessionStorage.getItem('activeNode') || '';
+};
+
+const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
+  const [activeNode, setActiveNode] = React.useState(getInitialActiveNode());
+  const [client, setClient] = React.useState<Client>(createClient({ url: urlFromActiveNode(activeNode) }));
+  React.useEffect(() => {
+    setClient(createClient({ url: urlFromActiveNode(activeNode) }));
+  }, [activeNode]);
+  const [topClient, setTopClient] = React.useState<Client>(createClient({ url: urlFromActiveNode(activeNode) }));
+  React.useEffect(() => {
+    setTopClient(createClient({ url: '/query' }));
+  }, []);
+
+  return (
+    <AppContext.Provider value={{ activeNodeState: [activeNode, setActiveNode] }}>
+      <Provider value={topClient}>
+        <AppLayoutContent activeNodeState={[activeNode, setActiveNode]} mainClient={client}>
+          {children}
+        </AppLayoutContent>
+      </Provider>
+    </AppContext.Provider>
+  );
+};
+
+export { AppLayout, AppContext };

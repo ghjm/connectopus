@@ -2,6 +2,7 @@ package cpctl
 
 import (
 	"context"
+	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/ghjm/connectopus/internal/ui_embed"
@@ -66,10 +67,21 @@ func (r *Resolver) ServeAPI(ctx context.Context, li net.Listener) error {
 	return nil
 }
 
+func (r *Resolver) HandlePlayground(w http.ResponseWriter, req *http.Request) {
+	p := req.URL.Query().Get("proxyTo")
+	endpoint := "/query"
+	title := "GraphQL Playground"
+	if p != "" {
+		endpoint = fmt.Sprintf("/proxy/%s/query", p)
+		title = fmt.Sprintf("GraphQL Playground (%s)", p)
+	}
+	playground.Handler(title, endpoint)(w, req)
+}
+
 func (r *Resolver) ServeHTTP(ctx context.Context, li net.Listener) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", ui_embed.GetUIHandler())
-	mux.Handle("/api", playground.Handler("GraphQL playground", "/query"))
+	mux.HandleFunc("/api", r.HandlePlayground)
 	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
 
 	p := NewProxy(r.N)
