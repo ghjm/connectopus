@@ -47,7 +47,11 @@ func (b *broker[T]) run() {
 		case msgCh := <-b.subCh:
 			subs[msgCh] = msgCh
 		case msgCh := <-b.unSubCh:
+			realCh := subs[msgCh]
 			delete(subs, msgCh)
+			if realCh != nil {
+				close(realCh)
+			}
 		case msg := <-b.publishCh:
 			for msgCh := range subs {
 				func(msgCh chan T) {
@@ -79,6 +83,18 @@ func (b *broker[T]) Subscribe() <-chan T {
 }
 
 func (b *broker[T]) Unsubscribe(msgCh <-chan T) {
+	go func() {
+		for {
+			select {
+			case <-b.ctx.Done():
+				return
+			case _, ok := <-msgCh:
+				if !ok {
+					return
+				}
+			}
+		}
+	}()
 	select {
 	case <-b.ctx.Done():
 	case b.unSubCh <- msgCh:
