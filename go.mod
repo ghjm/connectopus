@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121
-	github.com/99designs/gqlgen v0.17.9
+	github.com/99designs/gqlgen v0.17.10
 	github.com/Yamashou/gqlgenc v0.0.6
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -15,7 +15,7 @@ require (
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.5.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
-	github.com/vektah/gqlparser/v2 v2.4.4
+	github.com/vektah/gqlparser/v2 v2.4.5
 	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/goleak v1.1.12
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
