@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
-	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 	"io"
@@ -14,7 +13,7 @@ import (
 )
 
 type Link struct {
-	packet_publisher.Publisher
+	chanreader.Publisher
 	ctx    context.Context
 	tunRWC io.ReadWriteCloser
 }
@@ -107,7 +106,7 @@ func New(ctx context.Context, deviceName string, tunAddr net.IP, subnet *net.IPN
 		}
 	}
 
-	l.Publisher = *packet_publisher.New(ctx, tunIf, chanreader.WithBufferSize(1500))
+	l.Publisher = *chanreader.NewPublisher(ctx, tunIf, chanreader.WithBufferSize(1500))
 
 	return l, nil
 }

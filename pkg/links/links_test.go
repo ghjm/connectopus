@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
-	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
 	"io"
@@ -56,7 +55,7 @@ func (d *dummyRWC) Close() error {
 }
 
 type dummyLink struct {
-	packet_publisher.Publisher
+	chanreader.Publisher
 	rwc io.ReadWriteCloser
 }
 
@@ -71,7 +70,7 @@ func (d *dummyLink) SendPacket(packet []byte) error {
 func NewDummyLink(ctx context.Context) Link {
 	rwc := &dummyRWC{}
 	l := &dummyLink{
-		Publisher: *packet_publisher.New(ctx, rwc, chanreader.WithBufferSize(1500)),
+		Publisher: *chanreader.NewPublisher(ctx, rwc, chanreader.WithBufferSize(1500)),
 		rwc:       rwc,
 	}
 	return l

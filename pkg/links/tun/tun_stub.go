@@ -5,12 +5,12 @@ package tun
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
+	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"net"
 )
 
 type Link struct {
-	packet_publisher.Publisher
+	chanreader.Publisher
 }
 
 // New is unavailable on non-Linux platforms

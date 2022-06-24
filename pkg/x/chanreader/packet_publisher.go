@@ -1,9 +1,8 @@
-package packet_publisher
+package chanreader
 
 import (
 	"context"
 	"github.com/ghjm/connectopus/pkg/x/broker"
-	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	log "github.com/sirupsen/logrus"
 	"io"
 )
@@ -12,14 +11,14 @@ type Publisher struct {
 	broker broker.Broker[[]byte]
 }
 
-func New(ctx context.Context, reader io.ReadCloser, mods ...func(chanReader *chanreader.ChanReader)) *Publisher {
+func NewPublisher(ctx context.Context, reader io.ReadCloser, mods ...func(chanReader *ChanReader)) *Publisher {
 	p := &Publisher{
 		broker: broker.New[[]byte](ctx),
 	}
-	mods = append(mods, chanreader.WithErrorFunc(func(e error) {
+	mods = append(mods, WithErrorFunc(func(e error) {
 		log.Errorf("packet read error: %s", e)
 	}))
-	cr := chanreader.New(ctx, reader, mods...)
+	cr := New(ctx, reader, mods...)
 	go func() {
 		for packet := range cr.ReadChan() {
 			p.broker.Publish(packet)

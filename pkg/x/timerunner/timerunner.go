@@ -3,7 +3,6 @@ package timerunner
 import (
 	"context"
 	"github.com/ghjm/connectopus/pkg/x/dynselect"
-	"github.com/ghjm/connectopus/pkg/x/modifiers"
 	"time"
 )
 
@@ -54,7 +53,9 @@ func New(ctx context.Context, f func(), mods ...func(*timerunner)) TimeRunner {
 		f:        f,
 		periodic: nil,
 	}
-	modifiers.ProcessMods(tr, mods)
+	for _, mod := range mods {
+		mod(tr)
+	}
 	if tr.periodic != nil && tr.nextRun == nil {
 		nr := time.Now().Add(*tr.periodic)
 		tr.nextRun = &nr

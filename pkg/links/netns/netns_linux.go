@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
-	"github.com/ghjm/connectopus/pkg/x/packet_publisher"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	log "github.com/sirupsen/logrus"
 	"github.com/songgao/water"
@@ -29,7 +28,7 @@ type newParams struct {
 
 // Link implements link.Link for a local private network namespace
 type Link struct {
-	packet_publisher.Publisher
+	chanreader.Publisher
 	shimFd int
 	pid    int
 }
@@ -133,7 +132,7 @@ func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, err
 	}()
 
 	// Publish incoming packets to interested receivers
-	ns.Publisher = *packet_publisher.New(ctx, os.NewFile(uintptr(ns.shimFd), "socket"),
+	ns.Publisher = *chanreader.NewPublisher(ctx, os.NewFile(uintptr(ns.shimFd), "socket"),
 		chanreader.WithBufferSize(1500))
 
 	// Try not to return until the link is actually ready
