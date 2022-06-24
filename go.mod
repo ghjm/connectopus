@@ -9,7 +9,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
-	github.com/pion/dtls/v2 v2.1.3
+	github.com/pion/dtls/v2 v2.1.5
 	github.com/rainycape/dl v0.0.0-20151222075243-1b01514224a1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
@@ -18,7 +18,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.4.4
 	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/goleak v1.1.12
-	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
+	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
