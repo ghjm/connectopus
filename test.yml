@@ -18,6 +18,7 @@ nodes:
       - type: dtls-dialer
         params:
           peer: localhost:4444
+          psk: test-psk
     cpctl:
       socket_file: "$HOME/.local/share/connectopus/cpctl.sock"
       port: 8123
@@ -28,6 +29,7 @@ nodes:
       - type: dtls-listener
         params:
           port: 4444
+          psk: test-psk
 
   baz:
     address: FD00::3:1
@@ -35,6 +37,7 @@ nodes:
       - type: dtls-dialer
         params:
           peer: localhost:4444
+          psk: test-psk
     services:
       - port: 7
         command: /bin/cat

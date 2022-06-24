@@ -73,6 +73,18 @@ func LoadConfig(filename string) (*Config, error) {
 	return config, nil
 }
 
+func (p Params) GetIP(name string) (net.IP, error) {
+	host, ok := p[name]
+	if !ok {
+		return nil, fmt.Errorf("missing parameter: %s", name)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return nil, fmt.Errorf("invalid IP address: %s", host)
+	}
+	return ip, nil
+}
+
 func (p Params) GetPort(name string) (uint16, error) {
 	valStr, ok := p[name]
 	if !ok {
