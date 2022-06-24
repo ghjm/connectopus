@@ -26,7 +26,7 @@ type ProtocolRunner interface {
 	RunProtocol(context.Context, float32, BackendConnection)
 }
 
-var ErrExceedsMDU = fmt.Errorf("payload size exceeds MTU")
+var ErrExceedsMTU = fmt.Errorf("payload size exceeds MTU")
 
 // ConnFunc is a type of function that gets a new BackendConnection, such as by dialing or accepting
 type ConnFunc func() (BackendConnection, error)

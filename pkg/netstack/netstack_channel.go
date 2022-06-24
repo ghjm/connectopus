@@ -29,7 +29,7 @@ type netStackChannel struct {
 }
 
 // NewStackChannel creates a new network stack
-func NewStackChannel(ctx context.Context, addr net.IP) (NetStack, error) {
+func NewStackChannel(ctx context.Context, addr net.IP, mtu uint16) (NetStack, error) {
 	if len(addr) != net.IPv6len {
 		return nil, fmt.Errorf("address must be ipv6")
 	}
@@ -43,7 +43,7 @@ func NewStackChannel(ctx context.Context, addr net.IP) (NetStack, error) {
 			icmp.NewProtocol4, icmp.NewProtocol6},
 		HandleLocal: true,
 	})
-	ns.endpoint = channel.New(16, 1500, "11:11:11:11:11:11")
+	ns.endpoint = channel.New(16, uint32(mtu), "11:11:11:11:11:11")
 	ns.stack.CreateNICWithOptions(1, ns.endpoint, stack.NICOptions{
 		Name:     "net0",
 		Disabled: false,

@@ -23,7 +23,7 @@ func testNetstackSubscribe(t *testing.T, stackBuilder NewStackFunc) {
 	defer cancel()
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns, err := stackBuilder(ctx, localIP)
+	ns, err := stackBuilder(ctx, localIP, 1400)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}
@@ -94,7 +94,7 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 	defer cancel()
 	localIP := net.ParseIP("FD00::1")
 	remoteIP := net.ParseIP("FD00::2")
-	ns, err := stackBuilder(ctx, localIP)
+	ns, err := stackBuilder(ctx, localIP, 1400)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}
@@ -173,7 +173,7 @@ func testNetstack(t *testing.T, stackBuilder NewStackFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	localIP := net.ParseIP("FD00::1")
-	ns, err := stackBuilder(ctx, localIP)
+	ns, err := stackBuilder(ctx, localIP, 1400)
 	if err != nil {
 		t.Fatalf("error initializing stack: %s", err)
 	}

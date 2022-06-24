@@ -32,4 +32,4 @@ type NetStack interface {
 }
 
 // NewStackFunc is the type of a function that creates a new stack
-type NewStackFunc func(context.Context, net.IP) (NetStack, error)
+type NewStackFunc func(context.Context, net.IP, uint16) (NetStack, error)

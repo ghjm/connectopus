@@ -7,8 +7,8 @@ import (
 	"net"
 )
 
-func NewStackDefault(ctx context.Context, addr net.IP) (NetStack, error) {
-	return NewStackChannel(ctx, addr)
+func NewStackDefault(ctx context.Context, addr net.IP, mtu uint16) (NetStack, error) {
+	return NewStackChannel(ctx, addr, mtu)
 }
 
 var stackBuilders = []NewStackFunc{

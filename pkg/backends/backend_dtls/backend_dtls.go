@@ -25,7 +25,7 @@ func (b *dtlsBackend) MTU() int {
 
 func (b *dtlsBackend) WriteMessage(data []byte) error {
 	if len(data) > b.mtu {
-		return backends.ErrExceedsMDU
+		return backends.ErrExceedsMTU
 	}
 	n, err := b.conn.Write(data)
 	if err != nil {

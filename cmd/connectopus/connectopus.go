@@ -64,7 +64,7 @@ var rootCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		var n proto.Netopus
-		n, err = netopus.New(ctx, node.Address, identity)
+		n, err = netopus.New(ctx, node.Address, identity, node.MTU)
 		if err != nil {
 			errHalt(err)
 		}

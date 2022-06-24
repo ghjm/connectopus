@@ -68,7 +68,7 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]*ne
 			return nil, fmt.Errorf("duplicate address in spec")
 		}
 		usedAddrs[addrStr] = struct{}{}
-		n, err := New(ctx, spec.Address, "test")
+		n, err := New(ctx, spec.Address, "test", 1400)
 		if err != nil {
 			return nil, err
 		}

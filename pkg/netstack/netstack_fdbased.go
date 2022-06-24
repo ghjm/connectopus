@@ -30,7 +30,7 @@ type netStackFdbased struct {
 }
 
 // NewStackFdbased creates a new fdbased network stack
-func NewStackFdbased(ctx context.Context, addr net.IP) (NetStack, error) {
+func NewStackFdbased(ctx context.Context, addr net.IP, mtu uint16) (NetStack, error) {
 	if len(addr) != net.IPv6len {
 		return nil, fmt.Errorf("address must be ipv6")
 	}
@@ -51,7 +51,7 @@ func NewStackFdbased(ctx context.Context, addr net.IP) (NetStack, error) {
 	})
 	ns.endpoint, err = fdbased.New(&fdbased.Options{
 		FDs: []int{fds[0]},
-		MTU: 1500,
+		MTU: uint32(mtu),
 		ClosedFunc: func(err tcpip.Error) {
 			if err != nil {
 				log.Errorf("netstack closed with error: %s", err)

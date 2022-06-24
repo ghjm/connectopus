@@ -69,11 +69,14 @@ type nodeInfo struct {
 }
 
 // New constructs and returns a new network node on a given address
-func New(ctx context.Context, addr proto.IP, name string) (proto.Netopus, error) {
+func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Netopus, error) {
 	if len(addr) != net.IPv6len {
 		return nil, fmt.Errorf("address must be IPv6")
 	}
-	stack, err := netstack.NewStackDefault(ctx, net.IP(addr))
+	if mtu == 0 {
+		mtu = 1400
+	}
+	stack, err := netstack.NewStackDefault(ctx, net.IP(addr), mtu)
 	if err != nil {
 		return nil, err
 	}
