@@ -15,7 +15,7 @@ require (
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.4.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
-	github.com/vektah/gqlparser/v2 v2.4.4
+	github.com/vektah/gqlparser/v2 v2.4.5
 	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/goleak v1.1.12
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
