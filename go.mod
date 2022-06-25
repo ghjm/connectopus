@@ -6,6 +6,7 @@ require (
 	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121
 	github.com/99designs/gqlgen v0.17.10
 	github.com/Yamashou/gqlgenc v0.0.6
+	github.com/chzyer/readline v1.5.0
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
@@ -21,7 +22,6 @@ require (
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	gvisor.dev/gvisor v0.0.0-20220430045309-0ada71a2f9ec
 )

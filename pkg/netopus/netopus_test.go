@@ -195,6 +195,7 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 
 	// Set up wait group
 	nConns := 10
+	//goland:noinspection GoBoolExpressions
 	if runtime.GOOS == "linux" {
 		// Code is less optimized for other platforms
 		nConns = 100

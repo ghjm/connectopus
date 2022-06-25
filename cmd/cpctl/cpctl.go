@@ -4,25 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/chzyer/readline"
 	"github.com/ghjm/connectopus/pkg/cpctl"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
-	"github.com/ghjm/connectopus/pkg/x/termios"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/exp/slices"
-	"golang.org/x/term"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -63,29 +60,14 @@ func getSSHAgent(keyFile string) (agent.Agent, error) {
 	}
 	var key interface{}
 	key, err = ssh.ParseRawPrivateKey(keyPEM)
-	if _, ok := err.(*ssh.PassphraseMissingError); ok && term.IsTerminal(syscall.Stdin) {
-		var t any
-		t, err = termios.SaveTermios()
+	if _, ok := err.(*ssh.PassphraseMissingError); ok {
+		var rl *readline.Instance
+		rl, err = readline.New("")
 		if err != nil {
-			return nil, fmt.Errorf("error getting termios: %w", err)
+			return nil, fmt.Errorf("error initializing readline: %w", err)
 		}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
-		go func() {
-			select {
-			case <-ctx.Done():
-				signal.Stop(sigChan)
-			case <-sigChan:
-				_ = termios.RestoreTermios(t)
-				errExitf("Ctrl+C")
-			}
-		}()
-		fmt.Print("Enter SSH Key Passphrase: ")
 		var keyPassphrase []byte
-		keyPassphrase, err = term.ReadPassword(syscall.Stdin)
-		fmt.Print("\n")
+		keyPassphrase, err = rl.ReadPassword("Enter SSH Key Passphrase: ")
 		if err != nil {
 			return nil, fmt.Errorf("error reading passphrase: %w", err)
 		}
@@ -416,7 +398,11 @@ var nsenterCmd = &cobra.Command{
 func main() {
 	defaultSocketFile := os.Getenv("CPCTL_SOCKET")
 	if defaultSocketFile == "" {
-		defaultSocketFile = path.Join(os.Getenv("HOME"), ".local", "share", "connectopus", "cpctl.sock")
+		home, err := os.UserHomeDir()
+		if err != nil {
+			errExitf("could not get user home dir: %s", err)
+		}
+		defaultSocketFile = path.Join(home, ".local", "share", "connectopus", "cpctl.sock")
 	}
 	rootCmd.PersistentFlags().StringVar(&socketFile, "socket-file", defaultSocketFile,
 		"Socket file to communicate with Connectopus")

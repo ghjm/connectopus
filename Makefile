@@ -1,8 +1,10 @@
 VERSION_TAG ?= $(shell if VER=`git describe --match "v[0-9]*" --tags 2>/dev/null`; then echo $VER; else echo "v0.0.1"; fi)
 VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
+BUILDENV ?= CGO_ENABLED=0
 
 PROGRAMS := connectopus cpctl
+PLATFORMS := linux:amd64: linux:arm64: windows:amd64:.exe windows:arm64:.exe darwin:amd64:.app darwin:arm64:.app
 UI_DEP := internal/ui_embed/embed/dist/main.bundle.js
 NPM_DEP := ui/node_modules/rimraf/rimraf.js
 EXTRA_DEPS_connectopus := $(UI_DEP) $(NPM_DEP)
@@ -18,12 +20,20 @@ $(shell find $$(go list -f '{{.Dir}}' -deps $(1) | grep "^$$PWD") -name '*.go' |
 endef
 
 define PROGRAM_template
-$(1): cmd/$(1)/$(1).go Makefile $(PROGRAM_DEPS_$(1))
-	go build -o $(1) $(LDFLAGS) $(GCFLAGS) cmd/$(1)/$(1).go
+$(2)$(1)$(3): cmd/$(1)/$(1).go Makefile $(PROGRAM_DEPS_$(1))
+	$(4) go build -o $(2)$(1)$(3) $(LDFLAGS) cmd/$(1)/$(1).go
 endef
 $(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p := $(call go_deps,cmd/$(p)/$(p).go)))
 $(foreach p,$(PROGRAMS),$(eval PROGRAM_DEPS_$p += $(EXTRA_DEPS_$p)))
-$(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p))))
+$(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p),,,$(BUILDENV))))
+
+define PLATFORM_template
+$(foreach p,$(PROGRAMS),$(eval BINFILES += bin/$(p)-$(1)-$(2)$(3))) 
+$(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p),bin/,-$(1)-$(2)$(3),$(BUILDENV) GOOS=$(1) GOARCH=$(2))))
+endef
+$(foreach a,$(PLATFORMS),$(eval $(call PLATFORM_template,$(word 1,$(subst :, ,$(a))),$(word 2,$(subst :, ,$(a))),$(word 3,$(subst :, ,$(a))))))
+
+bin: $(BINFILES)
 
 .PHONY: gen
 gen:
@@ -88,27 +98,13 @@ $(UI_DEP): $(NPM_DEP) ui/package.json ui/package-lock.json ui/*.js $(shell find 
 ui-dev:
 	@cd ui && npm run dev
 
-# The prod build target performs a build inside a standard golang build
-# container which uses glibc 2.31.  The resulting binaries should be
-# broadly compatible across Linux distributions.
-PLATFORM ?= linux/amd64
-.PHONY: prod
-prod:
-	@docker run -it --rm --platform $(PLATFORM) -v $$PWD:/work \
-		--env BUILD_USER=$$(id -u) --env BUILD_GROUP=$$(id -g)\
-		golang:1.18-bullseye bash -c \
-		'cd /work && make clean && GCFLAGS="" make && chown $$BUILD_USER:$$BUILD_GROUP $(PROGRAMS)'
-
-# Because we use plugins and therefore cgo, building for arm64 isn't just
-# regular go cross-compilation.  To enable arm64 emulation in Fedora x86-64,
-# run: "dnf install qemu qemu-user-binfmt qemu-user-static".
-.PHONY: prod-arm64
-prod-arm64: PLATFORM=linux/arm64
-prod-arm64: prod
+bin: $(PROGRAM_DEPS_connectopus) $(PROGRAM_DEPS_cpctl) $(EXTRA_DEPS_connectopus) $(EXTRA_DEPS_cpctl)
+	@mkdir -p bin
+	@touch bin
 
 .PHONY: clean
 clean:
-	@rm -fv $(PROGRAMS) coverage.html
+	@rm -fv $(PROGRAMS) $(BINFILES) coverage.html
 	@rm -rf internal/ui_embed/embed/dist/*
 	@find . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir make clean --no-print-directory \;
 

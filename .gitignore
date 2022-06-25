@@ -7,7 +7,7 @@
 /connectopus
 /cpctl
 /coverage.html
-/testbin
+/bin
 
 # Test binary, built with `go test -c`
 *.test
