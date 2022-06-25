@@ -18,8 +18,15 @@ type NetnsResult struct {
 type Status struct {
 	Name     string           `json:"name"`
 	Addr     string           `json:"addr"`
+	Global   *StatusGlobal    `json:"global"`
 	Nodes    []*StatusNode    `json:"nodes"`
 	Sessions []*StatusSession `json:"sessions"`
+}
+
+type StatusGlobal struct {
+	Domain         string   `json:"domain"`
+	Subnet         string   `json:"subnet"`
+	AuthorizedKeys []string `json:"authorized_keys"`
 }
 
 type StatusNode struct {

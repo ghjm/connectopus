@@ -37,14 +37,6 @@ nodes:
 
 `
 
-func MustParseCIDR(s string) proto.Subnet {
-	_, subnet, err := proto.ParseCIDR(s)
-	if err != nil {
-		panic(err)
-	}
-	return subnet
-}
-
 var correctConfig = Config{
 	Global: Global{
 		Domain: "connectopus.foo",

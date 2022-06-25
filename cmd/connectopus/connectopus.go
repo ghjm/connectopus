@@ -117,6 +117,7 @@ var rootCmd = &cobra.Command{
 			nsreg.Add(namespace.Name, ns.PID())
 		}
 		csrv := cpctl.Resolver{
+			C:     config,
 			N:     n,
 			NsReg: nsreg,
 		}

@@ -2,19 +2,38 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/cpctl"
+	"github.com/ghjm/connectopus/pkg/proto"
+	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
+	"github.com/ghjm/connectopus/pkg/x/termios"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/exp/slices"
+	"golang.org/x/term"
+	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 )
 
 func errExit(err error) {
 	fmt.Printf("Error: %s\n", err)
+	os.Exit(1)
+}
+
+func errExitf(format string, args ...any) {
+	errStr := fmt.Sprintf(format, args...)
+	fmt.Printf("Error: %s\n", errStr)
 	os.Exit(1)
 }
 
@@ -24,6 +43,208 @@ var proxyNode string
 var rootCmd = &cobra.Command{
 	Use:   "cpctl",
 	Short: "CLI for Connectopus",
+}
+
+func getSSHAgent(keyFile string) (agent.Agent, error) {
+	if keyFile == "" {
+		socket := os.Getenv("SSH_AUTH_SOCK")
+		if socket == "" {
+			return nil, fmt.Errorf("no SSH agent found")
+		}
+		conn, err := net.Dial("unix", socket)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open SSH_AUTH_SOCK: %v", err)
+		}
+		return agent.NewClient(conn), nil
+	}
+	keyPEM, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading key file: %w", err)
+	}
+	var key interface{}
+	key, err = ssh.ParseRawPrivateKey(keyPEM)
+	if _, ok := err.(*ssh.PassphraseMissingError); ok && term.IsTerminal(syscall.Stdin) {
+		var t any
+		t, err = termios.SaveTermios()
+		if err != nil {
+			return nil, fmt.Errorf("error getting termios: %w", err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+		go func() {
+			select {
+			case <-ctx.Done():
+				signal.Stop(sigChan)
+			case <-sigChan:
+				_ = termios.RestoreTermios(t)
+				errExitf("Ctrl+C")
+			}
+		}()
+		fmt.Print("Enter SSH Key Passphrase: ")
+		var keyPassphrase []byte
+		keyPassphrase, err = term.ReadPassword(syscall.Stdin)
+		fmt.Print("\n")
+		if err != nil {
+			return nil, fmt.Errorf("error reading passphrase: %w", err)
+		}
+		key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyPEM, keyPassphrase)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error parsing SSH key: %w", err)
+	}
+	a := agent.NewKeyring()
+	err = a.Add(agent.AddedKey{
+		PrivateKey: key,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error loading SSH key: %w", err)
+	}
+	return a, nil
+}
+
+func getUsableKey(a agent.Agent) (string, error) {
+	keys, err := a.List()
+	if err != nil {
+		return "", fmt.Errorf("error listing SSH keys: %s", err)
+	}
+	if len(keys) == 0 {
+		return "", fmt.Errorf("no SSH keys found")
+	}
+	var usableKeys []*agent.Key
+	for _, key := range keys {
+		if keyText == "" || strings.Contains(key.String(), keyText) {
+			usableKeys = append(usableKeys, key)
+		}
+	}
+	if len(usableKeys) == 0 {
+		return "", fmt.Errorf("no usable SSH keys found")
+	}
+	if len(usableKeys) > 1 {
+		return "", fmt.Errorf("multiple keys loaded in agent.  Use --text to select one uniquely.")
+	}
+	return usableKeys[0].String(), nil
+}
+
+func abbreviateKey(keyStr string) (string, error) {
+	key, err := proto.ParseAuthorizedKey(keyStr)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s [...] %s", key.PublicKey.Type(), key.Comment), nil
+}
+
+var keyText string
+var keyFile string
+var tokenDuration string
+var verbose bool
+var getTokenCmd = &cobra.Command{
+	Use:   "get-token",
+	Short: "Generate an authentication token from an SSH key",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		a, err := getSSHAgent(keyFile)
+		if err != nil {
+			errExitf("error initializing SSH agent: %s", err)
+		}
+		key, err := getUsableKey(a)
+		if err != nil {
+			errExit(err)
+		}
+
+		var sm jwt.SigningMethod
+		sm, err = ssh_jwt.NewSigningMethodSSHAgent("connectopus-cpctl", a)
+		if err != nil {
+			errExitf("error initializing JWT signing method: %s", err)
+		}
+		jwt.RegisterSigningMethod(sm.Alg(), func() jwt.SigningMethod { return sm })
+		claims := &jwt.RegisteredClaims{
+			Subject: "connectopus-cpctl auth",
+		}
+		if tokenDuration != "forever" {
+			var expireDuration time.Duration
+			if tokenDuration == "" {
+				expireDuration = 24 * time.Hour
+			} else {
+				expireDuration, err = time.ParseDuration(tokenDuration)
+				if err != nil {
+					errExitf("error parsing token duration: %s", err)
+				}
+			}
+			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(expireDuration))
+		}
+		tok := jwt.NewWithClaims(sm, claims)
+		tok.Header["kid"] = key
+		var s string
+		s, err = tok.SignedString(key)
+		if err != nil {
+			errExitf("error signing token: %s", err)
+		}
+		fmt.Printf("%s\n", s)
+	},
+}
+
+var token string
+var verifyTokenCmd = &cobra.Command{
+	Use:   "verify-token",
+	Short: "Verify a previously generated authentication token",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		a, err := getSSHAgent(keyFile)
+		if err != nil {
+			errExitf("error initializing SSH agent: %s", err)
+		}
+		var sm jwt.SigningMethod
+		sm, err = ssh_jwt.NewSigningMethodSSHAgent("connectopus-cpctl", a)
+		if err != nil {
+			errExitf("error initializing JWT signing method: %s", err)
+		}
+		jwt.RegisterSigningMethod(sm.Alg(), func() jwt.SigningMethod { return sm })
+		var parsedToken *jwt.Token
+		parsedToken, err = jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+			pubkey, ok := t.Header["kid"]
+			if !ok {
+				return nil, fmt.Errorf("no pubkey")
+			}
+			return pubkey, nil
+		}, jwt.WithValidMethods([]string{sm.Alg()}))
+		if err != nil {
+			errExit(err)
+		}
+		var signingKey *string
+		switch kid := parsedToken.Header["kid"].(type) {
+		case string:
+			signingKey = &kid
+			if !verbose {
+				abbrevKey, err := abbreviateKey(kid)
+				if err == nil {
+					signingKey = &abbrevKey
+				}
+			}
+		}
+		var expirationDate *time.Time
+		claims, ok := parsedToken.Claims.(jwt.MapClaims)
+		if ok {
+			switch iat := claims["exp"].(type) {
+			case float64:
+				tm := time.Unix(int64(iat), 0)
+				expirationDate = &tm
+			case json.Number:
+				v, _ := iat.Int64()
+				tm := time.Unix(v, 0)
+				expirationDate = &tm
+			}
+		}
+
+		fmt.Printf("Token is valid.\n")
+		if signingKey != nil {
+			fmt.Printf("  Signed By:  %s\n", *signingKey)
+		}
+		if expirationDate != nil {
+			fmt.Printf("  Expiration: %s\n", expirationDate.String())
+		}
+	},
 }
 
 func formatNode(addr string, nodeNames map[string]string) string {
@@ -53,6 +274,20 @@ var statusCmd = &cobra.Command{
 			errExit(fmt.Errorf("no status returned"))
 		}
 		fmt.Printf("Node: %s [%s]\n", status.Status.Name, status.Status.Addr)
+		fmt.Printf("  Global Settings:\n")
+		fmt.Printf("    Domain: %s\n", status.Status.Global.Domain)
+		fmt.Printf("    Subnet: %s\n", status.Status.Global.Subnet)
+		fmt.Printf("    Authorized Keys:\n")
+		for _, keyStr := range status.Status.Global.AuthorizedKeys {
+			if !verbose {
+				keyStr, err = abbreviateKey(keyStr)
+				if err != nil {
+					fmt.Printf("      %s\n", fmt.Errorf("bad key: %s", err))
+					continue
+				}
+			}
+			fmt.Printf("      %s\n", keyStr)
+		}
 		nodeNames := make(map[string]string)
 		if status.Status.Nodes != nil {
 			for _, nn := range status.Status.Nodes {
@@ -188,8 +423,19 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&proxyNode, "proxy-to", "",
 		"Node to communicate with (non-local implies proxy)")
 
+	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra detail")
+
 	nsenterCmd.Flags().StringVar(&namespaceName, "netns", "", "Name of network namespace")
-	rootCmd.AddCommand(statusCmd, nsenterCmd)
+
+	getTokenCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	getTokenCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
+	getTokenCmd.Flags().StringVar(&tokenDuration, "duration", "", "Token duration (time duration or \"forever\")")
+
+	verifyTokenCmd.Flags().StringVar(&token, "token", "", "Token to verify")
+	_ = verifyTokenCmd.MarkFlagRequired("token")
+	verifyTokenCmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra detail")
+
+	rootCmd.AddCommand(statusCmd, nsenterCmd, getTokenCmd, verifyTokenCmd)
 
 	err := rootCmd.Execute()
 	if err != nil {

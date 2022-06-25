@@ -28,6 +28,11 @@ type GetNetns_Netns struct {
 	Name string "json:\"name\" graphql:\"name\""
 	Pid  int    "json:\"pid\" graphql:\"pid\""
 }
+type GetStatus_Status_Global struct {
+	Domain         string   "json:\"domain\" graphql:\"domain\""
+	Subnet         string   "json:\"subnet\" graphql:\"subnet\""
+	AuthorizedKeys []string "json:\"authorized_keys\" graphql:\"authorized_keys\""
+}
 type GetStatus_Status_Nodes_Conns struct {
 	Subnet string  "json:\"subnet\" graphql:\"subnet\""
 	Cost   float64 "json:\"cost\" graphql:\"cost\""
@@ -45,6 +50,7 @@ type GetStatus_Status_Sessions struct {
 type GetStatus_Status struct {
 	Name     string                       "json:\"name\" graphql:\"name\""
 	Addr     string                       "json:\"addr\" graphql:\"addr\""
+	Global   GetStatus_Status_Global      "json:\"global\" graphql:\"global\""
 	Nodes    []*GetStatus_Status_Nodes    "json:\"nodes\" graphql:\"nodes\""
 	Sessions []*GetStatus_Status_Sessions "json:\"sessions\" graphql:\"sessions\""
 }
@@ -80,6 +86,11 @@ const GetStatusDocument = `query GetStatus {
 	status {
 		name
 		addr
+		global {
+			domain
+			subnet
+			authorized_keys
+		}
 		nodes {
 			name
 			addr

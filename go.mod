@@ -21,6 +21,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	gvisor.dev/gvisor v0.0.0-20220430045309-0ada71a2f9ec
 )

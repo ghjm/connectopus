@@ -1,7 +1,8 @@
 package proto
 
 import (
-	"net"
+	"encoding/json"
+	"gopkg.in/yaml.v3"
 	"testing"
 )
 
@@ -31,11 +32,85 @@ func (s *Subnet) UnmarshalYAML(unmarshal func(interface{}) error) error
 var testIPv4 = "192.168.0.1"
 var testIPv6 = "fd00::1:2:3"
 
-func TestTcpip(t *testing.T) {
-	if !net.ParseIP(testIPv4).Equal(net.IP(ParseIP(testIPv4))) {
-		t.Fail()
+func TestIPMarshaling(t *testing.T) {
+	for _, ipStr := range []string{testIPv4, testIPv6} {
+		// roundtrip through regular parse
+		ip := ParseIP(ipStr)
+		if ip.String() != ipStr {
+			t.Fatal("did not match")
+		}
+
+		// roundtrip through JSON
+		ipJSON, err := json.Marshal(ip)
+		if err != nil {
+			t.Fatal(err)
+		}
+		jip := new(IP)
+		err = json.Unmarshal(ipJSON, &jip)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if jip.String() != ipStr {
+			t.Fatal("did not match")
+		}
+
+		// roundtrip through YAML
+		ipYAML, err := yaml.Marshal(ip)
+		if err != nil {
+			t.Fatal(err)
+		}
+		yip := new(IP)
+		err = yaml.Unmarshal(ipYAML, &yip)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if yip.String() != ipStr {
+			t.Fatal("did not match")
+		}
 	}
-	if !net.ParseIP(testIPv6).Equal(net.IP(ParseIP(testIPv6))) {
-		t.Fail()
+}
+
+func TestSubnetMarshaling(t *testing.T) {
+	for _, ipStr := range []string{testIPv4, testIPv6} {
+		ip := ParseIP(ipStr)
+		subnet := NewSubnet(ip, CIDRMask(16, len(ip)*8))
+		subnetStr := subnet.String()
+
+		// roundtrip through regular parse
+		_, subnet2, err := ParseCIDR(subnetStr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if subnet2.String() != subnetStr {
+			t.Fatal("did not match")
+		}
+
+		// roundtrip through JSON
+		sJSON, err := json.Marshal(subnet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		js := new(Subnet)
+		err = json.Unmarshal(sJSON, &js)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if js.String() != subnetStr {
+			t.Fatal("did not match")
+		}
+
+		// roundtrip through YAML
+		sYAML, err := yaml.Marshal(subnet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ys := new(Subnet)
+		err = yaml.Unmarshal(sYAML, &ys)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ys.String() != subnetStr {
+			t.Fatal("did not match")
+		}
 	}
 }

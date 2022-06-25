@@ -64,9 +64,16 @@ type ComplexityRoot struct {
 
 	Status struct {
 		Addr     func(childComplexity int) int
+		Global   func(childComplexity int) int
 		Name     func(childComplexity int) int
 		Nodes    func(childComplexity int) int
 		Sessions func(childComplexity int) int
+	}
+
+	StatusGlobal struct {
+		AuthorizedKeys func(childComplexity int) int
+		Domain         func(childComplexity int) int
+		Subnet         func(childComplexity int) int
 	}
 
 	StatusNode struct {
@@ -164,6 +171,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Status.Addr(childComplexity), true
 
+	case "Status.global":
+		if e.complexity.Status.Global == nil {
+			break
+		}
+
+		return e.complexity.Status.Global(childComplexity), true
+
 	case "Status.name":
 		if e.complexity.Status.Name == nil {
 			break
@@ -184,6 +198,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Status.Sessions(childComplexity), true
+
+	case "StatusGlobal.authorized_keys":
+		if e.complexity.StatusGlobal.AuthorizedKeys == nil {
+			break
+		}
+
+		return e.complexity.StatusGlobal.AuthorizedKeys(childComplexity), true
+
+	case "StatusGlobal.domain":
+		if e.complexity.StatusGlobal.Domain == nil {
+			break
+		}
+
+		return e.complexity.StatusGlobal.Domain(childComplexity), true
+
+	case "StatusGlobal.subnet":
+		if e.complexity.StatusGlobal.Subnet == nil {
+			break
+		}
+
+		return e.complexity.StatusGlobal.Subnet(childComplexity), true
 
 	case "StatusNode.addr":
 		if e.complexity.StatusNode.Addr == nil {
@@ -681,6 +716,8 @@ func (ec *executionContext) fieldContext_Query_status(ctx context.Context, field
 				return ec.fieldContext_Status_name(ctx, field)
 			case "addr":
 				return ec.fieldContext_Status_addr(ctx, field)
+			case "global":
+				return ec.fieldContext_Status_global(ctx, field)
 			case "nodes":
 				return ec.fieldContext_Status_nodes(ctx, field)
 			case "sessions":
@@ -909,6 +946,58 @@ func (ec *executionContext) fieldContext_Status_addr(ctx context.Context, field 
 	return fc, nil
 }
 
+func (ec *executionContext) _Status_global(ctx context.Context, field graphql.CollectedField, obj *Status) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Status_global(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Global, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*StatusGlobal)
+	fc.Result = res
+	return ec.marshalNStatusGlobal2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusGlobal(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Status_global(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Status",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "domain":
+				return ec.fieldContext_StatusGlobal_domain(ctx, field)
+			case "subnet":
+				return ec.fieldContext_StatusGlobal_subnet(ctx, field)
+			case "authorized_keys":
+				return ec.fieldContext_StatusGlobal_authorized_keys(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type StatusGlobal", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Status_nodes(ctx context.Context, field graphql.CollectedField, obj *Status) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Status_nodes(ctx, field)
 	if err != nil {
@@ -1008,6 +1097,138 @@ func (ec *executionContext) fieldContext_Status_sessions(ctx context.Context, fi
 				return ec.fieldContext_StatusSession_conn_start(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type StatusSession", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StatusGlobal_domain(ctx context.Context, field graphql.CollectedField, obj *StatusGlobal) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusGlobal_domain(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Domain, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StatusGlobal_domain(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StatusGlobal",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StatusGlobal_subnet(ctx context.Context, field graphql.CollectedField, obj *StatusGlobal) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusGlobal_subnet(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Subnet, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StatusGlobal_subnet(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StatusGlobal",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StatusGlobal_authorized_keys(ctx context.Context, field graphql.CollectedField, obj *StatusGlobal) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusGlobal_authorized_keys(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.AuthorizedKeys, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StatusGlobal_authorized_keys(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StatusGlobal",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3389,6 +3610,13 @@ func (ec *executionContext) _Status(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "global":
+
+			out.Values[i] = ec._Status_global(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "nodes":
 
 			out.Values[i] = ec._Status_nodes(ctx, field, obj)
@@ -3399,6 +3627,48 @@ func (ec *executionContext) _Status(ctx context.Context, sel ast.SelectionSet, o
 		case "sessions":
 
 			out.Values[i] = ec._Status_sessions(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var statusGlobalImplementors = []string{"StatusGlobal"}
+
+func (ec *executionContext) _StatusGlobal(ctx context.Context, sel ast.SelectionSet, obj *StatusGlobal) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, statusGlobalImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StatusGlobal")
+		case "domain":
+
+			out.Values[i] = ec._StatusGlobal_domain(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "subnet":
+
+			out.Values[i] = ec._StatusGlobal_subnet(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "authorized_keys":
+
+			out.Values[i] = ec._StatusGlobal_authorized_keys(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -3993,6 +4263,16 @@ func (ec *executionContext) marshalNStatus2ᚖgithubᚗcomᚋghjmᚋconnectopus�
 	return ec._Status(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNStatusGlobal2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusGlobal(ctx context.Context, sel ast.SelectionSet, v *StatusGlobal) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StatusGlobal(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNStatusNode2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐStatusNodeᚄ(ctx context.Context, sel ast.SelectionSet, v []*StatusNode) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -4168,6 +4448,38 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
+	var vSlice []interface{}
+	if v != nil {
+		vSlice = graphql.CoerceList(v)
+	}
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

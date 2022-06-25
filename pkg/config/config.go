@@ -15,8 +15,9 @@ type Config struct {
 }
 
 type Global struct {
-	Domain string       `yaml:"domain"`
-	Subnet proto.Subnet `yaml:"subnet"`
+	Domain         string                       `yaml:"domain"`
+	Subnet         proto.Subnet                 `yaml:"subnet"`
+	AuthorizedKeys []proto.MarshalablePublicKey `yaml:"authorized_keys"`
 }
 
 type Node struct {

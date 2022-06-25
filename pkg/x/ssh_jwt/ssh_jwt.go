@@ -1,12 +1,11 @@
 package ssh_jwt
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/42wim/sshsig"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/ssh/agent"
-	"net"
-	"os"
 	"strings"
 )
 
@@ -17,15 +16,7 @@ type signingMethodSSHAgent struct {
 
 func NewSigningMethodSSHAgent(namespace string, a agent.Agent) (jwt.SigningMethod, error) {
 	if a == nil {
-		socket := os.Getenv("SSH_AUTH_SOCK")
-		if socket == "" {
-			return nil, fmt.Errorf("no SSH agent found")
-		}
-		conn, err := net.Dial("unix", socket)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open SSH_AUTH_SOCK: %v", err)
-		}
-		a = agent.NewClient(conn)
+		return nil, fmt.Errorf("no SSH agent")
 	}
 	s := &signingMethodSSHAgent{
 		namespace:   namespace,
@@ -43,7 +34,15 @@ func (s *signingMethodSSHAgent) Sign(signingString string, key interface{}) (str
 	if err != nil {
 		return "", err
 	}
-	return string(sig), nil
+	sigStr := strings.ReplaceAll(string(sig), "\n", "")
+	sigStr = strings.TrimPrefix(sigStr, "-----BEGIN SSH SIGNATURE-----")
+	sigStr = strings.TrimSuffix(sigStr, "-----END SSH SIGNATURE-----")
+	sigDec, err := base64.StdEncoding.DecodeString(sigStr)
+	if err != nil {
+		return "", err
+	}
+	sigEnc := base64.RawURLEncoding.EncodeToString(sigDec)
+	return sigEnc, nil
 }
 
 func (s *signingMethodSSHAgent) Verify(signingString, signature string, key interface{}) error {
@@ -51,7 +50,12 @@ func (s *signingMethodSSHAgent) Verify(signingString, signature string, key inte
 	if !ok {
 		return fmt.Errorf("key must be string")
 	}
-	return sshsig.Verify(strings.NewReader(signingString), []byte(signature), []byte(keyStr), s.namespace)
+	sigBytes, err := base64.RawURLEncoding.DecodeString(signature)
+	if err != nil {
+		return err
+	}
+	sigStr := "-----BEGIN SSH SIGNATURE-----\n" + base64.StdEncoding.EncodeToString(sigBytes) + "\n-----END SSH SIGNATURE-----\n"
+	return sshsig.Verify(strings.NewReader(signingString), []byte(sigStr), []byte(keyStr), s.namespace)
 }
 
 func (s *signingMethodSSHAgent) Alg() string {

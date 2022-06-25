@@ -24,8 +24,15 @@ type DummyResult {
 type Status {
   name: String!
   addr: String!
+  global: StatusGlobal!
   nodes: [StatusNode!]!
   sessions: [StatusSession!]!
+}
+
+type StatusGlobal {
+  domain: String!
+  subnet: String!
+  authorized_keys: [String!]!
 }
 
 type StatusNode {

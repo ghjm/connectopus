@@ -2,6 +2,7 @@ package cpctl
 
 import (
 	"context"
+	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"golang.org/x/exp/slices"
@@ -9,6 +10,7 @@ import (
 )
 
 type Resolver struct {
+	C     *config.Config
 	N     proto.Netopus
 	NsReg *netns.Registry
 }
@@ -41,8 +43,14 @@ func (r *Resolver) Status(_ context.Context) (*Status, error) {
 	stat := &Status{
 		Name: ns.Name,
 		Addr: ns.Addr.String(),
+		Global: &StatusGlobal{
+			Domain: r.C.Global.Domain,
+			Subnet: r.C.Global.Subnet.String(),
+		},
 	}
-	stat.Nodes = make([]*StatusNode, 0)
+	for _, key := range r.C.Global.AuthorizedKeys {
+		stat.Global.AuthorizedKeys = append(stat.Global.AuthorizedKeys, key.String())
+	}
 	for routerNode, routerRoutes := range ns.RouterNodes {
 		rn := &StatusNode{
 			Addr:  routerNode,
@@ -64,7 +72,6 @@ func (r *Resolver) Status(_ context.Context) (*Status, error) {
 	slices.SortFunc(stat.Nodes, func(a, b *StatusNode) bool {
 		return a.Addr < b.Addr
 	})
-	stat.Sessions = make([]*StatusSession, 0)
 	for sessAddr, sessStatus := range ns.Sessions {
 		stat.Sessions = append(stat.Sessions, &StatusSession{
 			Addr:      sessAddr,

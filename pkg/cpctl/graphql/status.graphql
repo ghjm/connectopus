@@ -2,6 +2,11 @@ query GetStatus {
   status {
     name
     addr
+    global {
+      domain
+      subnet
+      authorized_keys
+    }
     nodes {
       name
       addr
