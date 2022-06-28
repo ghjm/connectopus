@@ -2,8 +2,16 @@
 name: ci_checks
 
 on:
+
   workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        description: Publish as latest
+        default: false
+
   pull_request:
+
   push:
     branches:
       - main
@@ -20,6 +28,8 @@ on:
       - '**/Makefile'
       - '**/package.json'
       - '**/package-lock.json'
+      - '**/go.mod'
+      - '**/go.sum'
 
 jobs:
 
@@ -90,11 +100,11 @@ jobs:
           sudo GOPATH=$HOME/go $(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
 
       - name: Build release binaries
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) || inputs.publish }}
         run: make bin
 
       - name: Upload release artifacts
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) || inputs.publish }}
         uses: actions/upload-artifact@v3
         with:
           name: bin
@@ -153,9 +163,11 @@ jobs:
     needs:
       - linux_checks
       - platforms_checks
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-
+    if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) || inputs.publish }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: latest
+
     steps:
 
       - name: Download release artifacts
