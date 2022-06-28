@@ -4,7 +4,7 @@ LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(
 BUILDENV ?= CGO_ENABLED=0
 
 PROGRAMS := connectopus cpctl
-PLATFORMS := linux:amd64: linux:arm64: windows:amd64:.exe windows:arm64:.exe darwin:amd64:.app darwin:arm64:.app
+PLATFORMS := linux:amd64: linux:arm64: windows:amd64:.exe windows:arm64:.exe darwin:amd64: darwin:arm64:
 UI_DEP := internal/ui_embed/embed/dist/main.bundle.js
 NPM_DEP := ui/node_modules/rimraf/rimraf.js
 EXTRA_DEPS_connectopus := $(UI_DEP) $(NPM_DEP)
