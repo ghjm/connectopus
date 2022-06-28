@@ -4,7 +4,13 @@
 
 ### What can it do
 
-### How to build it
+### How to get it
+
+Download the [latest build](https://github.com/ghjm/connectopus/releases/tag/latest) for your platform.
+
+### How to run it
+
+### How to build from source
 
 * Install needed distro packages
     * Fedora:
@@ -39,4 +45,3 @@
   make all
   ```
 
-### How to run it once built
