@@ -104,11 +104,11 @@ jobs:
           sudo GOPATH=$HOME/go $(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
 
       - name: Build release binaries
-        if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) || inputs.publish }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish }}
         run: make bin
 
       - name: Upload release artifacts
-        if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) || inputs.publish }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish }}
         uses: actions/upload-artifact@v3
         with:
           name: bin
@@ -168,7 +168,11 @@ jobs:
     needs:
       - linux_checks
       - platforms_checks
-    if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) || inputs.publish }}
+    if: |
+      always() &&
+      needs.linux_checks.result == 'success' &&
+      (needs.platforms_checks.result == 'success' || needs.platforms_checks.result == 'skipped') &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish)
     runs-on: ubuntu-latest
     concurrency:
       group: latest
