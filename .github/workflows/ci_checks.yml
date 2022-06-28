@@ -9,6 +9,10 @@ on:
         type: boolean
         description: Publish as latest
         default: false
+      skip_platforms:
+        type: boolean
+        description: Skip platform checks
+        default: false
 
   pull_request:
 
@@ -114,6 +118,7 @@ jobs:
   platforms_checks:
     name: platforms_checks
     needs: linux_checks
+    if: ${{ ! inputs.skip_platforms }}
     strategy:
       matrix:
         os:
@@ -158,8 +163,8 @@ jobs:
       - name: Run tests
         run: go test ./... -count=1
 
-  update_nightly:
-    name: update_nightly
+  update_latest:
+    name: update_latest
     needs:
       - linux_checks
       - platforms_checks
@@ -182,7 +187,7 @@ jobs:
           name: bin
           path: bin
 
-      - name: Upload artifacts to nightly release
+      - name: Upload artifacts to latest release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
