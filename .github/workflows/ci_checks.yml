@@ -184,6 +184,6 @@ jobs:
           file_glob: true
           tag: latest
           overwrite: true
-          body: Automated build from commit ${{ github.ref }}
+          body: Automated build of latest commit
           prerelease: true
 
