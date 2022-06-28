@@ -89,6 +89,18 @@ jobs:
           make connectopus
           sudo GOPATH=$HOME/go $(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
 
+      - name: Build release binaries
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: make bin
+
+      - name: Upload release artifacts
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: bin
+          path: bin/*
+          retention-days: 1
+
   platforms_checks:
     name: platforms_checks
     needs: linux_checks
@@ -135,4 +147,31 @@ jobs:
 
       - name: Run tests
         run: go test ./... -count=1
+
+  update_nightly:
+    name: update_nightly
+    needs:
+      - linux_checks
+      - platforms_checks
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: bin
+          path: bin
+
+      - name: Upload artifacts to nightly release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bin/*
+          file_glob: true
+          tag: latest
+          overwrite: true
+          body: Automated build from commit ${{ github.ref }}
+          prerelease: true
 
