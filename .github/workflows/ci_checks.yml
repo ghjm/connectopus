@@ -175,6 +175,11 @@ jobs:
 
     steps:
 
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
       - name: Update latest tag
         uses: EndBug/latest-tag@v1.5.0
         with:
