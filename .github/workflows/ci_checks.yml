@@ -63,7 +63,7 @@ jobs:
             ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
       - name: Set up Node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: 16
           cache: npm
@@ -148,7 +148,7 @@ jobs:
             ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
       - name: Set up Node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: 16
           cache: npm
