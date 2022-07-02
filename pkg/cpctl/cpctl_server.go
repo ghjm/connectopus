@@ -14,7 +14,11 @@ import (
 	"time"
 )
 
-func (r *Resolver) runServer(ctx context.Context, li net.Listener, mux http.Handler) {
+type Server struct {
+	Resolver
+}
+
+func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handler) {
 	srv := &http.Server{
 		Handler:        mux,
 		ReadTimeout:    10 * time.Second,
@@ -35,7 +39,7 @@ func (r *Resolver) runServer(ctx context.Context, li net.Listener, mux http.Hand
 	}()
 }
 
-func (r *Resolver) ServeUnix(ctx context.Context, socketFile string) error {
+func (s *Server) ServeUnix(ctx context.Context, socketFile string) error {
 	err := os.MkdirAll(path.Dir(socketFile), 0700)
 	if err != nil {
 		return err
@@ -53,21 +57,21 @@ func (r *Resolver) ServeUnix(ctx context.Context, socketFile string) error {
 	if err != nil {
 		return err
 	}
-	return r.ServeAPI(ctx, li)
+	return s.ServeAPI(ctx, li)
 }
 
-func (r *Resolver) ServeAPI(ctx context.Context, li net.Listener) error {
+func (s *Server) ServeAPI(ctx context.Context, li net.Listener) error {
 	mux := http.NewServeMux()
-	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
+	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: &s.Resolver})))
 
-	p := NewProxy(r.N)
+	p := NewProxy(s.N)
 	mux.Handle("/proxy/", p)
 
-	r.runServer(ctx, li, mux)
+	s.runServer(ctx, li, mux)
 	return nil
 }
 
-func (r *Resolver) HandlePlayground(w http.ResponseWriter, req *http.Request) {
+func (s *Server) HandlePlayground(w http.ResponseWriter, req *http.Request) {
 	p := req.URL.Query().Get("proxyTo")
 	endpoint := "/query"
 	title := "GraphQL Playground"
@@ -78,15 +82,15 @@ func (r *Resolver) HandlePlayground(w http.ResponseWriter, req *http.Request) {
 	playground.Handler(title, endpoint)(w, req)
 }
 
-func (r *Resolver) ServeHTTP(ctx context.Context, li net.Listener) error {
+func (s *Server) ServeHTTP(ctx context.Context, li net.Listener) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", ui_embed.GetUIHandler())
-	mux.HandleFunc("/api", r.HandlePlayground)
-	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: r})))
+	mux.HandleFunc("/api", s.HandlePlayground)
+	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: s})))
 
-	p := NewProxy(r.N)
+	p := NewProxy(s.N)
 	mux.Handle("/proxy/", p)
 
-	r.runServer(ctx, li, mux)
+	s.runServer(ctx, li, mux)
 	return nil
 }

@@ -163,10 +163,12 @@ var nodeCmd = &cobra.Command{
 			n.AddExternalRoute(namespace.Name, proto.NewHostOnlySubnet(namespace.Address), defaultCost(namespace.Cost), ns.SendPacket)
 			nsreg.Add(namespace.Name, ns.PID())
 		}
-		csrv := cpctl.Resolver{
-			C:     config,
-			N:     n,
-			NsReg: nsreg,
+		csrv := cpctl.Server{
+			Resolver: cpctl.Resolver{
+				C:     config,
+				N:     n,
+				NsReg: nsreg,
+			},
 		}
 		{
 			li, err := n.ListenTCP(277)

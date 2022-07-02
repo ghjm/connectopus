@@ -24,7 +24,7 @@ func TestCpctl(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		_ = os.Remove(fn)
 	}()
-	r := Resolver{}
+	r := Server{}
 	err = os.Remove(fn)
 	if err != nil {
 		t.Fatal(err)
