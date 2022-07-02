@@ -3,11 +3,10 @@ VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
 BUILDENV ?= CGO_ENABLED=0
 
-PROGRAMS := connectopus cpctl
+PROGRAMS := connectopus
 PLATFORMS := linux:amd64: linux:arm64: windows:amd64:.exe windows:arm64:.exe darwin:amd64: darwin:arm64:
 UI_DEP := internal/ui_embed/embed/dist/main.bundle.js
-NPM_DEP := ui/node_modules/rimraf/rimraf.js
-EXTRA_DEPS_connectopus := $(UI_DEP) $(NPM_DEP)
+EXTRA_DEPS_connectopus := $(UI_DEP)
 
 .PHONY: all
 all: $(PROGRAMS) $(UI_DEP)
@@ -85,30 +84,26 @@ ctun:
 version:
 	@echo "$(VERSION)"
 
-$(NPM_DEP):
-	@cd ui && npm ci --legacy-peer-deps
-
 .PHONY: ui
 ui: $(UI_DEP)
 
-$(UI_DEP): $(NPM_DEP) ui/package.json ui/package-lock.json ui/*.js $(shell find ui/src -type f)
-	@cd ui && npm version --allow-same-version $(VERSION) && npm run build
+$(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(shell find ui/src -type f)
+	@cd ui && make ui
 
 .PHONY: ui-dev
 ui-dev:
 	@cd ui && npm run dev
 
-bin: $(PROGRAM_DEPS_connectopus) $(PROGRAM_DEPS_cpctl) $(EXTRA_DEPS_connectopus) $(EXTRA_DEPS_cpctl)
+bin: $(PROGRAM_DEPS_connectopus) $(EXTRA_DEPS_connectopus)
 	@mkdir -p bin
 	@touch bin
 
 .PHONY: clean
 clean:
 	@rm -fv $(PROGRAMS) $(BINFILES) coverage.html
-	@rm -rf internal/ui_embed/embed/dist/*
 	@find . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir make clean --no-print-directory \;
 
 .PHONY: distclean
 distclean: clean
-	@rm -rf ui/node_modules
+	@find . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir make distclean --no-print-directory \;
 
