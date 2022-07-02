@@ -2,8 +2,6 @@ import * as React from 'react';
 import { Route, RouteComponentProps, Switch } from 'react-router-dom';
 import { accessibleRouteChangeHandler } from '@app/utils/utils';
 import { Network } from '@app/Network/Network';
-import { Backends } from '@app/Backends/Backends';
-import { Services } from '@app/Services/Services';
 import { GraphQL } from '@app/GraphQL/GraphQL';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
@@ -45,22 +43,6 @@ const routes: AppRouteConfig[] = [
     label: 'Status',
     path: '/Status',
     title: 'Connectopus | Status',
-  },
-  {
-    component: Backends,
-    exact: true,
-    isAsync: true,
-    label: 'Backends',
-    path: '/Backends',
-    title: 'Connectopus | Backends',
-  },
-  {
-    component: Services,
-    exact: true,
-    isAsync: true,
-    label: 'Services',
-    path: '/Services',
-    title: 'Connectopus | Services',
   },
   {
     component: GraphQL,
