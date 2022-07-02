@@ -191,7 +191,6 @@ jobs:
         uses: EndBug/latest-tag@v1.5.0
         with:
           ref: latest
-          description: Automated latest build tag
 
       - name: Download release artifacts
         uses: actions/download-artifact@v3
@@ -207,6 +206,6 @@ jobs:
           file_glob: true
           tag: latest
           overwrite: true
-          body: Automated build of latest commit
+          body: "This is an automatically generated build of the latest commit that passed CI checks.  Warning: may contain bugs."
           prerelease: true
 
