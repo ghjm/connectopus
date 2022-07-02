@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/chzyer/readline"
 	"github.com/ghjm/connectopus/internal/version"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
@@ -19,10 +18,8 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/exp/slices"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -51,71 +48,18 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for Connectopus",
 }
 
-func getSSHAgent(keyFile string) (agent.Agent, error) {
-	if keyFile == "" {
-		socket := os.Getenv("SSH_AUTH_SOCK")
-		if socket == "" {
-			return nil, fmt.Errorf("no SSH agent found")
-		}
-		conn, err := net.Dial("unix", socket)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open SSH_AUTH_SOCK: %v", err)
-		}
-		return agent.NewClient(conn), nil
-	}
-	keyPEM, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return nil, fmt.Errorf("error reading key file: %w", err)
-	}
-	var key interface{}
-	key, err = ssh.ParseRawPrivateKey(keyPEM)
-	if _, ok := err.(*ssh.PassphraseMissingError); ok {
-		var rl *readline.Instance
-		rl, err = readline.New("")
-		if err != nil {
-			return nil, fmt.Errorf("error initializing readline: %w", err)
-		}
-		var keyPassphrase []byte
-		keyPassphrase, err = rl.ReadPassword("Enter SSH Key Passphrase: ")
-		if err != nil {
-			return nil, fmt.Errorf("error reading passphrase: %w", err)
-		}
-		key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyPEM, keyPassphrase)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error parsing SSH key: %w", err)
-	}
-	a := agent.NewKeyring()
-	err = a.Add(agent.AddedKey{
-		PrivateKey: key,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error loading SSH key: %w", err)
-	}
-	return a, nil
-}
-
 func getUsableKey(a agent.Agent) (string, error) {
-	keys, err := a.List()
+	keys, err := ssh_jwt.GetMatchingKeys(a, keyText)
 	if err != nil {
 		return "", fmt.Errorf("error listing SSH keys: %s", err)
 	}
 	if len(keys) == 0 {
 		return "", fmt.Errorf("no SSH keys found")
 	}
-	var usableKeys []*agent.Key
-	for _, key := range keys {
-		if keyText == "" || strings.Contains(key.String(), keyText) {
-			usableKeys = append(usableKeys, key)
-		}
+	if len(keys) > 1 {
+		return "", fmt.Errorf("multiple SSH keys found.  Use --text to select one uniquely.")
 	}
-	if len(usableKeys) == 0 {
-		return "", fmt.Errorf("no usable SSH keys found")
-	}
-	if len(usableKeys) > 1 {
-		return "", fmt.Errorf("multiple keys loaded in agent.  Use --text to select one uniquely.")
-	}
-	return usableKeys[0].String(), nil
+	return keys[0], nil
 }
 
 func abbreviateKey(keyStr string) (string, error) {
@@ -286,21 +230,20 @@ var getTokenCmd = &cobra.Command{
 	Short: "Generate an authentication token from an SSH key",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		a, err := getSSHAgent(keyFile)
+		a, err := ssh_jwt.GetSSHAgent(keyFile)
 		if err != nil {
 			errExitf("error initializing SSH agent: %s", err)
 		}
-		key, err := getUsableKey(a)
+		var key string
+		key, err = getUsableKey(a)
 		if err != nil {
 			errExit(err)
 		}
-
 		var sm jwt.SigningMethod
-		sm, err = ssh_jwt.NewSigningMethodSSHAgent("connectopus-cpctl", a)
+		sm, err = ssh_jwt.SetupSigningMethod("connectopus", a)
 		if err != nil {
 			errExitf("error initializing JWT signing method: %s", err)
 		}
-		jwt.RegisterSigningMethod(sm.Alg(), func() jwt.SigningMethod { return sm })
 		claims := &jwt.RegisteredClaims{
 			Subject: "connectopus-cpctl auth",
 		}
@@ -333,16 +276,15 @@ var verifyTokenCmd = &cobra.Command{
 	Short: "Verify a previously generated authentication token",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		a, err := getSSHAgent(keyFile)
+		a, err := ssh_jwt.GetSSHAgent(keyFile)
 		if err != nil {
 			errExitf("error initializing SSH agent: %s", err)
 		}
 		var sm jwt.SigningMethod
-		sm, err = ssh_jwt.NewSigningMethodSSHAgent("connectopus-cpctl", a)
+		sm, err = ssh_jwt.SetupSigningMethod("connectopus-cpctl", a)
 		if err != nil {
 			errExitf("error initializing JWT signing method: %s", err)
 		}
-		jwt.RegisterSigningMethod(sm.Alg(), func() jwt.SigningMethod { return sm })
 		var parsedToken *jwt.Token
 		parsedToken, err = jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 			pubkey, ok := t.Header["kid"]

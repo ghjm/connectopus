@@ -30,12 +30,11 @@ func TestSSHJWT(t *testing.T) {
 	pubkeyStr := keys[0].String()
 
 	var sm jwt.SigningMethod
-	sm, err = NewSigningMethodSSHAgent("testing", a)
+	sm, err = SetupSigningMethod("testing", a)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	jwt.RegisterSigningMethod(sm.Alg(), func() jwt.SigningMethod { return sm })
 	claims := &jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(2 * time.Second)),
 		Subject:   "this is a test",
