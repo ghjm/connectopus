@@ -176,6 +176,9 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: latest
+    permissions:
+      contents: write
+      packages: write
 
     steps:
 
