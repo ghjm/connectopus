@@ -4,6 +4,7 @@ package cpctl
 
 import (
 	"context"
+	"github.com/ghjm/connectopus/pkg/config"
 	"go.uber.org/goleak"
 	"io/ioutil"
 	"os"
@@ -24,7 +25,16 @@ func TestCpctl(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		_ = os.Remove(fn)
 	}()
-	r := Server{}
+	r := Server{
+		Resolver: Resolver{
+			C: &config.Config{
+				Global: config.Global{
+					AuthorizedKeys: nil,
+				},
+			},
+		},
+		SigningMethod: nil,
+	}
 	err = os.Remove(fn)
 	if err != nil {
 		t.Fatal(err)

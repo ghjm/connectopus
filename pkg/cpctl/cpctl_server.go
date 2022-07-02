@@ -6,6 +6,8 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/ghjm/connectopus/internal/ui_embed"
+	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
+	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
@@ -16,11 +18,24 @@ import (
 
 type Server struct {
 	Resolver
+	SigningMethod jwt.SigningMethod
 }
 
-func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handler) {
+func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handler, auth bool) {
+	serverMux := mux
+	if auth {
+		var authKeys []string
+		for _, k := range s.C.Global.AuthorizedKeys {
+			authKeys = append(authKeys, k.String())
+		}
+		serverMux = &ssh_jwt.Handler{
+			AuthorizedKeys: authKeys,
+			SigningMethod:  s.SigningMethod,
+			Handler:        mux,
+		}
+	}
 	srv := &http.Server{
-		Handler:        mux,
+		Handler:        serverMux,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -67,7 +82,7 @@ func (s *Server) ServeAPI(ctx context.Context, li net.Listener) error {
 	p := NewProxy(s.N)
 	mux.Handle("/proxy/", p)
 
-	s.runServer(ctx, li, mux)
+	s.runServer(ctx, li, mux, false)
 	return nil
 }
 
@@ -91,6 +106,6 @@ func (s *Server) ServeHTTP(ctx context.Context, li net.Listener) error {
 	p := NewProxy(s.N)
 	mux.Handle("/proxy/", p)
 
-	s.runServer(ctx, li, mux)
+	s.runServer(ctx, li, mux, true)
 	return nil
 }

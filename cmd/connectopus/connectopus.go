@@ -44,7 +44,7 @@ var socketFile string
 var proxyNode string
 
 var rootCmd = &cobra.Command{
-	Use:   "cpctl",
+	Use:   "connectopus",
 	Short: "CLI for Connectopus",
 }
 
@@ -163,12 +163,18 @@ var nodeCmd = &cobra.Command{
 			n.AddExternalRoute(namespace.Name, proto.NewHostOnlySubnet(namespace.Address), defaultCost(namespace.Cost), ns.SendPacket)
 			nsreg.Add(namespace.Name, ns.PID())
 		}
+		var sm jwt.SigningMethod
+		sm, err = ssh_jwt.SetupSigningMethod("connectopus", nil)
+		if err != nil {
+			errExitf("error initializing JWT signing method: %s", err)
+		}
 		csrv := cpctl.Server{
 			Resolver: cpctl.Resolver{
 				C:     config,
 				N:     n,
 				NsReg: nsreg,
 			},
+			SigningMethod: sm,
 		}
 		{
 			li, err := n.ListenTCP(277)
@@ -278,12 +284,7 @@ var verifyTokenCmd = &cobra.Command{
 	Short: "Verify a previously generated authentication token",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		a, err := ssh_jwt.GetSSHAgent(keyFile)
-		if err != nil {
-			errExitf("error initializing SSH agent: %s", err)
-		}
-		var sm jwt.SigningMethod
-		sm, err = ssh_jwt.SetupSigningMethod("connectopus-cpctl", a)
+		sm, err := ssh_jwt.SetupSigningMethod("connectopus", nil)
 		if err != nil {
 			errExitf("error initializing JWT signing method: %s", err)
 		}
