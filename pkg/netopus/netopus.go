@@ -33,6 +33,7 @@ type netopus struct {
 	knownNodeInfo  syncro.Map[proto.IP, nodeInfo]
 	externalRoutes syncro.Var[[]externalRouteInfo]
 	updateSender   timerunner.TimeRunner
+	oobPorts       syncro.Map[uint16, *OOBPacketConn]
 }
 
 // externalRouteInfo stores information about a route
@@ -90,6 +91,7 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		epoch:         uint64(time.Now().UnixNano()),
 		sequence:      syncro.Var[uint64]{},
 		knownNodeInfo: syncro.Map[proto.IP, nodeInfo]{},
+		oobPorts:      syncro.Map[uint16, *OOBPacketConn]{},
 	}
 	n.sessionInfo.WorkWith(func(s *sessInfo) {
 		*s = make(sessInfo)
@@ -242,6 +244,12 @@ func (p *protoSession) mainSelect() bool {
 				p.remoteAddr.Get().String())
 			if time.Since(p.lastInit) > 2*time.Second {
 				p.sendInit()
+			}
+		case *proto.OOBMessage:
+			err = p.n.SendOOB(msg)
+			if err != nil {
+				log.Warnf("OOB error from %s:%d to %s:%d: %s",
+					msg.SourceAddr, msg.SourcePort, msg.DestAddr, msg.DestPort, err)
 			}
 		}
 		return true
@@ -421,6 +429,51 @@ func (n *netopus) SendPacket(packet []byte) error {
 	}
 	go func() {
 		err := nextHopSess.conn.WriteMessage(packet)
+		if err != nil && n.ctx.Err() == nil {
+			log.Warnf("packet write error: %s", err)
+		}
+	}()
+	return nil
+}
+
+// SendOOB sends a single OOB packet over the network.
+func (n *netopus) SendOOB(msg *proto.OOBMessage) error {
+	// Check if we can deliver the packet locally
+	if msg.DestAddr.Equal(n.addr) {
+		pc, ok := n.oobPorts.Get(msg.DestPort)
+		if !ok {
+			return fmt.Errorf("OOB port unreachable")
+		}
+		go pc.incomingPacket(msg)
+		return nil
+	}
+
+	// Packet is being forwarded, so check the hop count
+	msg.Hops += 1
+	if msg.Hops >= 30 {
+		return fmt.Errorf("OOB message expired in transit")
+	}
+
+	// Send the packet to the next hop
+	nextHop, err := n.router.NextHop(msg.DestAddr)
+	if err != nil {
+		return fmt.Errorf("OOB no route to host")
+	}
+	var nextHopSess *protoSession
+	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
+		si := *s
+		nextHopSess = si[nextHop]
+	})
+	if nextHopSess == nil || !nextHopSess.connected.Get() {
+		return fmt.Errorf("OOB no connection to next hop %s", nextHop)
+	}
+	var msgBytes []byte
+	msgBytes, err = msg.Marshal()
+	if err != nil {
+		return fmt.Errorf("OOB marshal error: %s", err)
+	}
+	go func() {
+		err := nextHopSess.conn.WriteMessage(msgBytes)
 		if err != nil && n.ctx.Err() == nil {
 			log.Warnf("packet write error: %s", err)
 		}

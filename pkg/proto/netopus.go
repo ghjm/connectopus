@@ -1,8 +1,11 @@
 package proto
 
 import (
+	"context"
+	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/netstack"
+	"net"
 	"time"
 )
 
@@ -12,6 +15,7 @@ type Netopus interface {
 	netstack.UserStack
 	ExternalRouter
 	StatusGetter
+	OOBConnector
 }
 
 // ExternalRouter is a device that can accept and send packets to external routes
@@ -30,6 +34,25 @@ type ExternalRouter interface {
 
 type StatusGetter interface {
 	Status() *Status
+}
+
+type OOBAddr struct {
+	Host IP
+	Port uint16
+}
+
+func (a OOBAddr) Network() string {
+	return "oob"
+}
+
+func (a OOBAddr) String() string {
+	return fmt.Sprintf("%s:%d", a.Host, a.Port)
+}
+
+type OOBConnector interface {
+	NewOOBPacketConn(ctx context.Context, port uint16) (net.PacketConn, error)
+	DialOOB(ctx context.Context, raddr OOBAddr) (net.Conn, error)
+	ListenOOB(ctx context.Context, port uint16) (net.Listener, error)
 }
 
 // Status is returned by netopus.Status()

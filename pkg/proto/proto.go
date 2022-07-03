@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 )
@@ -18,7 +19,8 @@ const (
 	MsgTypeData  MsgType = 0
 	MsgTypeInit  MsgType = 1
 	MsgTypeRoute MsgType = 2
-	MaxMsgType   MsgType = 2
+	MsgTypeOOB   MsgType = 3
+	MaxMsgType   MsgType = 3
 )
 
 // InitMsg is a message type sent at connection initialization time
@@ -42,6 +44,16 @@ type RoutingUpdate struct {
 	UpdateEpoch    uint64
 	UpdateSequence uint64
 	Connections    RoutingConns
+}
+
+// OOBMessage is an out-of-band message
+type OOBMessage struct {
+	Hops       byte
+	SourceAddr IP
+	SourcePort uint16
+	DestAddr   IP
+	DestPort   uint16
+	Data       []byte
 }
 
 var ErrUnknownMessageType = fmt.Errorf("unknown message type")
@@ -78,6 +90,8 @@ func (m Msg) Unmarshal() (any, error) {
 		return unmarshalMsg(&InitMsg{})
 	case MsgTypeRoute:
 		return unmarshalMsg(&RoutingUpdate{})
+	case MsgTypeOOB:
+		return m.unmarshalOOB()
 	}
 	return nil, ErrUnknownMessageType
 }
@@ -108,6 +122,50 @@ func (ru *RoutingUpdate) Marshal() ([]byte, error) {
 		return nil, err
 	}
 	return d, nil
+}
+
+const oobHeaderHops = 1
+const oobHeaderSourceAddr = 2
+const oobHeaderSourcePort = 18
+const oobHeaderDestAddr = 20
+const oobHeaderDestPort = 37
+const oobHeaderData = 39
+
+// Marshal marshals an OOBMessage to a []byte
+func (oob *OOBMessage) Marshal() ([]byte, error) {
+	b := make([]byte, oobHeaderData+len(oob.Data))
+	b[0] = byte(MsgTypeOOB)
+	b[oobHeaderHops] = oob.Hops
+	copy(b[oobHeaderSourceAddr:oobHeaderSourceAddr+16], oob.SourceAddr)
+	binary.BigEndian.PutUint16(b[oobHeaderSourcePort:oobHeaderSourcePort+2], oob.SourcePort)
+	copy(b[oobHeaderDestAddr:oobHeaderDestAddr+16], oob.DestAddr)
+	binary.BigEndian.PutUint16(b[oobHeaderDestPort:oobHeaderDestPort+2], oob.DestPort)
+	copy(b[oobHeaderData:], oob.Data)
+	return b, nil
+}
+
+// String produces a string representation of an OOBMessage
+func (oob *OOBMessage) String() string {
+	return fmt.Sprintf("from %s:%d to %s:%d: %d bytes",
+		oob.SourceAddr, oob.SourcePort, oob.DestAddr, oob.DestPort, len(oob.Data))
+}
+
+// unmarshalOOB unmarshals an OOBMessage from a Msg
+func (m Msg) unmarshalOOB() (*OOBMessage, error) {
+	if len(m) < oobHeaderData {
+		return nil, fmt.Errorf("message too short")
+	}
+	if m[0] != byte(MsgTypeOOB) {
+		return nil, fmt.Errorf("message is not an OOBMessage")
+	}
+	return &OOBMessage{
+		Hops:       m[oobHeaderHops],
+		SourceAddr: IP(m[oobHeaderSourceAddr : oobHeaderSourceAddr+16]),
+		SourcePort: binary.BigEndian.Uint16(m[oobHeaderSourcePort : oobHeaderSourcePort+2]),
+		DestAddr:   IP(m[oobHeaderDestAddr : oobHeaderDestAddr+16]),
+		DestPort:   binary.BigEndian.Uint16(m[oobHeaderDestPort : oobHeaderDestPort+2]),
+		Data:       m[oobHeaderData:],
+	}, nil
 }
 
 func (ru *RoutingUpdate) String() string {
