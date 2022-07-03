@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const oobMTU = 1200
+
 type OOBPacketConn struct {
 	ctx          context.Context
 	n            *netopus
@@ -134,6 +136,11 @@ type OOBConn struct {
 	pc  net.PacketConn
 }
 
+func setupUDPSess(us *kcp.UDPSession) {
+	us.SetMtu(oobMTU)
+	us.SetNoDelay(1, 20, 2, 1)
+}
+
 func (n *netopus) DialOOB(ctx context.Context, raddr proto.OOBAddr) (net.Conn, error) {
 	oc := &OOBConn{
 		ctx: ctx,
@@ -148,6 +155,7 @@ func (n *netopus) DialOOB(ctx context.Context, raddr proto.OOBAddr) (net.Conn, e
 	if err != nil {
 		return nil, err
 	}
+	setupUDPSess(oc.UDPSession)
 	return oc, nil
 }
 
@@ -173,4 +181,13 @@ func (n *netopus) ListenOOB(ctx context.Context, port uint16) (net.Listener, err
 		return nil, err
 	}
 	return ol, nil
+}
+
+func (l *OOBListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	setupUDPSess(c.(*kcp.UDPSession))
+	return c, nil
 }

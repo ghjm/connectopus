@@ -6,6 +6,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/proto"
 	"go.uber.org/goleak"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -124,6 +125,7 @@ func TestOOB(t *testing.T) {
 	}
 
 	// Test OOBConn
+	message = []byte(strings.Repeat("Hello, world!\n", 1000))
 	for _, ns := range [][]proto.Netopus{{n1, n2}, {n2, n1}} {
 		nLocal := ns[0]
 		nRemote := ns[1]
@@ -139,14 +141,21 @@ func TestOOB(t *testing.T) {
 				t.Errorf("accept error: %s", err)
 				return
 			}
-			buf := make([]byte, 256)
-			n, err := c.Read(buf)
-			if err != nil {
-				t.Errorf("error reading message: %s", err)
-				return
+			var recvMessage []byte
+			for {
+				buf := make([]byte, 32768)
+				n, err := c.Read(buf)
+				if err != nil {
+					t.Errorf("error reading message: %s", err)
+					return
+				}
+				buf = buf[:n]
+				recvMessage = append(recvMessage, buf...)
+				if len(recvMessage) >= len(message) {
+					break
+				}
 			}
-			buf = buf[:n]
-			if string(buf) != string(message) {
+			if string(recvMessage) != string(message) {
 				t.Errorf("incorrect message received")
 				return
 			}
@@ -169,7 +178,7 @@ func TestOOB(t *testing.T) {
 				return
 			}
 			defer func() {
-				time.Sleep(15 * time.Millisecond) // allow ACK to arrive
+				time.Sleep(50 * time.Millisecond) // allow ACK to arrive
 				err := c.Close()
 				if err != nil {
 					t.Errorf(err.Error())
