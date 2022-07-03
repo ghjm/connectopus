@@ -148,7 +148,6 @@ func (n *netopus) DialOOB(ctx context.Context, raddr proto.OOBAddr) (net.Conn, e
 	if err != nil {
 		return nil, err
 	}
-	oc.UDPSession.SetNoDelay(1, 10, 2, 1)
 	return oc, nil
 }
 
