@@ -52,7 +52,7 @@
   "dependencies": {
     "@patternfly/react-core": "^4.221.3",
     "@patternfly/react-icons": "^4.72.3",
-    "@patternfly/react-styles": "^4.71.3",
+    "@patternfly/react-styles": "^4.74.1",
     "@patternfly/react-table": "^4.90.3",
     "cytoscape": "^3.21.1",
     "cytoscape-cola": "^2.5.1",
