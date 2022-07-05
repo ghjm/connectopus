@@ -136,7 +136,7 @@ var nodeCmd = &cobra.Command{
 			n.AddExternalRoute(tunDev.Name, proto.NewHostOnlySubnet(tunDev.Address), defaultCost(tunDev.Cost), tunLink.SendPacket)
 		}
 		for _, service := range node.Services {
-			err = services.RunService(ctx, n, service)
+			_, err = services.RunService(ctx, n, service)
 			if err != nil {
 				errExit(err)
 			}

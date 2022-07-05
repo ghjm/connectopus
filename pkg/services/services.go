@@ -90,19 +90,19 @@ func acceptLoop(ctx context.Context, li net.Listener, args []string) error {
 	}
 }
 
-func RunService(ctx context.Context, n netstack.UserStack, service config.Service) error {
+func RunService(ctx context.Context, n netstack.UserStack, service config.Service) (net.Addr, error) {
 	cmd := service.Command
 	if service.WinCommand != "" && runtime.GOOS == "windows" {
 		cmd = service.WinCommand
 	}
 	args, err := shlex.Split(cmd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var li net.Listener
 	li, err = n.ListenTCP(uint16(service.Port))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	go func() {
 		<-ctx.Done()
@@ -114,5 +114,5 @@ func RunService(ctx context.Context, n netstack.UserStack, service config.Servic
 			log.Errorf("accept error: %s", err)
 		}
 	}()
-	return nil
+	return li.Addr(), nil
 }

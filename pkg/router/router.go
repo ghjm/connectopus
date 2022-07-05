@@ -182,9 +182,9 @@ func (r *router) recalculate() {
 				*policy = newPolicy
 			}
 		})
-		if changed {
-			r.updatesBroker.Publish(newPolicy)
-		}
+		//if changed {
+		r.updatesBroker.Publish(newPolicy)
+		//}
 	})
 }
 

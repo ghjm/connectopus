@@ -23,7 +23,7 @@ func TestType(t *testing.T) {
 	if Msg(b).Type() != MsgTypeData {
 		t.Errorf("ipv6 header not detected as data")
 	}
-	for mt := range []MsgType{MsgTypeInit, MsgTypeRoute} {
+	for mt := range []MsgType{MsgTypeInit, MsgTypeKeepalive} {
 		b[0] = byte(mt)
 		if Msg(b).Type() != MsgType(mt) {
 			t.Errorf("message type %d detected wrong", mt)
@@ -47,27 +47,5 @@ func TestInitMsg(t *testing.T) {
 	}
 	if !reflect.DeepEqual(im, im2) {
 		t.Errorf("round trip error marshaling/unmarshaling InitMsg")
-	}
-}
-
-func TestRoutingUpdate(t *testing.T) {
-	r := &RoutingUpdate{
-		Origin:         ParseIP("FD00::1"),
-		UpdateEpoch:    5678,
-		UpdateSequence: 9012,
-		Connections: map[Subnet]float32{
-			NewHostOnlySubnet(ParseIP("FD00::1")): 1.0,
-		},
-	}
-	b, err := r.Marshal()
-	if err != nil {
-		t.Errorf("error marshaling RoutingUpdate: %s", err)
-	}
-	r2, err := Msg(b).Unmarshal()
-	if err != nil {
-		t.Errorf("error unmarshaling RoutingUpdate: %s", err)
-	}
-	if !reflect.DeepEqual(r, r2) {
-		t.Errorf("round trip error marshaling/unmarshaling RoutingUpdate")
 	}
 }

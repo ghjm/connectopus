@@ -15,11 +15,17 @@ const oobMTU = 1200
 
 type OOBPacketConn struct {
 	ctx          context.Context
-	n            *netopus
-	port         uint16
+	cancel       context.CancelFunc
+	sendFunc     OOBOutboundFunc
+	closeFunc    OOBCloseFunc
+	sourceAddr   proto.IP
+	sourcePort   uint16
 	readDeadline syncro.Var[time.Time]
 	inboundChan  chan *proto.OOBMessage
 }
+
+type OOBOutboundFunc func(message *proto.OOBMessage) error
+type OOBCloseFunc func() error
 
 var ErrPortInUse = fmt.Errorf("port in use")
 var ErrTimeout = fmt.Errorf("timeout")
@@ -27,9 +33,16 @@ var ErrNotImplemented = fmt.Errorf("not implemented")
 
 func (n *netopus) NewOOBPacketConn(ctx context.Context, port uint16) (net.PacketConn, error) {
 	var reterr error
+	pcCtx, pcCancel := context.WithCancel(ctx)
 	opc := &OOBPacketConn{
-		ctx:         ctx,
-		n:           n,
+		ctx:      pcCtx,
+		cancel:   pcCancel,
+		sendFunc: n.SendOOB,
+		closeFunc: func() error {
+			n.oobPorts.Delete(port)
+			return nil
+		},
+		sourceAddr:  n.addr,
 		inboundChan: make(chan *proto.OOBMessage),
 	}
 	n.oobPorts.WorkWith(func(_m *map[uint16]*OOBPacketConn) {
@@ -51,21 +64,50 @@ func (n *netopus) NewOOBPacketConn(ctx context.Context, port uint16) (net.Packet
 		}
 		m[port] = opc
 	})
-	opc.port = port
 	if reterr != nil {
 		return nil, reterr
 	}
+	opc.sourcePort = port
+	go func() {
+		<-pcCtx.Done()
+		_ = opc.Close()
+	}()
 	return opc, nil
 }
 
-func (c *OOBPacketConn) incomingPacket(msg *proto.OOBMessage) {
+func NewPacketConn(ctx context.Context, sendFunc OOBOutboundFunc, closeFunc OOBCloseFunc, sourceAddr proto.IP, sourcePort uint16) (*OOBPacketConn, error) {
+	pcCtx, pcCancel := context.WithCancel(ctx)
+	opc := &OOBPacketConn{
+		ctx:         pcCtx,
+		cancel:      pcCancel,
+		sendFunc:    sendFunc,
+		closeFunc:   closeFunc,
+		sourceAddr:  sourceAddr,
+		sourcePort:  sourcePort,
+		inboundChan: make(chan *proto.OOBMessage),
+	}
+	go func() {
+		<-pcCtx.Done()
+		_ = opc.Close()
+	}()
+	return opc, nil
+}
+
+func (c *OOBPacketConn) IncomingPacket(msg *proto.OOBMessage) error {
+	if c == nil {
+		return fmt.Errorf("attempt to inject packet to nil connection")
+	}
 	select {
 	case <-c.ctx.Done():
 	case c.inboundChan <- msg:
 	}
+	return nil
 }
 
 func (c *OOBPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	if c == nil {
+		return 0, nil, fmt.Errorf("attempt to read from nil connection")
+	}
 	readDeadline := c.readDeadline.Get()
 	var timerChan <-chan time.Time
 	if !readDeadline.IsZero() {
@@ -93,13 +135,13 @@ func (c *OOBPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 		return 0, fmt.Errorf("address not an OOB address")
 	}
 	msg := &proto.OOBMessage{
-		SourceAddr: c.n.addr,
-		SourcePort: c.port,
+		SourceAddr: c.sourceAddr,
+		SourcePort: c.sourcePort,
 		DestAddr:   oobAddr.Host,
 		DestPort:   oobAddr.Port,
 		Data:       p,
 	}
-	err = c.n.SendOOB(msg)
+	err = c.sendFunc(msg)
 	if err != nil {
 		return 0, err
 	}
@@ -107,12 +149,20 @@ func (c *OOBPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 }
 
 func (c *OOBPacketConn) Close() error {
-	c.n.oobPorts.Delete(c.port)
+	if c == nil {
+		return fmt.Errorf("attempt to close nil connection")
+	}
+	if c != nil && c.cancel != nil {
+		c.cancel()
+	}
+	if c != nil && c.closeFunc != nil {
+		return c.closeFunc()
+	}
 	return nil
 }
 
 func (c *OOBPacketConn) LocalAddr() net.Addr {
-	return proto.OOBAddr{Host: c.n.addr, Port: c.port}
+	return proto.OOBAddr{Host: c.sourceAddr, Port: c.sourcePort}
 }
 
 func (c *OOBPacketConn) SetDeadline(t time.Time) error {
@@ -125,62 +175,79 @@ func (c *OOBPacketConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
-func (c *OOBPacketConn) SetWriteDeadline(t time.Time) error {
+func (c *OOBPacketConn) SetWriteDeadline(_ time.Time) error {
 	return ErrNotImplemented
 }
 
 type OOBConn struct {
 	*kcp.UDPSession
 	ctx context.Context
-	n   *netopus
-	pc  net.PacketConn
 }
 
-func setupUDPSess(us *kcp.UDPSession) {
+func setupUDPSess(ctx context.Context, us *kcp.UDPSession) {
 	us.SetMtu(oobMTU)
 	us.SetNoDelay(1, 20, 2, 1)
+	go func() {
+		<-ctx.Done()
+		_ = us.Close()
+	}()
+}
+
+func DialOOB(ctx context.Context, raddr proto.OOBAddr, pc *OOBPacketConn) (net.Conn, error) {
+	if pc == nil {
+		return nil, fmt.Errorf("pc cannot be nil")
+	}
+	oc := &OOBConn{
+		ctx: ctx,
+	}
+	var err error
+	oc.UDPSession, err = kcp.NewConn2(raddr, nil, 0, 0, pc)
+	if err != nil {
+		return nil, err
+	}
+	setupUDPSess(ctx, oc.UDPSession)
+	return oc, nil
 }
 
 func (n *netopus) DialOOB(ctx context.Context, raddr proto.OOBAddr) (net.Conn, error) {
-	oc := &OOBConn{
-		ctx: ctx,
-		n:   n,
-	}
-	var err error
-	oc.pc, err = n.NewOOBPacketConn(ctx, 0)
+	pc, err := n.NewOOBPacketConn(ctx, 0)
 	if err != nil {
 		return nil, err
 	}
-	oc.UDPSession, err = kcp.NewConn2(raddr, nil, 0, 0, oc.pc)
-	if err != nil {
-		return nil, err
-	}
-	setupUDPSess(oc.UDPSession)
-	return oc, nil
+	return DialOOB(ctx, raddr, pc.(*OOBPacketConn))
 }
 
 type OOBListener struct {
 	*kcp.Listener
 	ctx context.Context
-	n   *netopus
-	pc  net.PacketConn
+}
+
+func ListenOOB(ctx context.Context, pc *OOBPacketConn) (net.Listener, error) {
+	if pc == nil {
+		return nil, fmt.Errorf("pc cannot be nil")
+	}
+	ol := &OOBListener{
+		ctx: ctx,
+	}
+	var err error
+	ol.Listener, err = kcp.ServeConn(nil, 0, 0, pc)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		<-ctx.Done()
+		_ = ol.Close()
+		_ = pc.Close()
+	}()
+	return ol, nil
 }
 
 func (n *netopus) ListenOOB(ctx context.Context, port uint16) (net.Listener, error) {
-	ol := &OOBListener{
-		ctx: ctx,
-		n:   n,
-	}
-	var err error
-	ol.pc, err = n.NewOOBPacketConn(ctx, port)
+	pc, err := n.NewOOBPacketConn(ctx, port)
 	if err != nil {
 		return nil, err
 	}
-	ol.Listener, err = kcp.ServeConn(nil, 0, 0, ol.pc)
-	if err != nil {
-		return nil, err
-	}
-	return ol, nil
+	return ListenOOB(ctx, pc.(*OOBPacketConn))
 }
 
 func (l *OOBListener) Accept() (net.Conn, error) {
@@ -188,6 +255,6 @@ func (l *OOBListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	setupUDPSess(c.(*kcp.UDPSession))
+	setupUDPSess(l.ctx, c.(*kcp.UDPSession))
 	return c, nil
 }

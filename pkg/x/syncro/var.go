@@ -38,8 +38,8 @@ func (sv *Var[T]) WorkWith(f func(*T)) {
 }
 
 // WorkWithReadOnly calls a function to work with the data under lock.  You are on the honor system not to change it.
-func (sv *Var[T]) WorkWithReadOnly(f func(*T)) {
+func (sv *Var[T]) WorkWithReadOnly(f func(T)) {
 	sv.lock.RLock()
 	defer sv.lock.RUnlock()
-	f(&sv.value)
+	f(sv.value)
 }

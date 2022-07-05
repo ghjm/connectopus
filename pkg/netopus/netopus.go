@@ -1,7 +1,10 @@
 package netopus
 
 import (
+	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
@@ -36,6 +39,12 @@ type netopus struct {
 	oobPorts       syncro.Map[uint16, *OOBPacketConn]
 }
 
+const (
+	connectionStateInit byte = iota
+	connectionStateConnecting
+	connectionStateConnected
+)
+
 // externalRouteInfo stores information about a route
 type externalRouteInfo struct {
 	name               string
@@ -49,16 +58,20 @@ type sessInfo map[proto.IP]*protoSession
 
 // protoSession represents one running session of a protocol
 type protoSession struct {
-	n          *netopus
-	ctx        context.Context
-	cancel     context.CancelFunc
-	conn       backends.BackendConnection
-	cost       float32
-	readChan   chan proto.Msg
-	remoteAddr syncro.Var[proto.IP]
-	connected  syncro.Var[bool]
-	connStart  time.Time
-	lastInit   time.Time
+	n                  *netopus
+	ctx                context.Context
+	cancel             context.CancelFunc
+	conn               backends.BackendConnection
+	cost               float32
+	readChan           chan proto.Msg
+	remoteAddr         syncro.Var[proto.IP]
+	connectionState    syncro.Var[byte]
+	connStart          syncro.Var[time.Time]
+	lastInit           time.Time
+	oobRoutePacketConn syncro.Var[*OOBPacketConn]
+	oobRouteListener   syncro.Var[net.Listener]
+	oobRouteConn       syncro.Var[net.Conn]
+	lastWrite          syncro.Var[time.Time]
 }
 
 // nodeInfo represents known information about a node
@@ -93,9 +106,6 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		knownNodeInfo: syncro.Map[proto.IP, nodeInfo]{},
 		oobPorts:      syncro.Map[uint16, *OOBPacketConn]{},
 	}
-	n.sessionInfo.WorkWith(func(s *sessInfo) {
-		*s = make(sessInfo)
-	})
 	go func() {
 		routerUpdateChan := n.router.SubscribeUpdates()
 		defer n.router.UnsubscribeUpdates(routerUpdateChan)
@@ -109,9 +119,9 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 					conns = append(conns, fmt.Sprintf("%s via %s", k, v))
 				}
 				slices.Sort(conns)
-				log.Infof("routing update: %v", strings.Join(conns, ", "))
-				n.sessionInfo.WorkWith(func(s *sessInfo) {
-					for _, p := range *s {
+				log.Infof("%s: routing update: %v", n.addr.String(), strings.Join(conns, ", "))
+				n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
+					for _, p := range s {
 						p.n.updateSender.RunWithin(100 * time.Millisecond)
 					}
 				})
@@ -123,16 +133,16 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		func() {
 			go func() {
 				log.Debugf("%s: sending routing update", n.addr.String())
-				conns, upb, uerr := n.generateRoutingUpdate()
+				ru, uerr := n.generateRoutingUpdate()
 				if uerr != nil {
 					log.Errorf("error generating routing update: %s", uerr)
 					return
 				}
-				n.router.UpdateNode(n.addr, conns)
-				n.flood(upb)
+				n.router.UpdateNode(n.addr, ru.Connections)
+				n.floodRoutingUpdate(ru, nil)
 			}()
 		},
-		timerunner.Periodic(2*time.Second),
+		timerunner.Periodic(10*time.Second),
 		timerunner.AtStart)
 	go n.monitorDeadNodes()
 	return n, nil
@@ -161,10 +171,47 @@ func (p *protoSession) backendReadLoop() {
 	}
 }
 
+func (p *protoSession) routeReader() {
+	orc := p.oobRouteConn.Get()
+	reader := bufio.NewReader(orc)
+	for {
+		msgBytes, err := reader.ReadBytes('\n')
+		if p.ctx.Err() != nil {
+			return
+		}
+		var msg proto.RoutingUpdate
+		if err == nil {
+			err = json.Unmarshal(msgBytes, &msg)
+		}
+		if err != nil {
+			log.Errorf("OOB route reader failure: %s", err)
+			p.cancel()
+			return
+		}
+		viaNode := p.remoteAddr.Get()
+		log.Debugf("%s: received routing update %d from %s via %s", p.n.addr.String(),
+			msg.UpdateSequence, msg.Origin.String(), viaNode)
+		if p.n.handleRoutingUpdate(&msg) {
+			p.n.router.UpdateNode(msg.Origin, msg.Connections)
+			p.n.floodRoutingUpdate(&msg, &viaNode)
+		}
+	}
+}
+
 // sendInit sends an initialization message
 func (p *protoSession) sendInit() {
 	log.Debugf("%s: sending init message", p.n.addr.String())
-	im, err := (&proto.InitMsg{MyAddr: p.n.addr}).Marshal()
+	cfb := make([]byte, 8)
+	n, err := rand.Read(cfb)
+	if err == nil && n != 8 {
+		err = fmt.Errorf("wrong number of random bytes read")
+	}
+	if err != nil {
+		log.Errorf("error getting random number: %s", err)
+		return
+	}
+	var im []byte
+	im, err = (&proto.InitMsg{MyAddr: p.n.addr}).Marshal()
 	if err == nil {
 		err = p.conn.WriteMessage(im)
 	}
@@ -172,13 +219,37 @@ func (p *protoSession) sendInit() {
 		log.Warnf("error sending init message: %s", err)
 		return
 	}
+	p.lastWrite.Set(time.Now())
 	p.lastInit = time.Now()
 }
 
 // initSelect runs one instance of the main loop when the connection is not established
 func (p *protoSession) initSelect() bool {
-	p.sendInit()
-	timer := time.NewTimer(500 * time.Millisecond)
+	if p.connectionState.Get() == connectionStateInit {
+		p.sendInit()
+		if p.conn.IsServer() {
+			p.oobRouteListener.WorkWith(func(_li *net.Listener) {
+				li := *_li
+				if li == nil {
+					opc, err := NewPacketConn(p.ctx, p.n.sendRoutingOOB, nil, p.n.addr, 0)
+					if err != nil {
+						opc = nil
+						log.Errorf("%s: packet conn error: %s", p.n.addr.String(), err)
+						p.cancel()
+					}
+					p.oobRoutePacketConn.Set(opc)
+					li, err = ListenOOB(p.ctx, opc)
+					if err != nil {
+						li = nil
+						log.Errorf("%s: OOB routing listen error: %s", p.n.addr.String(), err)
+						p.cancel()
+					}
+				}
+				*_li = li
+			})
+		}
+	}
+	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 	select {
 	case <-p.ctx.Done():
@@ -192,25 +263,123 @@ func (p *protoSession) initSelect() bool {
 		}
 		switch msg := msgAny.(type) {
 		case *proto.InitMsg:
-			log.Infof("%s: connected to %s", p.n.addr.String(), msg.MyAddr.String())
+			var proceed = false
+			p.connectionState.WorkWith(func(state *byte) {
+				if *state == connectionStateInit {
+					proceed = true
+					*state = connectionStateConnecting
+				}
+			})
+			if !proceed {
+				return false
+			}
+			log.Infof("%s: connecting to %s", p.n.addr.String(), msg.MyAddr.String())
 			p.remoteAddr.Set(msg.MyAddr)
-			p.connStart = time.Now()
-			p.connected.Set(true)
 			p.n.sessionInfo.WorkWith(func(s *sessInfo) {
 				si := *s
 				oldSess, ok := si[msg.MyAddr]
-				if ok {
+				if ok && oldSess != p {
 					log.Infof("%s: closing old connection to %s", p.n.addr.String(), msg.MyAddr.String())
 					oldSess.cancel()
 				}
 				si[msg.MyAddr] = p
+				*s = si
 			})
-			p.n.updateSender.RunWithin(100 * time.Millisecond)
+			routeConnCancelChan := make(chan struct{})
+			routeConnTimer := time.NewTimer(5 * time.Second)
+			go func() {
+				select {
+				case <-p.ctx.Done():
+					routeConnTimer.Stop()
+				case <-routeConnCancelChan:
+					routeConnTimer.Stop()
+				case <-routeConnTimer.C:
+					p.cancel()
+				}
+			}()
+			finalizeConn := func(orc net.Conn) {
+				log.Debugf("%s: RoutingOOB connection succeeded to/from %s", p.n.addr.String(), msg.MyAddr.String())
+				p.oobRouteConn.Set(orc)
+				close(routeConnCancelChan)
+				p.connectionState.Set(connectionStateConnected)
+				p.connStart.Set(time.Now())
+				log.Infof("%s: connected to %s", p.n.addr.String(), msg.MyAddr.String())
+				go p.routeReader()
+				p.n.updateSender.RunWithin(100 * time.Millisecond)
+			}
+			if p.conn.IsServer() {
+				go func() {
+					li := p.oobRouteListener.Get()
+					if li != nil {
+						var orc net.Conn
+						log.Debugf("%s: RoutingOOB accepting connection from %s", p.n.addr.String(), msg.MyAddr.String())
+						orc, err = li.Accept()
+						if p.ctx.Err() != nil {
+							p.connectionState.Set(connectionStateInit)
+							return
+						}
+						if err != nil {
+							log.Errorf("%s: RoutingOOB accept failed from %s: %s", p.n.addr.String(), msg.MyAddr.String(), err)
+							p.cancel()
+							p.connectionState.Set(connectionStateInit)
+							return
+						}
+						finalizeConn(orc)
+					}
+				}()
+			} else {
+				go func() {
+					startTime := time.Now()
+					for {
+						log.Debugf("%s: RoutingOOB dialing %s", p.n.addr.String(), msg.MyAddr.String())
+						opc, err := NewPacketConn(p.ctx, p.n.sendRoutingOOB, nil, p.n.addr, 0)
+						if err != nil {
+							opc = nil
+							log.Errorf("%s: packet conn error: %s", p.n.addr.String(), err)
+							p.cancel()
+						}
+						var orc net.Conn
+						orc, err = DialOOB(p.ctx, proto.OOBAddr{Host: msg.MyAddr, Port: 0}, opc)
+						if err == nil {
+							p.oobRoutePacketConn.Set(opc)
+							finalizeConn(orc)
+							return
+						}
+						log.Debugf("%s: RoutingOOB dialing %s: error %s", p.n.addr.String(), msg.MyAddr.String(), err)
+						t := time.NewTimer(100 * time.Millisecond)
+						select {
+						case <-p.ctx.Done():
+							t.Stop()
+							p.connectionState.Set(connectionStateInit)
+							return
+						case <-t.C:
+						}
+						if time.Now().After(startTime.Add(5 * time.Second)) {
+							log.Debugf("%s: RoutingOOB dialing %s: giving up", p.n.addr.String(), msg.MyAddr.String())
+							p.connectionState.Set(connectionStateInit)
+							return
+						}
+					}
+				}()
+			}
+			return true
+		case *proto.RouteOOBMessage:
+			opc := p.oobRoutePacketConn.Get()
+			if opc != nil {
+				oobMsg := (*proto.OOBMessage)(msg)
+				err := opc.IncomingPacket(oobMsg)
+				if err != nil {
+					log.Warnf("OOB error from %s:%d to %s:%d: %s",
+						msg.SourceAddr, msg.SourcePort, msg.DestAddr, msg.DestPort, err)
+				}
+			}
+			return true
+		case *proto.KeepaliveMsg:
 			return true
 		default:
 			log.Debugf("%s: received non-init message while in init mode", p.n.addr.String())
-			return true
 		}
+		return false
 	}
 }
 
@@ -231,29 +400,37 @@ func (p *protoSession) mainSelect() bool {
 			if err != nil && err != context.Canceled {
 				log.Warnf("packet sending error: %s", err)
 			}
-		case *proto.RoutingUpdate:
-			viaNode := p.remoteAddr.Get()
-			log.Debugf("%s: received routing update %d from %s via %s", p.n.addr.String(),
-				msg.UpdateSequence, msg.Origin.String(), viaNode)
-			if p.n.handleRoutingUpdate(msg) {
-				p.n.router.UpdateNode(msg.Origin, msg.Connections)
-				p.n.floodExcept(data, viaNode)
-			}
+			return true
 		case *proto.InitMsg:
 			log.Debugf("%s: received init message from %s while in main loop", p.n.addr.String(),
 				p.remoteAddr.Get().String())
 			if time.Since(p.lastInit) > 2*time.Second {
-				p.sendInit()
+				p.connectionState.Set(connectionStateInit)
 			}
+			return false
 		case *proto.OOBMessage:
 			err = p.n.SendOOB(msg)
 			if err != nil {
 				log.Warnf("OOB error from %s:%d to %s:%d: %s",
 					msg.SourceAddr, msg.SourcePort, msg.DestAddr, msg.DestPort, err)
 			}
+			return false
+		case *proto.RouteOOBMessage:
+			opc := p.oobRoutePacketConn.Get()
+			if opc != nil {
+				oobMsg := (*proto.OOBMessage)(msg)
+				err = opc.IncomingPacket(oobMsg)
+				if err != nil {
+					log.Warnf("OOB error from %s:%d to %s:%d: %s",
+						msg.SourceAddr, msg.SourcePort, msg.DestAddr, msg.DestPort, err)
+				}
+			}
+			return true
+		case *proto.KeepaliveMsg:
+			return true
 		}
-		return true
 	}
+	return false
 }
 
 // protoLoop is the main protocol loop
@@ -263,6 +440,8 @@ func (p *protoSession) protoLoop() {
 	}()
 	lastActivity := syncro.Var[time.Time]{}
 	go func() {
+		km := &proto.KeepaliveMsg{}
+		ka, _ := km.Marshal()
 		for {
 			timer := time.NewTimer(time.Second)
 			select {
@@ -270,6 +449,13 @@ func (p *protoSession) protoLoop() {
 				timer.Stop()
 				return
 			case <-timer.C:
+				if p.lastWrite.Get().Before(time.Now().Add(-3 * time.Second)) {
+					err := p.conn.WriteMessage(ka)
+					if err != nil && p.ctx.Err() == nil {
+						log.Warnf("keepalive write error: %s", err)
+					}
+					p.lastWrite.Set(time.Now())
+				}
 				if lastActivity.Get().Before(time.Now().Add(-7 * time.Second)) {
 					log.Warnf("%s: closing connection to %s due to inactivity", p.n.addr.String(), p.remoteAddr.Get().String())
 					p.cancel()
@@ -279,7 +465,7 @@ func (p *protoSession) protoLoop() {
 	}()
 	for {
 		var activity bool
-		if p.connected.Get() {
+		if p.connectionState.Get() == connectionStateConnected {
 			activity = p.mainSelect()
 		} else {
 			activity = p.initSelect()
@@ -318,6 +504,7 @@ func (n *netopus) RunProtocol(ctx context.Context, cost float32, conn backends.B
 					delete(si, k)
 				}
 			}
+			*s = si
 		})
 		n.updateSender.RunWithin(100 * time.Millisecond)
 	}()
@@ -400,8 +587,8 @@ func (n *netopus) SendPacket(packet []byte) error {
 
 	// Check if this packet is destined to an external route
 	var opf func([]byte) error
-	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
-		for _, r := range *routes {
+	n.externalRoutes.WorkWithReadOnly(func(routes []externalRouteInfo) {
+		for _, r := range routes {
 			if r.dest.Contains(dest) {
 				opf = r.outgoingPacketFunc
 				break
@@ -420,11 +607,11 @@ func (n *netopus) SendPacket(packet []byte) error {
 		return fmt.Errorf("no route to host: %s", dest.String())
 	}
 	var nextHopSess *protoSession
-	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		si := *s
+	n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
+		si := s
 		nextHopSess = si[nextHop]
 	})
-	if nextHopSess == nil || !nextHopSess.connected.Get() {
+	if nextHopSess == nil {
 		return fmt.Errorf("no connection to next hop %s", nextHop)
 	}
 	go func() {
@@ -432,6 +619,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 		if err != nil && n.ctx.Err() == nil {
 			log.Warnf("packet write error: %s", err)
 		}
+		nextHopSess.lastWrite.Set(time.Now())
 	}()
 	return nil
 }
@@ -444,7 +632,9 @@ func (n *netopus) SendOOB(msg *proto.OOBMessage) error {
 		if !ok {
 			return fmt.Errorf("OOB port unreachable")
 		}
-		go pc.incomingPacket(msg)
+		go func() {
+			_ = pc.IncomingPacket(msg)
+		}()
 		return nil
 	}
 
@@ -457,14 +647,14 @@ func (n *netopus) SendOOB(msg *proto.OOBMessage) error {
 	// Send the packet to the next hop
 	nextHop, err := n.router.NextHop(msg.DestAddr)
 	if err != nil {
-		return fmt.Errorf("OOB no route to host")
+		nextHop = msg.DestAddr
 	}
 	var nextHopSess *protoSession
-	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		si := *s
+	n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
+		si := s
 		nextHopSess = si[nextHop]
 	})
-	if nextHopSess == nil || !nextHopSess.connected.Get() {
+	if nextHopSess == nil {
 		return fmt.Errorf("OOB no connection to next hop %s", nextHop)
 	}
 	var msgBytes []byte
@@ -477,22 +667,55 @@ func (n *netopus) SendOOB(msg *proto.OOBMessage) error {
 		if err != nil && n.ctx.Err() == nil {
 			log.Warnf("packet write error: %s", err)
 		}
+		nextHopSess.lastWrite.Set(time.Now())
 	}()
 	return nil
 }
 
-// floodExcept forwards a message to all neighbors except one (likely the one we received it from)
-func (n *netopus) floodExcept(message proto.Msg, except proto.IP) {
-	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		for node, sess := range *s {
-			if node == except {
+// sendRoutingOOB sends a single RoutingOOB packet to a connected peer.
+func (n *netopus) sendRoutingOOB(msg *proto.OOBMessage) error {
+	var peerSess *protoSession
+	n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
+		si := s
+		peerSess = si[msg.DestAddr]
+	})
+	if peerSess == nil {
+		log.Warnf("routingOOB packet to unknown destination %s", msg.DestAddr.String())
+		return nil
+	}
+	msgBytes, err := (*proto.RouteOOBMessage)(msg).Marshal()
+	if err != nil {
+		return fmt.Errorf("RouteOOB marshal error: %s", err)
+	}
+	go func() {
+		err := peerSess.conn.WriteMessage(msgBytes)
+		if err != nil && n.ctx.Err() == nil {
+			log.Warnf("packet write error: %s", err)
+		}
+		peerSess.lastWrite.Set(time.Now())
+	}()
+	return nil
+}
+
+// floodRoutingUpdate forwards a message to all neighbors except one (likely the one we received it from)
+func (n *netopus) floodRoutingUpdate(update *proto.RoutingUpdate, except *proto.IP) {
+	n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
+		for node, sess := range s {
+			if except != nil && node == *except {
 				continue
 			}
-			if sess.connected.Get() {
+			if sess.connectionState.Get() == connectionStateConnected {
 				go func(sess *protoSession) {
-					err := sess.conn.WriteMessage(message)
-					if err != nil && n.ctx.Err() == nil {
-						log.Warnf("flood error: %s", err)
+					orc := sess.oobRouteConn.Get()
+					if orc != nil {
+						msgBytes, err := json.Marshal(update)
+						if err == nil {
+							msgBytes = append(msgBytes, '\n')
+							_, err = orc.Write(msgBytes)
+						}
+						if err != nil && n.ctx.Err() == nil {
+							log.Warnf("routing update send error: %s", err)
+						}
 					}
 				}(sess)
 			}
@@ -500,23 +723,18 @@ func (n *netopus) floodExcept(message proto.Msg, except proto.IP) {
 	})
 }
 
-// flood forwards a message to all neighbors
-func (n *netopus) flood(message proto.Msg) {
-	n.floodExcept(message, "")
-}
-
 // generateRoutingUpdate produces a routing update suitable for being sent to peers.
-func (n *netopus) generateRoutingUpdate() (proto.RoutingConns, []byte, error) {
+func (n *netopus) generateRoutingUpdate() (*proto.RoutingUpdate, error) {
 	conns := make(proto.RoutingConns)
-	n.sessionInfo.WorkWithReadOnly(func(s *sessInfo) {
-		for _, sess := range *s {
-			if sess.connected.Get() {
+	n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
+		for _, sess := range s {
+			if sess.connectionState.Get() == connectionStateConnected {
 				conns[proto.NewSubnet(sess.remoteAddr.Get(), proto.CIDRMask(128, 128))] = sess.cost
 			}
 		}
 	})
-	n.externalRoutes.WorkWithReadOnly(func(routes *[]externalRouteInfo) {
-		for _, r := range *routes {
+	n.externalRoutes.WorkWithReadOnly(func(routes []externalRouteInfo) {
+		for _, r := range routes {
 			conns[r.dest] = r.cost
 		}
 	})
@@ -526,41 +744,39 @@ func (n *netopus) generateRoutingUpdate() (proto.RoutingConns, []byte, error) {
 		UpdateEpoch: n.epoch,
 		Connections: conns,
 	}
-	n.sequence.WorkWith(func(seq *uint64) {
-		*seq++
-		up.UpdateSequence = *seq
+	n.sequence.WorkWith(func(_seq *uint64) {
+		seq := *_seq
+		seq += 1
+		up.UpdateSequence = seq
+		*_seq = seq
 	})
-	upb, err := up.Marshal()
-	if err != nil {
-		return nil, nil, fmt.Errorf("error marshaling routing update: %s", err)
-	}
-	return conns, upb, nil
+	return up, nil
 }
 
 // handleRoutingUpdate updates the local routing table and known nodes data.  Returns a bool indicating whether the
 // update should be forwarded.
-func (n *netopus) handleRoutingUpdate(r *proto.RoutingUpdate) bool {
-	if r.Origin.String() == n.addr.String() {
+func (n *netopus) handleRoutingUpdate(ru *proto.RoutingUpdate) bool {
+	if ru.Origin.String() == n.addr.String() {
 		log.Debugf("%s: rejecting routing update because we are the origin", n.addr.String())
 		return false
 	}
 	var retval bool
 	n.knownNodeInfo.WorkWith(func(_knownNodeInfo *map[proto.IP]nodeInfo) {
 		knownNodeInfo := *_knownNodeInfo
-		ni, ok := (knownNodeInfo)[r.Origin]
-		if ok && (r.UpdateEpoch < ni.epoch || (r.UpdateEpoch == ni.epoch && r.UpdateSequence < ni.sequence)) {
+		ni, ok := (knownNodeInfo)[ru.Origin]
+		if ok && (ru.UpdateEpoch < ni.epoch || (ru.UpdateEpoch == ni.epoch && ru.UpdateSequence < ni.sequence)) {
 			log.Debugf("%s: ignoring outdated routing update", n.addr.String())
 			return
 		}
-		if r.UpdateEpoch == ni.epoch && r.UpdateSequence == ni.sequence {
+		if ru.UpdateEpoch == ni.epoch && ru.UpdateSequence == ni.sequence {
 			log.Debugf("%s: ignoring duplicate routing update", n.addr.String())
 			return
 		}
 		retval = true
-		knownNodeInfo[r.Origin] = nodeInfo{
-			name:       r.NodeName,
-			epoch:      r.UpdateEpoch,
-			sequence:   r.UpdateSequence,
+		knownNodeInfo[ru.Origin] = nodeInfo{
+			name:       ru.NodeName,
+			epoch:      ru.UpdateEpoch,
+			sequence:   ru.UpdateSequence,
 			lastUpdate: time.Now(),
 		}
 	})
@@ -573,8 +789,8 @@ func (n *netopus) monitorDeadNodes() {
 		n.knownNodeInfo.WorkWith(func(_knownNodeInfo *map[proto.IP]nodeInfo) {
 			knownNodeInfo := *_knownNodeInfo
 			for node, info := range knownNodeInfo {
-				if info.lastUpdate.Before(time.Now().Add(-10 * time.Second)) {
-					log.Warnf("Removing dead node: %s", node.String())
+				if info.lastUpdate.Before(time.Now().Add(-time.Minute)) {
+					log.Warnf("%s: removing dead node %s", n.addr.String(), node.String())
 					delete(knownNodeInfo, node)
 					n.router.RemoveNode(node)
 				}
@@ -615,11 +831,11 @@ func (n *netopus) Status() *proto.Status {
 		}
 	}
 	s.Sessions = make(map[string]proto.SessionStatus)
-	n.sessionInfo.WorkWithReadOnly(func(si *sessInfo) {
-		for k, v := range *si {
+	n.sessionInfo.WorkWithReadOnly(func(si sessInfo) {
+		for k, v := range si {
 			s.Sessions[k.String()] = proto.SessionStatus{
-				Connected: v.connected.Get(),
-				ConnStart: v.connStart,
+				Connected: v.connectionState.Get() == connectionStateConnected,
+				ConnStart: v.connStart.Get(),
 			}
 		}
 	})
@@ -651,26 +867,29 @@ func (n *netopus) AddExternalRoute(name string, dest proto.Subnet, cost float32,
 	if cost <= 0 {
 		cost = 1.0
 	}
-	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
-		*routes = append(*routes, externalRouteInfo{
+	n.externalRoutes.WorkWith(func(_routes *[]externalRouteInfo) {
+		routes := *_routes
+		routes = append(routes, externalRouteInfo{
 			name:               name,
 			dest:               dest,
 			cost:               cost,
 			outgoingPacketFunc: outgoingPacketFunc,
 		})
+		*_routes = routes
 	})
 }
 
 // DelExternalRoute implements ExternalRouter
 func (n *netopus) DelExternalRoute(name string) {
-	n.externalRoutes.WorkWith(func(routes *[]externalRouteInfo) {
-		newRoutes := make([]externalRouteInfo, 0, len(*routes))
-		for _, r := range *routes {
+	n.externalRoutes.WorkWith(func(_routes *[]externalRouteInfo) {
+		routes := *_routes
+		newRoutes := make([]externalRouteInfo, 0, len(routes))
+		for _, r := range routes {
 			if r.name != name {
 				newRoutes = append(newRoutes, r)
 			}
 		}
-		*routes = newRoutes
+		*_routes = newRoutes
 	})
 }
 

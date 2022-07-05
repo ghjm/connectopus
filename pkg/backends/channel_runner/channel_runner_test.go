@@ -59,6 +59,10 @@ func (b *testBackend) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
+func (b *testBackend) IsServer() bool {
+	return false
+}
+
 func TestChannelRunner(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())

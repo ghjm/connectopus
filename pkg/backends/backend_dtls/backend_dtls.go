@@ -8,6 +8,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/pion/dtls/v2"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"strconv"
 	"time"
@@ -15,8 +16,9 @@ import (
 
 // implements BackendConnection
 type dtlsBackend struct {
-	mtu  int
-	conn *dtls.Conn
+	mtu      int
+	conn     *dtls.Conn
+	isServer bool
 }
 
 func (b *dtlsBackend) MTU() int {
@@ -53,6 +55,10 @@ func (b *dtlsBackend) SetReadDeadline(t time.Time) error {
 
 func (b *dtlsBackend) SetWriteDeadline(t time.Time) error {
 	return b.conn.SetWriteDeadline(t)
+}
+
+func (b *dtlsBackend) IsServer() bool {
+	return b.isServer
 }
 
 type Dialer struct {
@@ -99,6 +105,7 @@ func (d *Dialer) Run(ctx context.Context, pr backends.ProtocolRunner) error {
 	addr := &net.UDPAddr{IP: d.DestAddr, Port: int(d.DestPort)}
 	dtlsConfig := d.getDtlsConfig(ctx)
 	go backends.RunDialer(ctx, pr, d.Cost, func() (backends.BackendConnection, error) {
+		log.Debugf("dtls dialing %s", addr.String())
 		conn, err := dtls.DialWithContext(ctx, "udp", addr, dtlsConfig)
 		if err != nil {
 			return nil, err
@@ -112,8 +119,9 @@ func (d *Dialer) Run(ctx context.Context, pr backends.ProtocolRunner) error {
 			mtu = int(d.MTU)
 		}
 		return &dtlsBackend{
-			mtu:  mtu,
-			conn: conn,
+			mtu:      mtu,
+			conn:     conn,
+			isServer: false,
 		}, nil
 	})
 	return nil
@@ -236,6 +244,7 @@ func (l *Listener) Run(ctx context.Context, pr backends.ProtocolRunner) (net.Add
 		if err != nil {
 			return nil, err
 		}
+		log.Debugf("dtls connection from %s", conn.RemoteAddr().String())
 		go func() {
 			<-ctx.Done()
 			_ = conn.Close()
@@ -245,8 +254,9 @@ func (l *Listener) Run(ctx context.Context, pr backends.ProtocolRunner) (net.Add
 			mtu = int(l.MTU)
 		}
 		return &dtlsBackend{
-			mtu:  mtu,
-			conn: conn.(*dtls.Conn),
+			mtu:      mtu,
+			conn:     conn.(*dtls.Conn),
+			isServer: true,
 		}, nil
 	})
 	return li.Addr(), nil

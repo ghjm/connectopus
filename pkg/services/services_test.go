@@ -8,6 +8,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/netstack"
 	"go.uber.org/goleak"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -18,13 +19,22 @@ func TestService(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	port := 29876
 	svc := config.Service{
-		Port:       port,
+		Port:       0,
 		Command:    "/bin/cat",
 		WinCommand: "find /v \"\"",
 	}
-	err := RunService(ctx, &netstack.NetUserStack{}, svc)
+	addr, err := RunService(ctx, &netstack.NetUserStack{}, svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var portStr string
+	_, portStr, err = net.SplitHostPort(addr.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var port int
+	port, err = strconv.Atoi(portStr)
 	if err != nil {
 		t.Fatal(err)
 	}

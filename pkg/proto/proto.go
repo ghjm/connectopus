@@ -15,12 +15,13 @@ type Msg []byte
 type MsgType int
 
 const (
-	MsgTypeError MsgType = -1
-	MsgTypeData  MsgType = 0
-	MsgTypeInit  MsgType = 1
-	MsgTypeRoute MsgType = 2
-	MsgTypeOOB   MsgType = 3
-	MaxMsgType   MsgType = 3
+	MsgTypeError     MsgType = -1
+	MsgTypeData      MsgType = 0
+	MsgTypeInit      MsgType = 1
+	MsgTypeRouteOOB  MsgType = 2
+	MsgTypeOOB       MsgType = 3
+	MsgTypeKeepalive MsgType = 4
+	MaxMsgType       MsgType = 4
 )
 
 // InitMsg is a message type sent at connection initialization time
@@ -56,6 +57,10 @@ type OOBMessage struct {
 	Data       []byte
 }
 
+type RouteOOBMessage OOBMessage
+
+type KeepaliveMsg struct{}
+
 var ErrUnknownMessageType = fmt.Errorf("unknown message type")
 
 // Type returns the MsgType of a Msg
@@ -88,10 +93,12 @@ func (m Msg) Unmarshal() (any, error) {
 		return []byte(m), nil
 	case MsgTypeInit:
 		return unmarshalMsg(&InitMsg{})
-	case MsgTypeRoute:
-		return unmarshalMsg(&RoutingUpdate{})
+	case MsgTypeRouteOOB:
+		return m.unmarshalRouteOOB()
 	case MsgTypeOOB:
 		return m.unmarshalOOB()
+	case MsgTypeKeepalive:
+		return unmarshalMsg(&KeepaliveMsg{})
 	}
 	return nil, ErrUnknownMessageType
 }
@@ -115,9 +122,9 @@ func (m *InitMsg) Marshal() ([]byte, error) {
 	return d, nil
 }
 
-// Marshal marshals a RoutingUpdate to a []byte
-func (ru *RoutingUpdate) Marshal() ([]byte, error) {
-	d, err := marshalMsg(ru, MsgTypeRoute)
+// Marshal marshals a KeepaliveMsg to a []byte
+func (m *KeepaliveMsg) Marshal() ([]byte, error) {
+	d, err := marshalMsg(m, MsgTypeKeepalive)
 	if err != nil {
 		return nil, err
 	}
@@ -144,12 +151,6 @@ func (oob *OOBMessage) Marshal() ([]byte, error) {
 	return b, nil
 }
 
-// String produces a string representation of an OOBMessage
-func (oob *OOBMessage) String() string {
-	return fmt.Sprintf("from %s:%d to %s:%d: %d bytes",
-		oob.SourceAddr, oob.SourcePort, oob.DestAddr, oob.DestPort, len(oob.Data))
-}
-
 // unmarshalOOB unmarshals an OOBMessage from a Msg
 func (m Msg) unmarshalOOB() (*OOBMessage, error) {
 	if len(m) < oobHeaderData {
@@ -166,6 +167,45 @@ func (m Msg) unmarshalOOB() (*OOBMessage, error) {
 		DestPort:   binary.BigEndian.Uint16(m[oobHeaderDestPort : oobHeaderDestPort+2]),
 		Data:       m[oobHeaderData:],
 	}, nil
+}
+
+// String produces a string representation of an OOBMessage
+func (oob *OOBMessage) String() string {
+	return fmt.Sprintf("from %s:%d to %s:%d: %d bytes",
+		oob.SourceAddr, oob.SourcePort, oob.DestAddr, oob.DestPort, len(oob.Data))
+}
+
+// Marshal marshals a RouteOOBMessage to a []byte
+func (rm *RouteOOBMessage) Marshal() ([]byte, error) {
+	oob, err := (*OOBMessage)(rm).Marshal()
+	if err != nil {
+		return nil, err
+	}
+	oob[0] = byte(MsgTypeRouteOOB)
+	return oob, nil
+}
+
+// unmarshalOOB unmarshals a RouteOOBMessage from a Msg
+func (m Msg) unmarshalRouteOOB() (*RouteOOBMessage, error) {
+	if len(m) < oobHeaderData {
+		return nil, fmt.Errorf("message too short")
+	}
+	if m[0] != byte(MsgTypeRouteOOB) {
+		return nil, fmt.Errorf("message is not a RouteOOBMessage")
+	}
+	return &RouteOOBMessage{
+		Hops:       m[oobHeaderHops],
+		SourceAddr: IP(m[oobHeaderSourceAddr : oobHeaderSourceAddr+16]),
+		SourcePort: binary.BigEndian.Uint16(m[oobHeaderSourcePort : oobHeaderSourcePort+2]),
+		DestAddr:   IP(m[oobHeaderDestAddr : oobHeaderDestAddr+16]),
+		DestPort:   binary.BigEndian.Uint16(m[oobHeaderDestPort : oobHeaderDestPort+2]),
+		Data:       m[oobHeaderData:],
+	}, nil
+}
+
+// String produces a string representation of a RouteOOBMessage
+func (rm *RouteOOBMessage) String() string {
+	return (*OOBMessage)(rm).String()
 }
 
 func (ru *RoutingUpdate) String() string {

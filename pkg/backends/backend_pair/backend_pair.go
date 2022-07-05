@@ -17,6 +17,7 @@ type pairBackend struct {
 	readDeadline  time.Time
 	sendChan      chan []byte
 	writeDeadline time.Time
+	isServer      bool
 }
 
 func (b *pairBackend) MTU() int {
@@ -78,6 +79,10 @@ func (b *pairBackend) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
+func (b *pairBackend) IsServer() bool {
+	return b.isServer
+}
+
 func RunPair(ctx context.Context, pr1 backends.ProtocolRunner, pr2 backends.ProtocolRunner, mtu int) error {
 	pairCtx, pairCancel := context.WithCancel(ctx)
 	pair1to2chan := make(chan []byte)
@@ -90,6 +95,7 @@ func RunPair(ctx context.Context, pr1 backends.ProtocolRunner, pr2 backends.Prot
 		readDeadline:  time.Time{},
 		sendChan:      pair1to2chan,
 		writeDeadline: time.Time{},
+		isServer:      true,
 	}
 	pair2 := &pairBackend{
 		ctx:           pairCtx,
@@ -99,6 +105,7 @@ func RunPair(ctx context.Context, pr1 backends.ProtocolRunner, pr2 backends.Prot
 		readDeadline:  time.Time{},
 		sendChan:      pair2to1chan,
 		writeDeadline: time.Time{},
+		isServer:      false,
 	}
 	go pr1.RunProtocol(pairCtx, 1.0, pair1)
 	go pr2.RunProtocol(pairCtx, 1.0, pair2)

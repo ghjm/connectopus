@@ -2,10 +2,10 @@ package proto
 
 import (
 	"context"
-	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/netstack"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -46,7 +46,7 @@ func (a OOBAddr) Network() string {
 }
 
 func (a OOBAddr) String() string {
-	return fmt.Sprintf("%s:%d", a.Host, a.Port)
+	return net.JoinHostPort(a.Host.String(), strconv.Itoa(int(a.Port)))
 }
 
 type OOBConnector interface {

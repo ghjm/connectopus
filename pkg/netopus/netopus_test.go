@@ -80,8 +80,6 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]*ne
 			return nil, err
 		}
 	}
-	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, 15*time.Second)
-	defer timeoutCancel()
 	wg := sync.WaitGroup{}
 	wg.Add(len(meshSpec))
 	for node := range meshSpec {
@@ -91,9 +89,10 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]*ne
 			defer mesh[node].UnsubscribeUpdates(updCh)
 			for {
 				select {
-				case <-timeoutCtx.Done():
+				case <-ctx.Done():
 					return
 				case policy := <-updCh:
+					fmt.Printf("%s: policy update\n", mesh[node].addr.String())
 					allGood := true
 					for nodeB := range meshSpec {
 						if nodeB == node {
@@ -119,8 +118,8 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]*ne
 		}(node)
 	}
 	wg.Wait()
-	if timeoutCtx.Err() != nil {
-		return nil, timeoutCtx.Err()
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
 	return mesh, nil
 }
@@ -297,9 +296,7 @@ func idleTest(_ context.Context, _ *testing.T, _ map[string]NodeSpec, _ map[stri
 func runTest(t *testing.T, spec map[string]NodeSpec,
 	tests ...func(context.Context, *testing.T, map[string]NodeSpec, map[string]*netopus)) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	mesh, err := MakeMesh(ctx, spec)
 	if err != nil {
 		t.Fatalf("mesh initialization error: %s", err)
@@ -311,7 +308,7 @@ func runTest(t *testing.T, spec map[string]NodeSpec,
 
 func TestNetopus(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	//log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.DebugLevel)
 	log.SetOutput(os.Stdout)
 	t.Logf("2 node test\n")
 	runTest(t, map[string]NodeSpec{

@@ -12,6 +12,71 @@ import (
 	"time"
 )
 
+func TestDirect(t *testing.T) {
+	goleak.VerifyNone(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var pc1, pc2 *OOBPacketConn
+	ip1 := func(msg *proto.OOBMessage) error {
+		if pc1 != nil {
+			return pc1.IncomingPacket(msg)
+		}
+		return nil
+	}
+	ip2 := func(msg *proto.OOBMessage) error {
+		if pc2 != nil {
+			return pc2.IncomingPacket(msg)
+		}
+		return nil
+	}
+	var err error
+	pc1, err = NewPacketConn(ctx, ip2, nil, proto.ParseIP("FD00::1"), 1234)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc2, err = NewPacketConn(ctx, ip1, nil, proto.ParseIP("FD00::2"), 1234)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := []byte("Hello, world!")
+	wg := sync.WaitGroup{}
+	wg.Add(4)
+	writePacket := func(pc net.PacketConn, addr proto.IP) {
+		defer wg.Done()
+		n, err := pc.WriteTo(message, proto.OOBAddr{Host: addr, Port: 1234})
+		if err != nil {
+			t.Errorf("write error: %s", err)
+			return
+		}
+		if n != len(message) {
+			t.Errorf("whole message not sent")
+			return
+		}
+	}
+	go writePacket(pc1, proto.ParseIP("FD00::2"))
+	go writePacket(pc2, proto.ParseIP("FD00::1"))
+	readPacket := func(pc net.PacketConn, addr proto.IP) {
+		defer wg.Done()
+		buf := make([]byte, 256)
+		n, raddr, err := pc.ReadFrom(buf)
+		if err != nil {
+			t.Errorf("read error: %s", err)
+			return
+		}
+		if string(buf[:n]) != string(message) {
+			t.Errorf("incorrect message received")
+			return
+		}
+		if raddr.String() != net.JoinHostPort(addr.String(), "1234") {
+			t.Errorf("message from wrong address")
+			return
+		}
+	}
+	go readPacket(pc1, proto.ParseIP("FD00::2"))
+	go readPacket(pc2, proto.ParseIP("FD00::1"))
+	wg.Wait()
+}
+
 func TestOOB(t *testing.T) {
 	goleak.VerifyNone(t)
 	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -125,7 +190,7 @@ func TestOOB(t *testing.T) {
 	}
 
 	// Test OOBConn
-	message = []byte(strings.Repeat("Hello, world!\n", 1000))
+	longMessage := []byte(strings.Repeat("Hello, world!\n", 1000))
 	for _, ns := range [][]proto.Netopus{{n1, n2}, {n2, n1}} {
 		nLocal := ns[0]
 		nRemote := ns[1]
@@ -151,11 +216,11 @@ func TestOOB(t *testing.T) {
 				}
 				buf = buf[:n]
 				recvMessage = append(recvMessage, buf...)
-				if len(recvMessage) >= len(message) {
+				if len(recvMessage) >= len(longMessage) {
 					break
 				}
 			}
-			if string(recvMessage) != string(message) {
+			if string(recvMessage) != string(longMessage) {
 				t.Errorf("incorrect message received")
 				return
 			}
@@ -185,12 +250,12 @@ func TestOOB(t *testing.T) {
 					return
 				}
 			}()
-			n, err := c.Write(message)
+			n, err := c.Write(longMessage)
 			if err != nil {
 				t.Errorf("error writing to conn: %s", err)
 				return
 			}
-			if n != len(message) {
+			if n != len(longMessage) {
 				t.Errorf("whole message not sent")
 				return
 			}

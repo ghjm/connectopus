@@ -19,6 +19,7 @@ type BackendConnection interface {
 	Close() error
 	SetReadDeadline(time.Time) error
 	SetWriteDeadline(time.Time) error
+	IsServer() bool
 }
 
 // ProtocolRunner is called by backends to run a protocol over a connection
