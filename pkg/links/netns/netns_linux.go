@@ -163,7 +163,6 @@ func (ns *Link) PID() int {
 
 func RunShim(fd int, tunif string, addr string) error {
 	// Bring up the lo interface
-	_, _ = fmt.Printf("bringing up lo\n")
 	lo, err := netlink.LinkByName("lo")
 	if err != nil {
 		return fmt.Errorf("error opening lo: %v", err)
@@ -174,7 +173,6 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Create the tun interface
-	_, _ = fmt.Printf("creating tun if\n")
 	var tun *water.Interface
 	tun, err = water.New(water.Config{
 		DeviceType: water.TUN,
@@ -188,7 +186,6 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Set the tun interface address
-	_, _ = fmt.Printf("setting tun if address\n")
 	var tunLink netlink.Link
 	tunLink, err = netlink.LinkByName(tunif)
 	if err != nil {
@@ -205,14 +202,12 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Bring up the tun interface
-	_, _ = fmt.Printf("bringing up tun if\n")
 	err = netlink.LinkSetUp(tunLink)
 	if err != nil {
 		return fmt.Errorf("error bringing up tun: %v", err)
 	}
 
 	// Set the tun interface IPv4 default route
-	_, _ = fmt.Printf("setting tun if ipv4 route\n")
 	err = netlink.RouteAdd(&netlink.Route{
 		LinkIndex: tunLink.Attrs().Index,
 		Scope:     netlink.SCOPE_UNIVERSE,
@@ -227,7 +222,6 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Set the tun interface IPv6 default route
-	_, _ = fmt.Printf("setting tun if ipv6 route\n")
 	err = netlink.RouteAdd(&netlink.Route{
 		LinkIndex: tunLink.Attrs().Index,
 		Scope:     netlink.SCOPE_UNIVERSE,
@@ -242,7 +236,6 @@ func RunShim(fd int, tunif string, addr string) error {
 	}
 
 	// Notify that the link is ready
-	_, _ = fmt.Printf("notifying link ready\n")
 	_, _ = fmt.Print(linkReadyMessage)
 
 	// Copy packets between the tun interface and the provided fd

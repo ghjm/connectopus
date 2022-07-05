@@ -92,7 +92,6 @@ func MakeMesh(ctx context.Context, meshSpec map[string]NodeSpec) (map[string]*ne
 				case <-ctx.Done():
 					return
 				case policy := <-updCh:
-					fmt.Printf("%s: policy update\n", mesh[node].addr.String())
 					allGood := true
 					for nodeB := range meshSpec {
 						if nodeB == node {

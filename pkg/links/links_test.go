@@ -4,7 +4,6 @@ package links
 
 import (
 	"context"
-	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
@@ -29,7 +28,6 @@ func (d *dummyRWC) Read(p []byte) (int, error) {
 				dStr := (*data)[0]
 				readData = &dStr
 				*data = (*data)[1:]
-				fmt.Printf("Read %s\n", *readData)
 			}
 		})
 		if readData != nil {
@@ -43,7 +41,6 @@ func (d *dummyRWC) Read(p []byte) (int, error) {
 
 func (d *dummyRWC) Write(p []byte) (int, error) {
 	d.data.WorkWith(func(data *[]string) {
-		fmt.Printf("Wrote %s\n", p)
 		*data = append(*data, string(p))
 	})
 	return len(p), nil
@@ -99,7 +96,6 @@ func TestLink(t *testing.T) {
 				return
 			case packet := <-packChan:
 				inCount.WorkWith(func(i *int) {
-					fmt.Printf("Subscriber read %s\n", packet)
 					if string(packet) != testData[*i] {
 						t.Errorf("wrong packet data received")
 					}
