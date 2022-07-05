@@ -72,18 +72,7 @@ func (s *Server) ServeUnix(ctx context.Context, socketFile string) error {
 	if err != nil {
 		return err
 	}
-	return s.ServeAPI(ctx, li)
-}
-
-func (s *Server) ServeAPI(ctx context.Context, li net.Listener) error {
-	mux := http.NewServeMux()
-	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: &s.Resolver})))
-
-	p := NewProxy(s.N)
-	mux.Handle("/proxy/", p)
-
-	s.runServer(ctx, li, mux, false)
-	return nil
+	return s.ServeHTTP(ctx, li, false)
 }
 
 func (s *Server) HandlePlayground(w http.ResponseWriter, req *http.Request) {
@@ -97,7 +86,7 @@ func (s *Server) HandlePlayground(w http.ResponseWriter, req *http.Request) {
 	playground.Handler(title, endpoint)(w, req)
 }
 
-func (s *Server) ServeHTTP(ctx context.Context, li net.Listener) error {
+func (s *Server) ServeHTTP(ctx context.Context, li net.Listener, auth bool) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", ui_embed.GetUIHandler())
 	mux.HandleFunc("/api", s.HandlePlayground)
@@ -106,6 +95,6 @@ func (s *Server) ServeHTTP(ctx context.Context, li net.Listener) error {
 	p := NewProxy(s.N)
 	mux.Handle("/proxy/", p)
 
-	s.runServer(ctx, li, mux, true)
+	s.runServer(ctx, li, mux, auth)
 	return nil
 }

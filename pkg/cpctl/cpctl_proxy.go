@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const ProxyPortNo = 277
+
 type proxy struct {
 	httputil.ReverseProxy
 }
@@ -24,23 +26,18 @@ func NewProxy(n proto.Netopus) *proxy {
 		if err != nil {
 			return nil, err
 		}
+		if port != strconv.Itoa(ProxyPortNo) {
+			return nil, fmt.Errorf("port must be %d", ProxyPortNo)
+		}
 		netAddr := n.Status().NameToAddr[host]
 		if netAddr == "" {
 			return nil, fmt.Errorf("unknown node name")
 		}
-		netIP := net.ParseIP(netAddr)
-		if netIP == nil {
+		netIP := proto.ParseIP(netAddr)
+		if netIP == "" {
 			return nil, fmt.Errorf("invalid IP address")
 		}
-		var portNo int64
-		portNo, err = strconv.ParseInt(port, 10, 16)
-		if err != nil {
-			return nil, err
-		}
-		if portNo != 277 {
-			return nil, fmt.Errorf("invalid port number")
-		}
-		return n.DialContextTCP(ctx, netIP, uint16(portNo))
+		return n.DialOOB(ctx, proto.OOBAddr{Host: netIP, Port: ProxyPortNo})
 	}
 	p.Transport = transport
 	director := func(req *http.Request) {

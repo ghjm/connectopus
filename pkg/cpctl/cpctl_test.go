@@ -44,7 +44,7 @@ func TestCpctl(t *testing.T) {
 		t.Fatal(err)
 	}
 	var c *Client
-	c, err = NewSocketClient(fn, "")
+	c, err = NewSocketClient(fn)
 	if err != nil {
 		t.Fatal(err)
 	}

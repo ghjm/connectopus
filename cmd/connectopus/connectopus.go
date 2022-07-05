@@ -14,6 +14,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/netopus"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/services"
+	"github.com/ghjm/connectopus/pkg/x/bridge"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
@@ -24,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -41,14 +43,13 @@ func errExitf(format string, args ...any) {
 }
 
 var socketFile string
-var proxyNode string
 
 var rootCmd = &cobra.Command{
 	Use:   "connectopus",
 	Short: "CLI for Connectopus",
 }
 
-func getUsableKey(a agent.Agent) (string, error) {
+func getUsableKey(a agent.Agent, keyText string) (string, error) {
 	keys, err := ssh_jwt.GetMatchingKeys(a, keyText)
 	if err != nil {
 		return "", fmt.Errorf("error listing SSH keys: %s", err)
@@ -177,11 +178,11 @@ var nodeCmd = &cobra.Command{
 			SigningMethod: sm,
 		}
 		{
-			li, err := n.ListenTCP(277)
+			li, err := n.ListenOOB(ctx, cpctl.ProxyPortNo)
 			if err != nil {
 				errExit(err)
 			}
-			err = csrv.ServeAPI(ctx, li)
+			err = csrv.ServeHTTP(ctx, li, true)
 			if err != nil {
 				errExit(err)
 			}
@@ -198,7 +199,7 @@ var nodeCmd = &cobra.Command{
 			if err != nil {
 				errExit(err)
 			}
-			err = csrv.ServeHTTP(ctx, li)
+			err = csrv.ServeHTTP(ctx, li, true)
 			if err != nil {
 				errExit(err)
 			}
@@ -229,56 +230,64 @@ var netnsShimCmd = &cobra.Command{
 	},
 }
 
-var keyText string
+func genToken(keyFile string, keyText string, tokenDuration string) (string, error) {
+	a, err := ssh_jwt.GetSSHAgent(keyFile)
+	if err != nil {
+		return "", fmt.Errorf("error initializing SSH agent: %s", err)
+	}
+	var key string
+	key, err = getUsableKey(a, keyText)
+	if err != nil {
+		return "", fmt.Errorf("error getting SSH key: %s", err)
+	}
+	var sm jwt.SigningMethod
+	sm, err = ssh_jwt.SetupSigningMethod("connectopus", a)
+	if err != nil {
+		return "", fmt.Errorf("error initializing JWT signing method: %s", err)
+	}
+	claims := &jwt.RegisteredClaims{
+		Subject: "connectopus-cpctl auth",
+	}
+	if tokenDuration != "forever" {
+		var expireDuration time.Duration
+		if tokenDuration == "" {
+			expireDuration = 24 * time.Hour
+		} else {
+			expireDuration, err = time.ParseDuration(tokenDuration)
+			if err != nil {
+				return "", fmt.Errorf("error parsing token duration: %s", err)
+			}
+		}
+		claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(expireDuration))
+	}
+	tok := jwt.NewWithClaims(sm, claims)
+	tok.Header["kid"] = key
+	var tokstr string
+	tokstr, err = tok.SignedString(key)
+	if err != nil {
+		return "", fmt.Errorf("error signing token: %s", err)
+	}
+	return tokstr, nil
+}
+
 var keyFile string
+var keyText string
 var tokenDuration string
-var verbose bool
 var getTokenCmd = &cobra.Command{
 	Use:   "get-token",
 	Short: "Generate an authentication token from an SSH key",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		a, err := ssh_jwt.GetSSHAgent(keyFile)
+		s, err := genToken(keyFile, keyText, tokenDuration)
 		if err != nil {
-			errExitf("error initializing SSH agent: %s", err)
-		}
-		var key string
-		key, err = getUsableKey(a)
-		if err != nil {
-			errExit(err)
-		}
-		var sm jwt.SigningMethod
-		sm, err = ssh_jwt.SetupSigningMethod("connectopus", a)
-		if err != nil {
-			errExitf("error initializing JWT signing method: %s", err)
-		}
-		claims := &jwt.RegisteredClaims{
-			Subject: "connectopus-cpctl auth",
-		}
-		if tokenDuration != "forever" {
-			var expireDuration time.Duration
-			if tokenDuration == "" {
-				expireDuration = 24 * time.Hour
-			} else {
-				expireDuration, err = time.ParseDuration(tokenDuration)
-				if err != nil {
-					errExitf("error parsing token duration: %s", err)
-				}
-			}
-			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(expireDuration))
-		}
-		tok := jwt.NewWithClaims(sm, claims)
-		tok.Header["kid"] = key
-		var s string
-		s, err = tok.SignedString(key)
-		if err != nil {
-			errExitf("error signing token: %s", err)
+			errExitf("error generating token: %s", err)
 		}
 		fmt.Printf("%s\n", s)
 	},
 }
 
 var token string
+var verbose bool
 var verifyTokenCmd = &cobra.Command{
 	Use:   "verify-token",
 	Short: "Verify a previously generated authentication token",
@@ -334,6 +343,68 @@ var verifyTokenCmd = &cobra.Command{
 	},
 }
 
+// openWebBrowser opens the default web browser to a given URL
+func openWebBrowser(url string) error {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		//nolint:goerr113
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
+}
+
+var noBrowser bool
+var localUIPort int
+var uiCmd = &cobra.Command{
+	Use:   "ui",
+	Short: "Run the Connectopus UI",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		tokStr, err := genToken(keyFile, keyText, tokenDuration)
+		if err != nil {
+			errExitf("error generating token: %s", err)
+		}
+		var li net.Listener
+		li, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", localUIPort))
+		if err != nil {
+			errExitf("tcp listen error: %s", err)
+		}
+		url := fmt.Sprintf("http://localhost:%d/?AuthToken=%s", localUIPort, tokStr)
+		if noBrowser {
+			fmt.Printf("Server started on URL: %s\n", url)
+		} else {
+			fmt.Printf("Server started.  Launching browser.\n")
+			err = openWebBrowser(url)
+			if err != nil {
+				errExitf("error opening browser: %s", err)
+			}
+		}
+		for {
+			c, err := li.Accept()
+			if err != nil {
+				errExitf("tcp accept error: %s", err)
+			}
+			go func() {
+				uc, err := net.Dial("unix", socketFile)
+				if err != nil {
+					errExitf("unix socket connection error: %s", err)
+				}
+				err = bridge.RunBridge(c, uc)
+				if err != nil {
+					fmt.Printf("Bridge error: %s", err)
+				}
+			}()
+		}
+	},
+}
+
 func formatNode(addr string, nodeNames map[string]string) string {
 	name := nodeNames[addr]
 	if name == "" {
@@ -348,7 +419,7 @@ var statusCmd = &cobra.Command{
 	Short: "Get status",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := cpctl.NewSocketClient(socketFile, proxyNode)
+		client, err := cpctl.NewSocketClient(socketFile)
 		if err != nil {
 			errExit(err)
 		}
@@ -446,10 +517,7 @@ var nsenterCmd = &cobra.Command{
 	Short: "Run a command within a network namespace",
 	Args:  cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if proxyNode != "" {
-			errExit(fmt.Errorf("cannot enter a non-local namespace"))
-		}
-		client, err := cpctl.NewSocketClient(socketFile, proxyNode)
+		client, err := cpctl.NewSocketClient(socketFile)
 		if err != nil {
 			errExit(err)
 		}
@@ -526,8 +594,6 @@ func main() {
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra detail")
 	statusCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
 		"Socket file to communicate between CLI and node")
-	statusCmd.Flags().StringVar(&proxyNode, "proxy-to", "",
-		"Node to communicate with (non-local implies proxy)")
 
 	nsenterCmd.Flags().StringVar(&namespaceName, "netns", "", "Name of network namespace")
 	nsenterCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
@@ -541,7 +607,16 @@ func main() {
 	_ = verifyTokenCmd.MarkFlagRequired("token")
 	verifyTokenCmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra detail")
 
-	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, nsenterCmd, getTokenCmd, verifyTokenCmd)
+	uiCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	uiCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
+	uiCmd.Flags().StringVar(&tokenDuration, "duration", "", "Token duration (time duration or \"forever\")")
+	uiCmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Do not open a browser")
+	uiCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
+		"Socket file to communicate between CLI and node")
+	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
+		"UI port on localhost")
+
+	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, nsenterCmd, getTokenCmd, verifyTokenCmd, uiCmd)
 
 	err := rootCmd.Execute()
 	if err != nil {
