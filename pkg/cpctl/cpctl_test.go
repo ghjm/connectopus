@@ -20,7 +20,7 @@ import (
 )
 
 func TestCpctl(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	f, err := ioutil.TempFile("", "temp_cpctl_*.sock")
 	if err != nil {
 		t.Fatal(err)

@@ -6,6 +6,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/ghjm/connectopus/internal/ui_embed"
+	"github.com/ghjm/connectopus/pkg/x/file_cleaner"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
@@ -68,6 +69,11 @@ func (s *Server) ServeUnix(ctx context.Context, socketFile string) error {
 	if err != nil {
 		return err
 	}
+	delHandle := file_cleaner.DeleteOnExit(socketFile)
+	go func() {
+		<-ctx.Done()
+		_ = delHandle.DeleteNow()
+	}()
 	err = os.Chmod(socketFile, 0600)
 	if err != nil {
 		return err
