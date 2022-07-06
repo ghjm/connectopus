@@ -568,7 +568,10 @@ func main() {
 	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
 		"UI port on localhost")
 
-	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, nsenterCmd, getTokenCmd, verifyTokenCmd, uiCmd)
+	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd)
+	if runtime.GOOS == "linux" {
+		rootCmd.AddCommand(nsenterCmd)
+	}
 
 	err := rootCmd.Execute()
 	if err != nil {
