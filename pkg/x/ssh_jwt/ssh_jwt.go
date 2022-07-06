@@ -5,13 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/42wim/sshsig"
-	"github.com/chzyer/readline"
 	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	"io/ioutil"
-	"net"
-	"os"
 	"strings"
 	"time"
 )
@@ -19,70 +14,6 @@ import (
 type signingMethodSSHAgent struct {
 	namespace   string
 	agentClient agent.Agent
-}
-
-// GetSSHAgent either connects to a running agent if keyFile is empty, or creates a new agent and loads the
-// specified key into it.
-func GetSSHAgent(keyFile string) (agent.Agent, error) {
-	if keyFile == "" {
-		socket := os.Getenv("SSH_AUTH_SOCK")
-		if socket == "" {
-			return nil, fmt.Errorf("no SSH agent found")
-		}
-		conn, err := net.Dial("unix", socket)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open SSH_AUTH_SOCK: %v", err)
-		}
-		return agent.NewClient(conn), nil
-	}
-	keyPEM, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return nil, fmt.Errorf("error reading key file: %w", err)
-	}
-	var key interface{}
-	key, err = ssh.ParseRawPrivateKey(keyPEM)
-	if _, ok := err.(*ssh.PassphraseMissingError); ok {
-		var rl *readline.Instance
-		rl, err = readline.New("")
-		if err != nil {
-			return nil, fmt.Errorf("error initializing readline: %w", err)
-		}
-		var keyPassphrase []byte
-		keyPassphrase, err = rl.ReadPassword("Enter SSH Key Passphrase: ")
-		if err != nil {
-			return nil, fmt.Errorf("error reading passphrase: %w", err)
-		}
-		key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyPEM, keyPassphrase)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error parsing SSH key: %w", err)
-	}
-	a := agent.NewKeyring()
-	err = a.Add(agent.AddedKey{
-		PrivateKey: key,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error loading SSH key: %w", err)
-	}
-	return a, nil
-}
-
-// GetMatchingKeys retrieves public keys from an agent which contain keyText as a substring.
-func GetMatchingKeys(a agent.Agent, keyText string) ([]string, error) {
-	keys, err := a.List()
-	if err != nil {
-		return nil, fmt.Errorf("error listing SSH keys: %s", err)
-	}
-	if len(keys) == 0 {
-		return nil, fmt.Errorf("no SSH keys found")
-	}
-	var matchingKeys []string
-	for _, key := range keys {
-		if keyText == "" || strings.Contains(key.String(), keyText) {
-			matchingKeys = append(matchingKeys, key.String())
-		}
-	}
-	return matchingKeys, nil
 }
 
 // SetupSigningMethod creates and registers a JWT signing method using SSH keys

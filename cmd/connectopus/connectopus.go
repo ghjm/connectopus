@@ -19,7 +19,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/exp/slices"
 	"net"
 	"os"
@@ -47,20 +46,6 @@ var socketFile string
 var rootCmd = &cobra.Command{
 	Use:   "connectopus",
 	Short: "CLI for Connectopus",
-}
-
-func getUsableKey(a agent.Agent, keyText string) (string, error) {
-	keys, err := ssh_jwt.GetMatchingKeys(a, keyText)
-	if err != nil {
-		return "", fmt.Errorf("error listing SSH keys: %s", err)
-	}
-	if len(keys) == 0 {
-		return "", fmt.Errorf("no SSH keys found")
-	}
-	if len(keys) > 1 {
-		return "", fmt.Errorf("multiple SSH keys found.  Use --text to select one uniquely.")
-	}
-	return keys[0], nil
 }
 
 func abbreviateKey(keyStr string) (string, error) {
@@ -182,7 +167,7 @@ var nodeCmd = &cobra.Command{
 			if err != nil {
 				errExit(err)
 			}
-			err = csrv.ServeHTTP(ctx, li, true)
+			err = csrv.ServeHTTP(ctx, li)
 			if err != nil {
 				errExit(err)
 			}
@@ -199,7 +184,7 @@ var nodeCmd = &cobra.Command{
 			if err != nil {
 				errExit(err)
 			}
-			err = csrv.ServeHTTP(ctx, li, true)
+			err = csrv.ServeHTTP(ctx, li)
 			if err != nil {
 				errExit(err)
 			}
@@ -230,46 +215,6 @@ var netnsShimCmd = &cobra.Command{
 	},
 }
 
-func genToken(keyFile string, keyText string, tokenDuration string) (string, error) {
-	a, err := ssh_jwt.GetSSHAgent(keyFile)
-	if err != nil {
-		return "", fmt.Errorf("error initializing SSH agent: %s", err)
-	}
-	var key string
-	key, err = getUsableKey(a, keyText)
-	if err != nil {
-		return "", fmt.Errorf("error getting SSH key: %s", err)
-	}
-	var sm jwt.SigningMethod
-	sm, err = ssh_jwt.SetupSigningMethod("connectopus", a)
-	if err != nil {
-		return "", fmt.Errorf("error initializing JWT signing method: %s", err)
-	}
-	claims := &jwt.RegisteredClaims{
-		Subject: "connectopus-cpctl auth",
-	}
-	if tokenDuration != "forever" {
-		var expireDuration time.Duration
-		if tokenDuration == "" {
-			expireDuration = 24 * time.Hour
-		} else {
-			expireDuration, err = time.ParseDuration(tokenDuration)
-			if err != nil {
-				return "", fmt.Errorf("error parsing token duration: %s", err)
-			}
-		}
-		claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(expireDuration))
-	}
-	tok := jwt.NewWithClaims(sm, claims)
-	tok.Header["kid"] = key
-	var tokstr string
-	tokstr, err = tok.SignedString(key)
-	if err != nil {
-		return "", fmt.Errorf("error signing token: %s", err)
-	}
-	return tokstr, nil
-}
-
 var keyFile string
 var keyText string
 var tokenDuration string
@@ -278,7 +223,7 @@ var getTokenCmd = &cobra.Command{
 	Short: "Generate an authentication token from an SSH key",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		s, err := genToken(keyFile, keyText, tokenDuration)
+		s, err := cpctl.GenToken(keyFile, keyText, tokenDuration)
 		if err != nil {
 			errExitf("error generating token: %s", err)
 		}
@@ -367,7 +312,7 @@ var uiCmd = &cobra.Command{
 	Short: "Run the Connectopus UI",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		tokStr, err := genToken(keyFile, keyText, tokenDuration)
+		tokStr, err := cpctl.GenToken(keyFile, keyText, tokenDuration)
 		if err != nil {
 			errExitf("error generating token: %s", err)
 		}
@@ -414,12 +359,13 @@ func formatNode(addr string, nodeNames map[string]string) string {
 	}
 }
 
+var proxyTo string
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Get status",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := cpctl.NewSocketClient(socketFile)
+		client, err := cpctl.NewTokenAndSocketClient(socketFile, keyFile, keyText, "", proxyTo)
 		if err != nil {
 			errExit(err)
 		}
@@ -517,7 +463,7 @@ var nsenterCmd = &cobra.Command{
 	Short: "Run a command within a network namespace",
 	Args:  cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := cpctl.NewSocketClient(socketFile)
+		client, err := cpctl.NewTokenAndSocketClient(socketFile, keyFile, keyText, "", "")
 		if err != nil {
 			errExit(err)
 		}
@@ -591,10 +537,16 @@ func main() {
 	netnsShimCmd.Flags().StringVar(&netnsAddr, "addr", "", "ip address")
 	_ = netnsShimCmd.MarkFlagRequired("addr")
 
+	statusCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	statusCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra detail")
 	statusCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
 		"Socket file to communicate between CLI and node")
+	statusCmd.Flags().StringVar(&proxyTo, "proxy-to", "",
+		"Node to communicate with (non-local implies proxy)")
 
+	nsenterCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	nsenterCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	nsenterCmd.Flags().StringVar(&namespaceName, "netns", "", "Name of network namespace")
 	nsenterCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
 		"Socket file to communicate between CLI and node")

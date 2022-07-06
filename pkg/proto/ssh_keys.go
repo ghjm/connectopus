@@ -2,18 +2,12 @@ package proto
 
 import (
 	"encoding/json"
-	"fmt"
 	"golang.org/x/crypto/ssh"
 	"strings"
 )
 
-type PublicKey interface {
-	ssh.PublicKey
-	ssh.CryptoPublicKey
-}
-
 type MarshalablePublicKey struct {
-	PublicKey
+	ssh.PublicKey
 	Comment string
 }
 
@@ -43,12 +37,8 @@ func parseAuthorizedKey(data string, mpk *MarshalablePublicKey) error {
 	if err != nil {
 		return err
 	}
-	pk, ok := key.(PublicKey)
-	if !ok {
-		return fmt.Errorf("incompatible key type")
-	}
 	*mpk = MarshalablePublicKey{
-		PublicKey: pk,
+		PublicKey: key,
 		Comment:   comment,
 	}
 	return nil

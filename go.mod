@@ -10,6 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
+	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
 	github.com/pion/dtls/v2 v2.1.5
 	github.com/rainycape/dl v0.0.0-20151222075243-1b01514224a1
 	github.com/sirupsen/logrus v1.8.1

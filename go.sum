@@ -67,6 +67,8 @@ github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NH
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde h1:+5PMaaQtDUwOcJIUlmX89P0J3iwTvErTmyn5WghzXAQ=
 github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde/go.mod h1:RDgD/dfPmIwFH0qdUOjw71HjtWg56CtyLIoHL+R1wJw=
+github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f h1:InJ2Mt61eNYvXi7hINNzPYn0ErgpSnBQp3MSwGqLRB4=
+github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f/go.mod h1:f6Z/nowcTU16CX5NX0S9NgkK2aaTozo1QU2vOA2UmkA=
 github.com/kevinmbeaulieu/eq-go v1.0.0/go.mod h1:G3S8ajA56gKBZm4UB9AOyoOS37JO3roToPzKNM8dtdM=
 github.com/klauspost/cpuid/v2 v2.0.14 h1:QRqdp6bb9M9S5yyKeYteXKuoKE4p0tGlra81fKOpWH8=
 github.com/klauspost/cpuid/v2 v2.0.14/go.mod h1:g2LTdtYhdyuGPqyWyv7qRAmj1WBqxuObKfj5c0PQa7c=
