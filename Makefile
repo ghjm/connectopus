@@ -32,6 +32,7 @@ $(foreach p,$(PROGRAMS),$(eval $(call PROGRAM_template,$(p),bin/,-$(1)-$(2)$(3),
 endef
 $(foreach a,$(PLATFORMS),$(eval $(call PLATFORM_template,$(word 1,$(subst :, ,$(a))),$(word 2,$(subst :, ,$(a))),$(word 3,$(subst :, ,$(a))))))
 
+.PHONY: bin
 bin: $(BINFILES)
 
 .PHONY: gen
