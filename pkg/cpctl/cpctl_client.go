@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/ssh/agent"
@@ -79,6 +80,20 @@ func GenToken(keyFile string, keyText string, tokenDuration string) (string, err
 
 // NewSocketClient creates a new socket client using a given auth token
 func NewSocketClient(socketFile string, authToken string, proxyTo string) (*Client, error) {
+	if socketFile == "" {
+		socketList, err := config.FindSockets()
+		if err != nil {
+			return nil, fmt.Errorf("error listing socket files: %w", err)
+		}
+		if len(socketList) == 0 {
+			return nil, fmt.Errorf("no running node found")
+		}
+		if len(socketList) > 1 {
+			return nil, fmt.Errorf("multiple running nodes found.  Please select one using --socketfile.")
+		}
+		socketFile = socketList[0]
+	}
+
 	clientURL := "http://cpctl.sock/query"
 	if proxyTo != "" {
 		clientURL = fmt.Sprintf("http://cpctl.sock/proxy/%s/query", proxyTo)

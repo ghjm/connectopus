@@ -23,7 +23,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -72,9 +71,9 @@ var nodeCmd = &cobra.Command{
 	Args:    cobra.NoArgs,
 	Version: version.Version(),
 	Run: func(cmd *cobra.Command, args []string) {
-		config, err := config.LoadConfig(configFile)
+		cfg, err := config.LoadConfig(configFile)
 		if err != nil {
-			errExit(err)
+			errExitf("error loading config file: %s", err)
 		}
 		if logLevel != "" {
 			switch logLevel {
@@ -87,25 +86,25 @@ var nodeCmd = &cobra.Command{
 			case "debug":
 				log.SetLevel(log.DebugLevel)
 			default:
-				errExit(fmt.Errorf("invalid log level"))
+				errExitf("invalid log level")
 			}
 		}
-		node, ok := config.Nodes[identity]
+		node, ok := cfg.Nodes[identity]
 		if !ok {
-			errExit(fmt.Errorf("node ID not found in config file"))
+			errExitf("node ID not found in config file")
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		var n proto.Netopus
 		n, err = netopus.New(ctx, node.Address, identity, node.MTU)
 		if err != nil {
-			errExit(err)
+			errExitf("error initializing Netopus: %s", err)
 		}
 		for _, tunDev := range node.TunDevs {
 			var tunLink links.Link
-			tunLink, err = tun.New(ctx, tunDev.DeviceName, net.IP(tunDev.Address), config.Global.Subnet.AsIPNet())
+			tunLink, err = tun.New(ctx, tunDev.DeviceName, net.IP(tunDev.Address), cfg.Global.Subnet.AsIPNet())
 			if err != nil {
-				errExit(err)
+				errExitf("error initializing tunnel: %s", err)
 			}
 			tunCh := tunLink.SubscribePackets()
 			go func() {
@@ -124,7 +123,7 @@ var nodeCmd = &cobra.Command{
 		for _, service := range node.Services {
 			_, err = services.RunService(ctx, n, service)
 			if err != nil {
-				errExit(err)
+				errExitf("error initializing service: %s", err)
 			}
 		}
 		nsreg := &netns.Registry{}
@@ -132,7 +131,7 @@ var nodeCmd = &cobra.Command{
 			var ns *netns.Link
 			ns, err = netns.New(ctx, net.IP(namespace.Address))
 			if err != nil {
-				errExit(err)
+				errExitf("error initializing namespace: %s", err)
 			}
 			nsCh := ns.SubscribePackets()
 			go func() {
@@ -156,7 +155,7 @@ var nodeCmd = &cobra.Command{
 		}
 		csrv := cpctl.Server{
 			Resolver: cpctl.Resolver{
-				C:     config,
+				C:     cfg,
 				N:     n,
 				NsReg: nsreg,
 			},
@@ -165,34 +164,37 @@ var nodeCmd = &cobra.Command{
 		{
 			li, err := n.ListenOOB(ctx, cpctl.ProxyPortNo)
 			if err != nil {
-				errExit(err)
+				errExitf("error initializing cpctl proxy listener: %s", err)
 			}
 			err = csrv.ServeHTTP(ctx, li)
 			if err != nil {
-				errExit(err)
+				errExitf("error running cpctl proxy server: %s", err)
 			}
 		}
-		if node.Cpctl.SocketFile != "" {
-			socketFile := os.ExpandEnv(node.Cpctl.SocketFile)
+		if !node.Cpctl.NoSocket {
+			socketFile, err := config.ExpandFilename(identity, node.Cpctl.SocketFile)
+			if err != nil {
+				errExitf("error expanding socket filename: %s", err)
+			}
 			err = csrv.ServeUnix(ctx, socketFile)
 			if err != nil {
-				errExit(err)
+				errExitf("error running socket server: %s", err)
 			}
 		}
 		if node.Cpctl.Port != 0 {
 			li, err := net.Listen("tcp", fmt.Sprintf(":%d", node.Cpctl.Port))
 			if err != nil {
-				errExit(err)
+				errExitf("error initializing cpctl web server: %s", err)
 			}
 			err = csrv.ServeHTTP(ctx, li)
 			if err != nil {
-				errExit(err)
+				errExitf("error running cpctl web server: %s", err)
 			}
 		}
 		for _, backend := range node.Backends {
 			err = backend_registry.RunBackend(ctx, n, backend.BackendType, defaultCost(backend.Cost), backend.Params)
 			if err != nil {
-				errExit(err)
+				errExitf("error initializing backend: %s", err)
 			}
 		}
 		<-ctx.Done()
@@ -210,7 +212,7 @@ var netnsShimCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := netns.RunShim(netnsFd, netnsTunIf, netnsAddr)
 		if err != nil {
-			errExit(err)
+			errExitf("error running netns shim: %s", err)
 		}
 	},
 }
@@ -251,7 +253,7 @@ var verifyTokenCmd = &cobra.Command{
 			return pubkey, nil
 		}, jwt.WithValidMethods([]string{sm.Alg()}))
 		if err != nil {
-			errExit(err)
+			errExitf("error parsing JWT token: %s", err)
 		}
 		var signingKey *string
 		switch kid := parsedToken.Header["kid"].(type) {
@@ -515,14 +517,7 @@ var nsenterCmd = &cobra.Command{
 }
 
 func main() {
-	defaultSocketFile := os.Getenv("CPCTL_SOCKET")
-	if defaultSocketFile == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			errExitf("could not get user home dir: %s", err)
-		}
-		defaultSocketFile = path.Join(home, ".local", "share", "connectopus", "cpctl.sock")
-	}
+	defaultSocketFile := os.Getenv("CPCTL_SOCK")
 
 	nodeCmd.Flags().StringVar(&configFile, "config", "", "Config file name (required)")
 	_ = nodeCmd.MarkFlagRequired("config")
@@ -540,7 +535,7 @@ func main() {
 	statusCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
 	statusCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra detail")
-	statusCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
+	statusCmd.Flags().StringVar(&socketFile, "socketfile", defaultSocketFile,
 		"Socket file to communicate between CLI and node")
 	statusCmd.Flags().StringVar(&proxyTo, "proxy-to", "",
 		"Node to communicate with (non-local implies proxy)")
@@ -548,7 +543,7 @@ func main() {
 	nsenterCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
 	nsenterCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	nsenterCmd.Flags().StringVar(&namespaceName, "netns", "", "Name of network namespace")
-	nsenterCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
+	nsenterCmd.Flags().StringVar(&socketFile, "socketfile", defaultSocketFile,
 		"Socket file to communicate between CLI and node")
 
 	getTokenCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
@@ -563,7 +558,7 @@ func main() {
 	uiCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	uiCmd.Flags().StringVar(&tokenDuration, "duration", "", "Token duration (time duration or \"forever\")")
 	uiCmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Do not open a browser")
-	uiCmd.Flags().StringVar(&socketFile, "socket-file", defaultSocketFile,
+	uiCmd.Flags().StringVar(&socketFile, "socketfile", defaultSocketFile,
 		"Socket file to communicate between CLI and node")
 	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
 		"UI port on localhost")

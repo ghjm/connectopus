@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"strings"
 )
 
 // UI routes list
@@ -22,6 +23,7 @@ func GetUIHandler() http.Handler {
 	if err != nil {
 		panic(fmt.Errorf("error reading embedded UI files: %w", err))
 	}
+	unauthHTML := []byte(strings.Replace(string(indexHTML), "//$!&@SERVER_DATA@&!$//", "unauthorized: true", 1))
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		isRoute := false
@@ -34,7 +36,12 @@ func GetUIHandler() http.Handler {
 		if (r.URL.Path == "/") ||
 			(r.URL.Path == "/index.html") ||
 			isRoute {
-			_, _ = w.Write(indexHTML)
+			unauth := r.Header.Get("unauthorized")
+			if unauth == "" {
+				_, _ = w.Write(indexHTML)
+			} else {
+				_, _ = w.Write(unauthHTML)
+			}
 		} else {
 			subServer.ServeHTTP(w, r)
 		}

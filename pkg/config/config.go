@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"gopkg.in/yaml.v3"
+	"io/fs"
 	"io/ioutil"
 	"net"
+	"os"
+	"path"
 	"strconv"
 )
 
@@ -57,10 +60,50 @@ type Namespace struct {
 
 type Cpctl struct {
 	SocketFile string `yaml:"socket_file"`
+	NoSocket   bool   `yaml:"no_socket"`
 	Port       int    `yaml:"port"`
 }
 
 type Params map[string]string
+
+func ExpandFilename(nodeID, filename string) (string, error) {
+	if path.IsAbs(filename) {
+		return filename, nil
+	}
+	if filename == "" {
+		filename = "cpctl.sock"
+	}
+	ucd, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return path.Join(ucd, "connectopus", nodeID, filename), nil
+}
+
+func FindSockets() ([]string, error) {
+	ucd, err := os.UserConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	basePath := path.Join(ucd, "connectopus")
+	var files []fs.FileInfo
+	files, err = ioutil.ReadDir(basePath)
+	if err != nil {
+		return nil, err
+	}
+	var fileList []string
+	for _, file := range files {
+		if file.IsDir() {
+			fullPath := path.Join(basePath, file.Name(), "cpctl.sock")
+			_, err = os.Stat(fullPath)
+			if err != nil {
+				continue
+			}
+			fileList = append(fileList, fullPath)
+		}
+	}
+	return fileList, nil
+}
 
 func LoadConfig(filename string) (*Config, error) {
 	data, err := ioutil.ReadFile(filename)

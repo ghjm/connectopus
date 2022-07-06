@@ -20,7 +20,6 @@ nodes:
           peer: localhost:4444
           psk: test-psk
     cpctl:
-      socket_file: "$HOME/.local/share/connectopus/cpctl.sock"
       port: 8123
 
   bar:

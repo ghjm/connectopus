@@ -33,6 +33,7 @@ func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handle
 			AuthorizedKeys: authKeys,
 			SigningMethod:  s.SigningMethod,
 			Handler:        mux,
+			StrictPaths:    []string{"/query", "/proxy"},
 		}
 	}
 	srv := &http.Server{

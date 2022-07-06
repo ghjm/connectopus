@@ -4,6 +4,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/ssh"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -13,6 +14,7 @@ type Handler struct {
 	HeaderName     string
 	SigningMethod  jwt.SigningMethod
 	Handler        http.Handler
+	StrictPaths    []string
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +40,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Name:     cn,
 			Value:    tokReq,
 			Secure:   r.TLS != nil,
-			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
 		})
 		u := r.URL
@@ -67,9 +68,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !authorized {
-		w.WriteHeader(401)
-		_, _ = w.Write([]byte("Unauthorized"))
-		return
+		for _, sp := range h.StrictPaths {
+			if strings.HasPrefix(r.URL.Path, sp) {
+				w.WriteHeader(401)
+				_, _ = w.Write([]byte("Unauthorized"))
+				return
+			}
+		}
+		r.Header.Set("unauthorized", "true")
 	}
 	h.Handler.ServeHTTP(w, r)
 }
