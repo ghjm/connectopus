@@ -78,20 +78,35 @@ func GenToken(keyFile string, keyText string, tokenDuration string) (string, err
 	return GenTokenFromAgent(a, keyText, tokenDuration)
 }
 
+var ErrNoNode = fmt.Errorf("no running node found")
+var ErrMultipleNode = fmt.Errorf("multiple running nodes found")
+
+func FindSocketFile(socketNode string) (string, error) {
+	envSock := os.Getenv("CPCTL_SOCK")
+	if envSock != "" {
+		return envSock, nil
+	}
+	socketList, err := config.FindSockets(socketNode)
+	if err != nil {
+		return "", fmt.Errorf("error listing socket files: %w", err)
+	}
+	if len(socketList) == 0 {
+		return "", ErrNoNode
+	}
+	if len(socketList) > 1 {
+		return "", ErrMultipleNode
+	}
+	return socketList[0], nil
+}
+
 // NewSocketClient creates a new socket client using a given auth token
-func NewSocketClient(socketFile string, authToken string, proxyTo string) (*Client, error) {
+func NewSocketClient(socketFile string, socketNode string, authToken string, proxyTo string) (*Client, error) {
 	if socketFile == "" {
-		socketList, err := config.FindSockets()
+		var err error
+		socketFile, err = FindSocketFile(socketNode)
 		if err != nil {
-			return nil, fmt.Errorf("error listing socket files: %w", err)
+			return nil, err
 		}
-		if len(socketList) == 0 {
-			return nil, fmt.Errorf("no running node found")
-		}
-		if len(socketList) > 1 {
-			return nil, fmt.Errorf("multiple running nodes found.  Please select one using --socketfile.")
-		}
-		socketFile = socketList[0]
 	}
 
 	clientURL := "http://cpctl.sock/query"
@@ -135,10 +150,10 @@ func NewSocketClient(socketFile string, authToken string, proxyTo string) (*Clie
 }
 
 // NewTokenAndSocketClient generates a token and then uses it to create a new socket client
-func NewTokenAndSocketClient(socketFile string, keyFile string, keyText string, tokenDuration string, proxyTo string) (*Client, error) {
+func NewTokenAndSocketClient(socketFile string, socketNode string, keyFile string, keyText string, tokenDuration string, proxyTo string) (*Client, error) {
 	tok, err := GenToken(keyFile, keyText, tokenDuration)
 	if err != nil {
 		return nil, fmt.Errorf("error generating token: %w", err)
 	}
-	return NewSocketClient(socketFile, tok, proxyTo)
+	return NewSocketClient(socketFile, socketNode, tok, proxyTo)
 }

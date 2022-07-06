@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/internal/version"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
@@ -41,6 +42,7 @@ func errExitf(format string, args ...any) {
 }
 
 var socketFile string
+var socketNode string
 
 var rootCmd = &cobra.Command{
 	Use:   "connectopus",
@@ -314,6 +316,16 @@ var uiCmd = &cobra.Command{
 	Short: "Run the Connectopus UI",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		if socketFile == "" {
+			var err error
+			socketFile, err = cpctl.FindSocketFile(socketNode)
+			if err != nil {
+				if errors.Is(err, cpctl.ErrMultipleNode) {
+					errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
+				}
+				errExit(err)
+			}
+		}
 		tokStr, err := cpctl.GenToken(keyFile, keyText, tokenDuration)
 		if err != nil {
 			errExitf("error generating token: %s", err)
@@ -367,8 +379,11 @@ var statusCmd = &cobra.Command{
 	Short: "Get status",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := cpctl.NewTokenAndSocketClient(socketFile, keyFile, keyText, "", proxyTo)
+		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
 		if err != nil {
+			if errors.Is(err, cpctl.ErrMultipleNode) {
+				errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
+			}
 			errExit(err)
 		}
 		var status *cpctl.GetStatus
@@ -465,8 +480,11 @@ var nsenterCmd = &cobra.Command{
 	Short: "Run a command within a network namespace",
 	Args:  cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := cpctl.NewTokenAndSocketClient(socketFile, keyFile, keyText, "", "")
+		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", "")
 		if err != nil {
+			if errors.Is(err, cpctl.ErrMultipleNode) {
+				errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
+			}
 			errExit(err)
 		}
 		nsName := &namespaceName
@@ -517,8 +535,6 @@ var nsenterCmd = &cobra.Command{
 }
 
 func main() {
-	defaultSocketFile := os.Getenv("CPCTL_SOCK")
-
 	nodeCmd.Flags().StringVar(&configFile, "config", "", "Config file name (required)")
 	_ = nodeCmd.MarkFlagRequired("config")
 	nodeCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
@@ -535,16 +551,20 @@ func main() {
 	statusCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
 	statusCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra detail")
-	statusCmd.Flags().StringVar(&socketFile, "socketfile", defaultSocketFile,
+	statusCmd.Flags().StringVar(&socketFile, "socketfile", "",
 		"Socket file to communicate between CLI and node")
+	statusCmd.Flags().StringVar(&socketNode, "node", "",
+		"Select which node's socket file to open, if there are multiple")
 	statusCmd.Flags().StringVar(&proxyTo, "proxy-to", "",
 		"Node to communicate with (non-local implies proxy)")
 
 	nsenterCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
 	nsenterCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	nsenterCmd.Flags().StringVar(&namespaceName, "netns", "", "Name of network namespace")
-	nsenterCmd.Flags().StringVar(&socketFile, "socketfile", defaultSocketFile,
+	nsenterCmd.Flags().StringVar(&socketFile, "socketfile", "",
 		"Socket file to communicate between CLI and node")
+	nsenterCmd.Flags().StringVar(&socketNode, "node", "",
+		"Select which node's socket file to open, if there are multiple")
 
 	getTokenCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
 	getTokenCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
@@ -558,8 +578,10 @@ func main() {
 	uiCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
 	uiCmd.Flags().StringVar(&tokenDuration, "duration", "", "Token duration (time duration or \"forever\")")
 	uiCmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Do not open a browser")
-	uiCmd.Flags().StringVar(&socketFile, "socketfile", defaultSocketFile,
+	uiCmd.Flags().StringVar(&socketFile, "socketfile", "",
 		"Socket file to communicate between CLI and node")
+	uiCmd.Flags().StringVar(&socketNode, "node", "",
+		"Select which node's socket file to open, if there are multiple")
 	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
 		"UI port on localhost")
 

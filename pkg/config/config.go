@@ -80,12 +80,15 @@ func ExpandFilename(nodeID, filename string) (string, error) {
 	return path.Join(ucd, "connectopus", nodeID, filename), nil
 }
 
-func FindSockets() ([]string, error) {
+func FindSockets(socketNode string) ([]string, error) {
 	ucd, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err
 	}
 	basePath := path.Join(ucd, "connectopus")
+	if socketNode != "" {
+		return []string{path.Join(basePath, socketNode, "cpctl.sock")}, nil
+	}
 	var files []fs.FileInfo
 	files, err = ioutil.ReadDir(basePath)
 	if err != nil {
