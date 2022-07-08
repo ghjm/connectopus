@@ -12,19 +12,53 @@ import (
 
 type BackendRunFunc func(context.Context, backends.ProtocolRunner, float32, config.Params) error
 
-var backendMap = syncro.NewMap[string, BackendRunFunc](map[string]BackendRunFunc{
-	"dtls-dialer":   backend_dtls.RunDialerFromConfig,
-	"dtls-listener": backend_dtls.RunListenerFromConfig,
-	"tcp-dialer":    backend_tcp.RunDialerFromConfig,
-	"tcp-listener":  backend_tcp.RunListenerFromConfig,
-})
+type BackendSpec struct {
+	RunFunc BackendRunFunc
+	MTU     uint16
+}
+
+var backendMap syncro.Map[string, BackendSpec]
+
+// LookupBackend returns a BackendSpec, or nil if the spec doesn't exist.
+func LookupBackend(name string) *BackendSpec {
+	spec, ok := backendMap.Get(name)
+	if !ok {
+		return nil
+	}
+	return &spec
+}
+
+// RegisterBackend binds a name to a BackendSpec.
+func RegisterBackend(name string, spec BackendSpec) {
+	backendMap.Set(name, spec)
+}
 
 var ErrUnknownBackend = fmt.Errorf("unknown backend")
 
+// RunBackend runs a ProtocolRunner over a backend.
 func RunBackend(ctx context.Context, pr backends.ProtocolRunner, name string, cost float32, params config.Params) error {
-	runner, ok := backendMap.Get(name)
-	if !ok {
+	spec := LookupBackend(name)
+	if spec == nil {
 		return ErrUnknownBackend
 	}
-	return runner(ctx, pr, cost, params)
+	return spec.RunFunc(ctx, pr, cost, params)
+}
+
+func init() {
+	RegisterBackend("dtls-dialer", BackendSpec{
+		RunFunc: backend_dtls.RunDialerFromConfig,
+		MTU:     backend_dtls.MTU,
+	})
+	RegisterBackend("dtls-listener", BackendSpec{
+		RunFunc: backend_dtls.RunListenerFromConfig,
+		MTU:     backend_dtls.MTU,
+	})
+	RegisterBackend("tcp-dialer", BackendSpec{
+		RunFunc: backend_tcp.RunDialerFromConfig,
+		MTU:     backend_tcp.MTU,
+	})
+	RegisterBackend("tcp-listener", BackendSpec{
+		RunFunc: backend_tcp.RunListenerFromConfig,
+		MTU:     backend_tcp.MTU,
+	})
 }

@@ -16,17 +16,19 @@ import (
 
 // implements BackendConnection
 type dtlsBackend struct {
-	mtu      int
 	conn     *dtls.Conn
 	isServer bool
 }
 
+// MTU is reduced by the size of an IPv6 header and UDP header
+const MTU = 1500 - 40 - 8
+
 func (b *dtlsBackend) MTU() int {
-	return b.mtu
+	return MTU
 }
 
 func (b *dtlsBackend) WriteMessage(data []byte) error {
-	if len(data) > b.mtu {
+	if len(data) > MTU {
 		return backends.ErrExceedsMTU
 	}
 	n, err := b.conn.Write(data)
@@ -40,7 +42,7 @@ func (b *dtlsBackend) WriteMessage(data []byte) error {
 }
 
 func (b *dtlsBackend) ReadMessage() ([]byte, error) {
-	p := make([]byte, b.mtu)
+	p := make([]byte, MTU)
 	n, err := b.conn.Read(p)
 	return p[:n], err
 }
@@ -65,7 +67,6 @@ type Dialer struct {
 	DestAddr           net.IP
 	DestPort           uint16
 	Cost               float32
-	MTU                uint16
 	PSK                string
 	InsecureSkipVerify bool
 	RootCAs            *x509.CertPool
@@ -114,12 +115,7 @@ func (d *Dialer) Run(ctx context.Context, pr backends.ProtocolRunner) error {
 			<-ctx.Done()
 			_ = conn.Close()
 		}()
-		mtu := 1400
-		if d.MTU > 0 {
-			mtu = int(d.MTU)
-		}
 		return &dtlsBackend{
-			mtu:      mtu,
 			conn:     conn,
 			isServer: false,
 		}, nil
@@ -137,14 +133,6 @@ func RunDialerFromConfig(ctx context.Context, pr backends.ProtocolRunner, cost f
 		DestAddr: ip,
 		DestPort: port,
 		Cost:     cost,
-	}
-	mtu, ok := params["mtu"]
-	if ok {
-		mtuInt, err := strconv.ParseInt(mtu, 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid MTU value")
-		}
-		d.MTU = uint16(mtuInt)
 	}
 	psk, ok := params["psk"]
 	if ok {
@@ -192,7 +180,6 @@ type Listener struct {
 	ListenAddr        net.IP
 	ListenPort        uint16
 	Cost              float32
-	MTU               uint16
 	PSK               string
 	RequireClientCert bool
 	ClientCAs         *x509.CertPool
@@ -249,12 +236,7 @@ func (l *Listener) Run(ctx context.Context, pr backends.ProtocolRunner) (net.Add
 			<-ctx.Done()
 			_ = conn.Close()
 		}()
-		mtu := 1400
-		if l.MTU > 0 {
-			mtu = int(l.MTU)
-		}
 		return &dtlsBackend{
-			mtu:      mtu,
 			conn:     conn.(*dtls.Conn),
 			isServer: true,
 		}, nil
@@ -279,14 +261,6 @@ func RunListenerFromConfig(ctx context.Context, pr backends.ProtocolRunner, cost
 		ListenAddr: listenIP,
 		ListenPort: listenPort,
 		Cost:       cost,
-	}
-	mtu, ok := params["mtu"]
-	if ok {
-		mtuInt, err := strconv.ParseInt(mtu, 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid MTU value")
-		}
-		l.MTU = uint16(mtuInt)
 	}
 	psk, ok := params["psk"]
 	if ok {

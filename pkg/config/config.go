@@ -25,7 +25,6 @@ type Global struct {
 
 type Node struct {
 	Address    proto.IP    `yaml:"address"`
-	MTU        uint16      `yaml:"mtu,omitempty"`
 	Backends   []Backend   `yaml:"backends,omitempty"`
 	Services   []Service   `yaml:"services,omitempty"`
 	TunDevs    []TunDev    `yaml:"tun_devs,omitempty"`

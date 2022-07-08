@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
+	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
+	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/netstack"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/router"
@@ -17,6 +19,7 @@ import (
 	"golang.org/x/exp/slices"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
+	"math"
 	"net"
 	"strings"
 	"syscall"
@@ -87,9 +90,6 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 	if len(addr) != net.IPv6len {
 		return nil, fmt.Errorf("address must be IPv6")
 	}
-	if mtu == 0 {
-		mtu = 1400
-	}
 	stack, err := netstack.NewStackDefault(ctx, net.IP(addr), mtu)
 	if err != nil {
 		return nil, err
@@ -146,6 +146,21 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		timerunner.AtStart)
 	go n.monitorDeadNodes()
 	return n, nil
+}
+
+// LeastMTU gives the smallest MTU of any backend defined on a node.  If there are no backends, defaultMTU is returned.
+func LeastMTU(node config.Node, defaultMTU uint16) uint16 {
+	mtu := uint16(math.MaxUint16)
+	for _, b := range node.Backends {
+		spec := backend_registry.LookupBackend(b.BackendType)
+		if spec != nil && spec.MTU < mtu {
+			mtu = spec.MTU
+		}
+	}
+	if mtu == math.MaxUint16 {
+		mtu = defaultMTU
+	}
+	return mtu
 }
 
 // backendReadLoop reads messages from the connection and sends them to a channel

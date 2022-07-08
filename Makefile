@@ -82,6 +82,7 @@ ctun:
 		ip tuntap add dev $(CTUN_NAME) mode tun user $$SUDO_UID group $$SUDO_GID && \
 		ip addr add dev $(CTUN_NAME) $(CTUN_ADDR) && \
 		ip link set $(CTUN_NAME) up && \
+		ip link set $(CTUN_NAME) mtu 1452 && \
 		ip route add $(CTUN_NET) dev $(CTUN_NAME) src $(CTUN_ADDR) \
 		'
 

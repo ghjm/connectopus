@@ -33,6 +33,9 @@ import (
 )
 
 func errExit(err error) {
+	if errors.Is(err, cpctl.ErrMultipleNode) {
+		errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.\n", err)
+	}
 	fmt.Printf("Error: %s\n", err)
 	exit_handler.RunExitFuncs()
 	os.Exit(1)
@@ -121,7 +124,7 @@ var nodeCmd = &cobra.Command{
 		exit_handler.AddExitFunc(cancel)
 
 		var n proto.Netopus
-		n, err = netopus.New(ctx, node.Address, identity, node.MTU)
+		n, err = netopus.New(ctx, node.Address, identity, netopus.LeastMTU(node, 1500))
 		if err != nil {
 			errExitf("error initializing Netopus: %s", err)
 		}
@@ -343,9 +346,6 @@ var uiCmd = &cobra.Command{
 			var err error
 			socketFile, err = cpctl.FindSocketFile(socketNode)
 			if err != nil {
-				if errors.Is(err, cpctl.ErrMultipleNode) {
-					errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
-				}
 				errExit(err)
 			}
 		}
@@ -404,9 +404,6 @@ var statusCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
 		if err != nil {
-			if errors.Is(err, cpctl.ErrMultipleNode) {
-				errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
-			}
 			errExit(err)
 		}
 		var status *cpctl.GetStatus
@@ -505,9 +502,6 @@ var nsenterCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", "")
 		if err != nil {
-			if errors.Is(err, cpctl.ErrMultipleNode) {
-				errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
-			}
 			errExit(err)
 		}
 		nsName := &namespaceName

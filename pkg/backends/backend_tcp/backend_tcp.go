@@ -17,17 +17,18 @@ import (
 
 // implements BackendConnection
 type tcpBackend struct {
-	mtu      int
 	conn     net.Conn
 	isServer bool
 }
 
+const MTU = 1500
+
 func (b *tcpBackend) MTU() int {
-	return b.mtu
+	return MTU
 }
 
 func (b *tcpBackend) WriteMessage(data []byte) error {
-	if len(data) > b.mtu {
+	if len(data) > MTU {
 		return backends.ErrExceedsMTU
 	}
 	if len(data) == 0 {
@@ -81,7 +82,6 @@ type Dialer struct {
 	DestAddr net.IP
 	DestPort uint16
 	Cost     float32
-	MTU      uint16
 	TLS      *tls.Config
 }
 
@@ -107,12 +107,7 @@ func (d *Dialer) Run(ctx context.Context, pr backends.ProtocolRunner) error {
 			<-ctx.Done()
 			_ = conn.Close()
 		}()
-		mtu := 1500
-		if d.MTU > 0 {
-			mtu = int(d.MTU)
-		}
 		return &tcpBackend{
-			mtu:      mtu,
 			conn:     conn,
 			isServer: false,
 		}, nil
@@ -130,14 +125,6 @@ func RunDialerFromConfig(ctx context.Context, pr backends.ProtocolRunner, cost f
 		DestAddr: ip,
 		DestPort: port,
 		Cost:     cost,
-	}
-	mtu, ok := params["mtu"]
-	if ok {
-		mtuInt, err := strconv.ParseInt(mtu, 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid MTU value")
-		}
-		d.MTU = uint16(mtuInt)
 	}
 	var tlsEnabled bool
 	tlsEnabled, err = params.GetBool("tls", false)
@@ -184,7 +171,6 @@ type Listener struct {
 	ListenAddr net.IP
 	ListenPort uint16
 	Cost       float32
-	MTU        uint16
 	TLS        *tls.Config
 }
 
@@ -223,12 +209,7 @@ func (l *Listener) Run(ctx context.Context, pr backends.ProtocolRunner) (net.Add
 			<-ctx.Done()
 			_ = conn.Close()
 		}()
-		mtu := 1500
-		if l.MTU > 0 {
-			mtu = int(l.MTU)
-		}
 		return &tcpBackend{
-			mtu:      mtu,
 			conn:     conn,
 			isServer: true,
 		}, nil
@@ -253,14 +234,6 @@ func RunListenerFromConfig(ctx context.Context, pr backends.ProtocolRunner, cost
 		ListenAddr: listenIP,
 		ListenPort: listenPort,
 		Cost:       cost,
-	}
-	mtu, ok := params["mtu"]
-	if ok {
-		mtuInt, err := strconv.ParseInt(mtu, 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid MTU value")
-		}
-		l.MTU = uint16(mtuInt)
 	}
 	var tlsEnabled bool
 	tlsEnabled, err = params.GetBool("tls", false)
