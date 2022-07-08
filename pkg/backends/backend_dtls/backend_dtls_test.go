@@ -8,12 +8,17 @@ import (
 	"net"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestBackendDtlsPSK(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"), goleak.IgnoreTopFunction("sync.runtime_Semacquire"))
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		time.Sleep(250 * time.Millisecond)
+	}()
+
 	n1 := channel_runner.NewChannelRunner()
 	n2 := channel_runner.NewChannelRunner()
 	l := Listener{
@@ -43,18 +48,28 @@ func TestBackendDtlsPSK(t *testing.T) {
 		t.Fatalf("dialer backend error %s", err)
 	}
 	go func() {
-		n1.WriteChan() <- []byte("hello")
+		select {
+		case <-ctx.Done():
+		case n1.WriteChan() <- []byte("hello"):
+		}
 	}()
-	data := <-n2.ReadChan()
-	if string(data) != "hello" {
+	var data []byte
+	select {
+	case <-ctx.Done():
+	case data = <-n2.ReadChan():
+	}
+	if string(data) != "hello" && ctx.Err() == nil {
 		t.Fatalf("incorrect data received")
 	}
 }
 
 func TestBackendDtlsCerts(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"), goleak.IgnoreTopFunction("sync.runtime_Semacquire"))
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		time.Sleep(250 * time.Millisecond)
+	}()
 
 	ca, err := makecert.MakeCA("Test", 1024, 1)
 	if err != nil {
@@ -98,10 +113,17 @@ func TestBackendDtlsCerts(t *testing.T) {
 		t.Fatalf("dialer backend error %s", err)
 	}
 	go func() {
-		n1.WriteChan() <- []byte("hello")
+		select {
+		case <-ctx.Done():
+		case n1.WriteChan() <- []byte("hello"):
+		}
 	}()
-	data := <-n2.ReadChan()
-	if string(data) != "hello" {
+	var data []byte
+	select {
+	case <-ctx.Done():
+	case data = <-n2.ReadChan():
+	}
+	if string(data) != "hello" && ctx.Err() == nil {
 		t.Fatalf("incorrect data received")
 	}
 }

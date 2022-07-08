@@ -51,7 +51,11 @@ fmt:
 
 .PHONY: test
 test:
-	@go test ./... -count=1 -race
+	@go test ./... -count=1 -race -parallel=16
+
+.PHONY: testloop
+testloop:
+	@i=1; while echo "-------------------------- $$i" && make test; do i=$$((i+1)); done
 
 .PHONY: test-root
 test-root: connectopus
