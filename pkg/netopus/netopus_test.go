@@ -289,9 +289,6 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 	wg.Wait()
 }
 
-func idleTest(_ context.Context, _ *testing.T, _ map[string]NodeSpec, _ map[string]*netopus) {
-}
-
 func runTest(t *testing.T, spec map[string]NodeSpec,
 	tests ...func(context.Context, *testing.T, map[string]NodeSpec, map[string]*netopus)) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -354,5 +351,5 @@ func TestNetopus(t *testing.T) {
 		"D":      {proto.ParseIP("FD00::6"), []string{"B", "F"}},
 		"E":      {proto.ParseIP("FD00::7"), []string{"C", "F"}},
 		"F":      {proto.ParseIP("FD00::8"), []string{"D", "E", "client"}},
-	}, stackTest, idleTest)
+	}, stackTest)
 }
