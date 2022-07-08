@@ -173,3 +173,15 @@ func (p Params) GetHostPort(name string) (net.IP, uint16, error) {
 	}
 	return ip, uint16(port), nil
 }
+
+func (p Params) GetBool(name string, defaultValue bool) (bool, error) {
+	valStr, ok := p[name]
+	if !ok {
+		return defaultValue, nil
+	}
+	val, err := strconv.ParseBool(valStr)
+	if err != nil {
+		return false, fmt.Errorf("error parsing %s: %w", name, err)
+	}
+	return val, nil
+}

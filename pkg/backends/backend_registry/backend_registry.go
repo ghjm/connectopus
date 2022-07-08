@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/backends/backend_dtls"
+	"github.com/ghjm/connectopus/pkg/backends/backend_tcp"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 )
@@ -14,6 +15,8 @@ type BackendRunFunc func(context.Context, backends.ProtocolRunner, float32, conf
 var backendMap = syncro.NewMap[string, BackendRunFunc](map[string]BackendRunFunc{
 	"dtls-dialer":   backend_dtls.RunDialerFromConfig,
 	"dtls-listener": backend_dtls.RunListenerFromConfig,
+	"tcp-dialer":    backend_tcp.RunDialerFromConfig,
+	"tcp-listener":  backend_tcp.RunListenerFromConfig,
 })
 
 var ErrUnknownBackend = fmt.Errorf("unknown backend")

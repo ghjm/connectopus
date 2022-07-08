@@ -1,7 +1,8 @@
-package backend_dtls
+package backend_tcp
 
 import (
 	"context"
+	"crypto/tls"
 	"github.com/ghjm/connectopus/pkg/backends/channel_runner"
 	"github.com/ghjm/connectopus/pkg/x/makecert"
 	"go.uber.org/goleak"
@@ -10,15 +11,13 @@ import (
 	"testing"
 )
 
-func TestBackendDtlsPSK(t *testing.T) {
+func TestBackendTCP(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	n1 := channel_runner.NewChannelRunner()
 	n2 := channel_runner.NewChannelRunner()
-	l := Listener{
-		PSK: "test-psk",
-	}
+	l := Listener{}
 	addr, err := l.Run(ctx, n1)
 	if err != nil {
 		t.Fatalf("listener backend error %s", err)
@@ -36,7 +35,6 @@ func TestBackendDtlsPSK(t *testing.T) {
 	d := Dialer{
 		DestAddr: net.ParseIP("127.0.0.1"),
 		DestPort: uint16(port),
-		PSK:      "test-psk",
 	}
 	err = d.Run(ctx, n2)
 	if err != nil {
@@ -51,7 +49,7 @@ func TestBackendDtlsPSK(t *testing.T) {
 	}
 }
 
-func TestBackendDtlsCerts(t *testing.T) {
+func TestBackendTLS(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -69,11 +67,15 @@ func TestBackendDtlsCerts(t *testing.T) {
 	n1 := channel_runner.NewChannelRunner()
 	n2 := channel_runner.NewChannelRunner()
 	l := Listener{
-		RequireClientCert: true,
-		ClientCAs:         ca.Pool,
-		Certificate:       cert.TLSCert,
+		TLS: &tls.Config{
+			Certificates: []tls.Certificate{cert.TLSCert},
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientCAs:    ca.Pool,
+			MinVersion:   tls.VersionTLS12,
+		},
 	}
-	addr, err := l.Run(ctx, n1)
+	var addr net.Addr
+	addr, err = l.Run(ctx, n1)
 	if err != nil {
 		t.Fatalf("listener backend error %s", err)
 	}
@@ -88,10 +90,14 @@ func TestBackendDtlsCerts(t *testing.T) {
 		t.Fatalf("error converting port to integer: %s", err)
 	}
 	d := Dialer{
-		DestAddr:   net.ParseIP("127.0.0.1"),
-		DestPort:   uint16(port),
-		RootCAs:    ca.Pool,
-		ClientCert: &cert.TLSCert,
+		DestAddr: net.ParseIP("127.0.0.1"),
+		DestPort: uint16(port),
+		TLS: &tls.Config{
+			Certificates: []tls.Certificate{cert.TLSCert},
+			RootCAs:      ca.Pool,
+			ServerName:   "127.0.0.1",
+			MinVersion:   tls.VersionTLS12,
+		},
 	}
 	err = d.Run(ctx, n2)
 	if err != nil {

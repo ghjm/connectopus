@@ -67,6 +67,9 @@ func RunDialer(ctx context.Context, pr ProtocolRunner, cost float32, dialer Conn
 func RunListener(ctx context.Context, pr ProtocolRunner, cost float32, acceptor ConnFunc) {
 	for {
 		conn, err := acceptor()
+		if ctx.Err() != nil {
+			return
+		}
 		if err != nil {
 			if !strings.Contains(err.Error(), "listener closed") {
 				log.Warnf("accept error: %s", err)
