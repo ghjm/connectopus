@@ -51,7 +51,7 @@ fmt:
 
 .PHONY: test
 test:
-	@go test ./... -count=1 -race -parallel=16
+	@go test ./... -count=1 -race -parallel=16 -timeout=2m
 
 .PHONY: testloop
 testloop:
