@@ -8,6 +8,7 @@
 /cpctl
 /coverage.html
 /bin
+/pprof
 
 # Test binary, built with `go test -c`
 *.test

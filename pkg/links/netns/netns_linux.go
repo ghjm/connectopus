@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
+	"github.com/ghjm/connectopus/pkg/x/exit_handler"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	log "github.com/sirupsen/logrus"
 	"github.com/songgao/water"
@@ -87,11 +88,16 @@ func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, err
 		return nil, err
 	}
 
+	exitFunc := exit_handler.AddExitFunc(func() {
+		_ = cmd.Process.Kill()
+		_ = stdout.Close()
+		_ = stderr.Close()
+	})
+
 	// Kill the process if our context is cancelled
 	go func() {
 		<-ctx.Done()
-		_ = cmd.Process.Kill()
-		_ = stderr.Close()
+		exitFunc()
 	}()
 
 	// Wait for the command (needed to free resources)

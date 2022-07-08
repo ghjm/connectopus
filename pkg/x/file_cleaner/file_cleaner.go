@@ -3,10 +3,9 @@ package file_cleaner
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/ghjm/connectopus/pkg/x/exit_handler"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 type DeleteHandle string
@@ -69,17 +68,5 @@ func DeleteAllNow() {
 }
 
 func init() {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		s := <-sigs
-		DeleteAllNow()
-		if s == syscall.SIGINT {
-			os.Exit(130)
-		} else if s == syscall.SIGTERM {
-			os.Exit(143)
-		} else {
-			os.Exit(255)
-		}
-	}()
+	exit_handler.AddExitFunc(DeleteAllNow)
 }

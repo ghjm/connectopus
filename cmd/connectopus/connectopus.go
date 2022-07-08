@@ -16,6 +16,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/services"
 	"github.com/ghjm/connectopus/pkg/x/bridge"
+	"github.com/ghjm/connectopus/pkg/x/exit_handler"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
@@ -25,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -32,21 +34,40 @@ import (
 
 func errExit(err error) {
 	fmt.Printf("Error: %s\n", err)
+	exit_handler.RunExitFuncs()
 	os.Exit(1)
 }
 
 func errExitf(format string, args ...any) {
-	errStr := fmt.Sprintf(format, args...)
-	fmt.Printf("Error: %s\n", errStr)
+	fmt.Printf("Error: "+format, args...)
+	exit_handler.RunExitFuncs()
 	os.Exit(1)
 }
 
 var socketFile string
 var socketNode string
 
+var cpuProfile string
+var cpuProfileFile *os.File
 var rootCmd = &cobra.Command{
 	Use:   "connectopus",
 	Short: "CLI for Connectopus",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if cpuProfile != "" {
+			var err error
+			cpuProfileFile, err = os.Create(cpuProfile)
+			if err != nil {
+				errExitf("could not create CPU profile file: ", err)
+			}
+			if err := pprof.StartCPUProfile(cpuProfileFile); err != nil {
+				errExitf("could not start CPU profiler: ", err)
+			}
+			exit_handler.AddExitFunc(func() {
+				pprof.StopCPUProfile()
+				_ = cpuProfileFile.Close()
+			})
+		}
+	},
 }
 
 func abbreviateKey(keyStr string) (string, error) {
@@ -95,8 +116,10 @@ var nodeCmd = &cobra.Command{
 		if !ok {
 			errExitf("node ID not found in config file")
 		}
+
 		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		exit_handler.AddExitFunc(cancel)
+
 		var n proto.Netopus
 		n, err = netopus.New(ctx, node.Address, identity, node.MTU)
 		if err != nil {
@@ -585,6 +608,9 @@ func main() {
 	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
 		"UI port on localhost")
 
+	rootCmd.PersistentFlags().StringVar(&cpuProfile, "cpuprofile", "", "")
+	_ = rootCmd.PersistentFlags().MarkHidden("cpuprofile")
+
 	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd)
 	if runtime.GOOS == "linux" {
 		rootCmd.AddCommand(nsenterCmd)
@@ -593,6 +619,8 @@ func main() {
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
+		exit_handler.RunExitFuncs()
 		os.Exit(1)
 	}
+	exit_handler.RunExitFuncs()
 }

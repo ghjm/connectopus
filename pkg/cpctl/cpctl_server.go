@@ -45,7 +45,7 @@ func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handle
 
 	go func() {
 		err := srv.Serve(li)
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && err != http.ErrServerClosed && ctx.Err() == nil {
 			log.Errorf("cpctl socket server failed: %s", err)
 		}
 	}()
