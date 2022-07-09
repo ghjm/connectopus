@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -50,27 +49,9 @@ func errExitf(format string, args ...any) {
 var socketFile string
 var socketNode string
 
-var cpuProfile string
-var cpuProfileFile *os.File
 var rootCmd = &cobra.Command{
 	Use:   "connectopus",
 	Short: "CLI for Connectopus",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if cpuProfile != "" {
-			var err error
-			cpuProfileFile, err = os.Create(cpuProfile)
-			if err != nil {
-				errExitf("could not create CPU profile file: ", err)
-			}
-			if err := pprof.StartCPUProfile(cpuProfileFile); err != nil {
-				errExitf("could not start CPU profiler: ", err)
-			}
-			exit_handler.AddExitFunc(func() {
-				pprof.StopCPUProfile()
-				_ = cpuProfileFile.Close()
-			})
-		}
-	},
 }
 
 func abbreviateKey(keyStr string) (string, error) {
@@ -661,9 +642,6 @@ func main() {
 	_ = setupTunnelCmd.MarkFlagRequired("id")
 	setupTunnelCmd.Flags().IntVar(&uid, "uid", -1, "User ID who will own the tunnel")
 	setupTunnelCmd.Flags().IntVar(&gid, "gid", -1, "Group ID who will own the tunnel")
-
-	rootCmd.PersistentFlags().StringVar(&cpuProfile, "cpuprofile", "", "")
-	_ = rootCmd.PersistentFlags().MarkHidden("cpuprofile")
 
 	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd)
 	if runtime.GOOS == "linux" {
