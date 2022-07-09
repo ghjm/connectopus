@@ -111,6 +111,7 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 	go func() {
 		routerUpdateChan := n.router.SubscribeUpdates()
 		defer n.router.UnsubscribeUpdates(routerUpdateChan)
+		var lastRouteMsg string
 		for {
 			select {
 			case <-ctx.Done():
@@ -121,7 +122,18 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 					conns = append(conns, fmt.Sprintf("%s via %s", k, v))
 				}
 				slices.Sort(conns)
-				log.Infof("%s: routing update: %v", n.addr.String(), strings.Join(conns, ", "))
+				var routeLogMsg string
+				if len(conns) > 0 {
+					routeLogMsg = fmt.Sprintf("%s: routing update: %v", n.addr.String(), strings.Join(conns, ", "))
+				} else {
+					routeLogMsg = fmt.Sprintf("%s: routing update: no routes", n.addr.String())
+				}
+				if routeLogMsg != lastRouteMsg {
+					log.Infof(routeLogMsg)
+				} else {
+					log.Debugf(routeLogMsg)
+				}
+				lastRouteMsg = routeLogMsg
 				n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
 					for _, p := range s {
 						p.n.updateSender.RunWithin(100 * time.Millisecond)
@@ -295,7 +307,7 @@ func (p *protoSession) initSelect() bool {
 			if !proceed {
 				return false
 			}
-			log.Infof("%s: connecting to %s", p.n.addr.String(), msg.MyAddr.String())
+			log.Debugf("%s: connecting to %s", p.n.addr.String(), msg.MyAddr.String())
 			p.remoteAddr.Set(msg.MyAddr)
 			p.n.sessionInfo.WorkWith(func(s *sessInfo) {
 				si := *s

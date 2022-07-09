@@ -225,6 +225,7 @@ var nodeCmd = &cobra.Command{
 				errExitf("error initializing backend: %s", err)
 			}
 		}
+		log.Infof("node %s started", identity)
 		<-ctx.Done()
 	},
 }
