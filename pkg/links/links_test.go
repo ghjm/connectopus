@@ -64,6 +64,10 @@ func (d *dummyLink) SendPacket(packet []byte) error {
 	return nil
 }
 
+func (d *dummyLink) MTU() uint16 {
+	return 1500
+}
+
 func NewDummyLink(ctx context.Context) Link {
 	rwc := &dummyRWC{}
 	l := &dummyLink{

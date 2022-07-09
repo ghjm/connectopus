@@ -24,6 +24,7 @@ import (
 var linkReadyMessage = "netns_shim link ready\n"
 
 type newParams struct {
+	mtu     uint16
 	shimBin string
 }
 
@@ -32,16 +33,21 @@ type Link struct {
 	chanreader.Publisher
 	shimFd int
 	pid    int
+	mtu    uint16
 }
 
 // New creates a new Linux network namespace based network stack
 func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, error) {
-	params := &newParams{}
+	params := &newParams{
+		mtu: 1500,
+	}
 	for _, mod := range mods {
 		mod(params)
 	}
 
-	ns := &Link{}
+	ns := &Link{
+		mtu: params.mtu,
+	}
 
 	// Create the socketpair
 	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_SEQPACKET, 0)
@@ -59,7 +65,7 @@ func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, err
 		}
 	}
 	cmd := exec.CommandContext(ctx, myExec, "netns_shim", "--fd", "3", "--tunif", "nstun",
-		"--addr", fmt.Sprintf("%s/128", addr.String()))
+		"--addr", fmt.Sprintf("%s/128", addr.String()), "--mtu", fmt.Sprintf("%d", params.mtu))
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Unshareflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER | syscall.CLONE_NEWNET | syscall.CLONE_NEWUTS,
 		UidMappings:  []syscall.SysProcIDMap{{ContainerID: 0, HostID: unix.Getuid(), Size: 1}},
@@ -158,6 +164,13 @@ func WithShimBin(shimBin string) func(*newParams) {
 	}
 }
 
+// WithMTU sets the MTU for the tunnel interface in the namespace.
+func WithMTU(mtu uint16) func(*newParams) {
+	return func(p *newParams) {
+		p.mtu = mtu
+	}
+}
+
 func (ns *Link) SendPacket(packet []byte) error {
 	_, err := syscall.Write(ns.shimFd, packet)
 	return err
@@ -167,7 +180,11 @@ func (ns *Link) PID() int {
 	return ns.pid
 }
 
-func RunShim(fd int, tunif string, addr string) error {
+func (ns *Link) MTU() uint16 {
+	return ns.mtu
+}
+
+func RunShim(fd int, tunif string, mtu uint16, addr string) error {
 	// Bring up the lo interface
 	lo, err := netlink.LinkByName("lo")
 	if err != nil {
@@ -205,6 +222,12 @@ func RunShim(fd int, tunif string, addr string) error {
 	err = netlink.AddrAdd(tunLink, tunAddr)
 	if err != nil {
 		return fmt.Errorf("error adding IP address to tun interface: %v", err)
+	}
+
+	// Set the tun MTU
+	err = netlink.LinkSetMTU(tunLink, int(mtu))
+	if err != nil {
+		return fmt.Errorf("error setting tun interface MTU: %v", err)
 	}
 
 	// Bring up the tun interface

@@ -28,6 +28,10 @@ type netStackChannel struct {
 	packetBroker broker.Broker[[]byte]
 }
 
+func (ns *netStackChannel) MTU() uint16 {
+	return uint16(ns.endpoint.MTU())
+}
+
 // NewStackChannel creates a new network stack
 func NewStackChannel(ctx context.Context, addr net.IP, mtu uint16) (NetStack, error) {
 	if len(addr) != net.IPv6len {

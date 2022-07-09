@@ -8,4 +8,6 @@ type Link interface {
 	SubscribePackets() <-chan []byte
 	// UnsubscribePackets unsubscribes a channel previously subscribed with SubscribePackets.
 	UnsubscribePackets(pktCh <-chan []byte)
+	// MTU returns the MTU for the link.
+	MTU() uint16
 }

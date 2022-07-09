@@ -14,8 +14,9 @@ type Netopus interface {
 	backends.ProtocolRunner
 	netstack.UserStack
 	ExternalRouter
-	StatusGetter
 	OOBConnector
+	Status() *Status
+	MTU() uint16
 }
 
 // ExternalRouter is a device that can accept and send packets to external routes
@@ -30,10 +31,6 @@ type ExternalRouter interface {
 	SubscribeUpdates() <-chan RoutingPolicy
 	// UnsubscribeUpdates unsubscribes a previously subscribed updates channel
 	UnsubscribeUpdates(<-chan RoutingPolicy)
-}
-
-type StatusGetter interface {
-	Status() *Status
 }
 
 type OOBAddr struct {

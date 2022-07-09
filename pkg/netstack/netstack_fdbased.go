@@ -29,6 +29,10 @@ type netStackFdbased struct {
 	fds          [2]int
 }
 
+func (ns *netStackFdbased) MTU() uint16 {
+	return uint16(ns.endpoint.MTU())
+}
+
 // NewStackFdbased creates a new fdbased network stack
 func NewStackFdbased(ctx context.Context, addr net.IP, mtu uint16) (NetStack, error) {
 	if len(addr) != net.IPv6len {

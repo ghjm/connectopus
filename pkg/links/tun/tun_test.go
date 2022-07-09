@@ -50,7 +50,7 @@ func TestAsRootTun(t *testing.T) {
 		Mask: net.CIDRMask(64, 8*net.IPv6len),
 	}
 	devName := fmt.Sprintf("tuntest%d", rand.Intn(1000))
-	tt, err := New(ctx, devName, local, subnet)
+	tt, err := New(ctx, devName, local, subnet, 1500)
 	if err != nil {
 		t.Fatal(err)
 	}

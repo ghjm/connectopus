@@ -34,7 +34,7 @@ import (
 
 func errExit(err error) {
 	if errors.Is(err, cpctl.ErrMultipleNode) {
-		errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.\n", err)
+		errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
 	}
 	fmt.Printf("Error: %s\n", err)
 	exit_handler.RunExitFuncs()
@@ -42,7 +42,7 @@ func errExit(err error) {
 }
 
 func errExitf(format string, args ...any) {
-	fmt.Printf("Error: "+format, args...)
+	fmt.Printf(fmt.Sprintf("Error: %s\n", format), args...)
 	exit_handler.RunExitFuncs()
 	os.Exit(1)
 }
@@ -130,7 +130,7 @@ var nodeCmd = &cobra.Command{
 		}
 		for _, tunDev := range node.TunDevs {
 			var tunLink links.Link
-			tunLink, err = tun.New(ctx, tunDev.DeviceName, net.IP(tunDev.Address), cfg.Global.Subnet.AsIPNet())
+			tunLink, err = tun.New(ctx, tunDev.DeviceName, net.IP(tunDev.Address), cfg.Global.Subnet.AsIPNet(), n.MTU())
 			if err != nil {
 				errExitf("error initializing tunnel: %s", err)
 			}
@@ -157,7 +157,7 @@ var nodeCmd = &cobra.Command{
 		nsreg := &netns.Registry{}
 		for _, namespace := range node.Namespaces {
 			var ns *netns.Link
-			ns, err = netns.New(ctx, net.IP(namespace.Address))
+			ns, err = netns.New(ctx, net.IP(namespace.Address), netns.WithMTU(n.MTU()))
 			if err != nil {
 				errExitf("error initializing namespace: %s", err)
 			}
@@ -232,13 +232,14 @@ var nodeCmd = &cobra.Command{
 var netnsFd int
 var netnsTunIf string
 var netnsAddr string
+var netnsMTU int
 var netnsShimCmd = &cobra.Command{
 	Use:     "netns_shim",
 	Args:    cobra.NoArgs,
 	Version: version.Version(),
 	Hidden:  true,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := netns.RunShim(netnsFd, netnsTunIf, netnsAddr)
+		err := netns.RunShim(netnsFd, netnsTunIf, uint16(netnsMTU), netnsAddr)
 		if err != nil {
 			errExitf("error running netns shim: %s", err)
 		}
@@ -551,11 +552,61 @@ var nsenterCmd = &cobra.Command{
 	},
 }
 
+var uid int
+var gid int
+var setupTunnelCmd = &cobra.Command{
+	Use:   "setup-tunnel",
+	Short: "Pre-create tunnel interface(s) for a node - usually run with sudo",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		if uid == -1 {
+			uidStr := os.Getenv("SUDO_UID")
+			if uidStr != "" {
+				var err error
+				uid, err = strconv.Atoi(uidStr)
+				if err != nil {
+					errExitf("error parsing SUDO_UID: %s", err)
+				}
+			} else {
+				uid = os.Getuid()
+			}
+		}
+		if gid == -1 {
+			gidStr := os.Getenv("SUDO_GID")
+			if gidStr != "" {
+				var err error
+				gid, err = strconv.Atoi(gidStr)
+				if err != nil {
+					errExitf("error parsing SUDO_GID: %s", err)
+				}
+			} else {
+				uid = os.Getgid()
+			}
+		}
+		config, err := config.LoadConfig(configFile)
+		if err != nil {
+			errExitf("error reading config file: %s", err)
+		}
+		node, ok := config.Nodes[identity]
+		if !ok {
+			errExitf("no such node in config file")
+		}
+		mtu := netopus.LeastMTU(node, 1500)
+		for _, tunDev := range node.TunDevs {
+			_, err := tun.SetupLink(tunDev.DeviceName, net.IP(tunDev.Address), config.Global.Subnet.AsIPNet(),
+				mtu, tun.WithUidGid(uint(uid), uint(gid)), tun.WithPersist())
+			if err != nil {
+				errExitf("error setting up %s: %s", tunDev.Name, err)
+			}
+		}
+	},
+}
+
 func main() {
 	nodeCmd.Flags().StringVar(&configFile, "config", "", "Config file name (required)")
 	_ = nodeCmd.MarkFlagRequired("config")
 	nodeCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
-	_ = nodeCmd.MarkFlagRequired("identity")
+	_ = nodeCmd.MarkFlagRequired("id")
 	nodeCmd.Flags().StringVar(&logLevel, "log-level", "", "Set log level (error/warning/info/debug)")
 
 	netnsShimCmd.Flags().IntVar(&netnsFd, "fd", 0, "file descriptor")
@@ -564,6 +615,7 @@ func main() {
 	_ = netnsShimCmd.MarkFlagRequired("fd")
 	netnsShimCmd.Flags().StringVar(&netnsAddr, "addr", "", "ip address")
 	_ = netnsShimCmd.MarkFlagRequired("addr")
+	netnsShimCmd.Flags().IntVar(&netnsMTU, "mtu", 1500, "link MTU")
 
 	statusCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
 	statusCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
@@ -602,12 +654,19 @@ func main() {
 	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
 		"UI port on localhost")
 
+	setupTunnelCmd.Flags().StringVar(&configFile, "config", "", "Config file name (required)")
+	_ = setupTunnelCmd.MarkFlagRequired("config")
+	setupTunnelCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
+	_ = setupTunnelCmd.MarkFlagRequired("id")
+	setupTunnelCmd.Flags().IntVar(&uid, "uid", -1, "User ID who will own the tunnel")
+	setupTunnelCmd.Flags().IntVar(&gid, "gid", -1, "Group ID who will own the tunnel")
+
 	rootCmd.PersistentFlags().StringVar(&cpuProfile, "cpuprofile", "", "")
 	_ = rootCmd.PersistentFlags().MarkHidden("cpuprofile")
 
 	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd)
 	if runtime.GOOS == "linux" {
-		rootCmd.AddCommand(nsenterCmd)
+		rootCmd.AddCommand(nsenterCmd, setupTunnelCmd)
 	}
 
 	err := rootCmd.Execute()

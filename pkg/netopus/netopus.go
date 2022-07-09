@@ -31,6 +31,7 @@ type netopus struct {
 	ctx            context.Context
 	addr           proto.IP
 	name           string
+	mtu            uint16
 	stack          netstack.NetStack
 	router         router.Router
 	sessionInfo    syncro.Var[sessInfo]
@@ -98,6 +99,7 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		ctx:           ctx,
 		addr:          addr,
 		name:          name,
+		mtu:           mtu,
 		stack:         stack,
 		router:        router.New(ctx, addr, 100*time.Millisecond),
 		sessionInfo:   syncro.NewVar(make(sessInfo)),
@@ -161,6 +163,11 @@ func LeastMTU(node config.Node, defaultMTU uint16) uint16 {
 		mtu = defaultMTU
 	}
 	return mtu
+}
+
+// MTU returns the global MTU for the Netopus instance.  This may not be the same as the MTU for a given backend.
+func (n *netopus) MTU() uint16 {
+	return n.mtu
 }
 
 // backendReadLoop reads messages from the connection and sends them to a channel
