@@ -17,23 +17,23 @@ nodes:
   foo:
     address: FD00::1
     backends:
-      - type: dtls-dialer
-        params:
-          peer: localhost:4444
+      b1:
+        type: dtls-dialer
+        peer: localhost:4444
 
   bar:
     address: FD00::2
     backends:
-      - type: dtls-listener
-        params:
-          port: 4444
+      b1:
+        type: dtls-listener
+        port: 4444
 
   baz:
     address: FD00::3
     backends:
-      - type: dtls-dialer
-        params:
-          peer: localhost:4444
+      b1:
+        type: dtls-dialer
+        peer: localhost:4444
 
 `
 
@@ -44,34 +44,28 @@ var correctConfig = Config{
 	Nodes: map[string]Node{
 		"foo": {
 			Address: proto.ParseIP("FD00::1"),
-			Backends: []Backend{
-				{
-					BackendType: "dtls-dialer",
-					Params: map[string]string{
-						"peer": "localhost:4444",
-					},
+			Backends: map[string]Params{
+				"b1": {
+					"type": "dtls-dialer",
+					"peer": "localhost:4444",
 				},
 			},
 		},
 		"bar": {
 			Address: proto.ParseIP("FD00::2"),
-			Backends: []Backend{
-				{
-					BackendType: "dtls-listener",
-					Params: map[string]string{
-						"port": "4444",
-					},
+			Backends: map[string]Params{
+				"b1": {
+					"type": "dtls-listener",
+					"port": "4444",
 				},
 			},
 		},
 		"baz": {
 			Address: proto.ParseIP("FD00::3"),
-			Backends: []Backend{
-				{
-					BackendType: "dtls-dialer",
-					Params: map[string]string{
-						"peer": "localhost:4444",
-					},
+			Backends: map[string]Params{
+				"b1": {
+					"type": "dtls-dialer",
+					"peer": "localhost:4444",
 				},
 			},
 		},

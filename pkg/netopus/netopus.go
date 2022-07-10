@@ -156,8 +156,7 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 				n.floodRoutingUpdate(ru, nil)
 			}()
 		},
-		timerunner.Periodic(10*time.Second),
-		timerunner.AtStart)
+		timerunner.Periodic(10*time.Second))
 	go n.monitorDeadNodes()
 	return n, nil
 }
@@ -166,7 +165,7 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 func LeastMTU(node config.Node, defaultMTU uint16) uint16 {
 	mtu := uint16(math.MaxUint16)
 	for _, b := range node.Backends {
-		spec := backend_registry.LookupBackend(b.BackendType)
+		spec := backend_registry.LookupBackend(b.GetString("type", ""))
 		if spec != nil && spec.MTU < mtu {
 			mtu = spec.MTU
 		}

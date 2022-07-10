@@ -6,15 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/internal/version"
-	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
+	"github.com/ghjm/connectopus/pkg/connectopus"
 	"github.com/ghjm/connectopus/pkg/cpctl"
-	"github.com/ghjm/connectopus/pkg/links"
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/links/tun"
 	"github.com/ghjm/connectopus/pkg/netopus"
 	"github.com/ghjm/connectopus/pkg/proto"
-	"github.com/ghjm/connectopus/pkg/services"
 	"github.com/ghjm/connectopus/pkg/x/bridge"
 	"github.com/ghjm/connectopus/pkg/x/exit_handler"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
@@ -22,6 +20,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -49,10 +48,6 @@ var nodeCmd = &cobra.Command{
 	Args:    cobra.NoArgs,
 	Version: version.Version(),
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.LoadConfig(configFile)
-		if err != nil {
-			errExitf("error loading config file: %s", err)
-		}
 		if logLevel != "" {
 			switch logLevel {
 			case "error":
@@ -67,116 +62,20 @@ var nodeCmd = &cobra.Command{
 				errExitf("invalid log level")
 			}
 		}
-		node, ok := cfg.Nodes[identity]
-		if !ok {
-			errExitf("node ID not found in config file")
+
+		cfgData, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			errExitf("error loading config file: %s", err)
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
 		exit_handler.AddExitFunc(cancel)
 
-		var n proto.Netopus
-		n, err = netopus.New(ctx, node.Address, identity, netopus.LeastMTU(node, 1500))
+		_, err = connectopus.RunNode(ctx, cfgData, identity)
 		if err != nil {
-			errExitf("error initializing Netopus: %s", err)
+			errExit(err)
 		}
-		for _, tunDev := range node.TunDevs {
-			var tunLink links.Link
-			tunLink, err = tun.New(ctx, tunDev.DeviceName, net.IP(tunDev.Address), cfg.Global.Subnet.AsIPNet(), n.MTU())
-			if err != nil {
-				errExitf("error initializing tunnel: %s", err)
-			}
-			tunCh := tunLink.SubscribePackets()
-			go func() {
-				for {
-					select {
-					case <-ctx.Done():
-						tunLink.UnsubscribePackets(tunCh)
-						return
-					case packet := <-tunCh:
-						_ = n.SendPacket(packet)
-					}
-				}
-			}()
-			n.AddExternalRoute(tunDev.Name, proto.NewHostOnlySubnet(tunDev.Address), defaultCost(tunDev.Cost), tunLink.SendPacket)
-		}
-		for _, service := range node.Services {
-			_, err = services.RunService(ctx, n, service)
-			if err != nil {
-				errExitf("error initializing service: %s", err)
-			}
-		}
-		nsreg := &netns.Registry{}
-		for _, namespace := range node.Namespaces {
-			var ns *netns.Link
-			ns, err = netns.New(ctx, net.IP(namespace.Address), netns.WithMTU(n.MTU()))
-			if err != nil {
-				errExitf("error initializing namespace: %s", err)
-			}
-			nsCh := ns.SubscribePackets()
-			go func() {
-				for {
-					select {
-					case <-ctx.Done():
-						ns.UnsubscribePackets(nsCh)
-						return
-					case packet := <-nsCh:
-						_ = n.SendPacket(packet)
-					}
-				}
-			}()
-			n.AddExternalRoute(namespace.Name, proto.NewHostOnlySubnet(namespace.Address), defaultCost(namespace.Cost), ns.SendPacket)
-			nsreg.Add(namespace.Name, ns.PID())
-		}
-		var sm jwt.SigningMethod
-		sm, err = ssh_jwt.SetupSigningMethod("connectopus", nil)
-		if err != nil {
-			errExitf("error initializing JWT signing method: %s", err)
-		}
-		csrv := cpctl.Server{
-			Resolver: cpctl.Resolver{
-				C:     cfg,
-				N:     n,
-				NsReg: nsreg,
-			},
-			SigningMethod: sm,
-		}
-		{
-			li, err := n.ListenOOB(ctx, cpctl.ProxyPortNo)
-			if err != nil {
-				errExitf("error initializing cpctl proxy listener: %s", err)
-			}
-			err = csrv.ServeHTTP(ctx, li)
-			if err != nil {
-				errExitf("error running cpctl proxy server: %s", err)
-			}
-		}
-		if !node.Cpctl.NoSocket {
-			socketFile, err := config.ExpandFilename(identity, node.Cpctl.SocketFile)
-			if err != nil {
-				errExitf("error expanding socket filename: %s", err)
-			}
-			err = csrv.ServeUnix(ctx, socketFile)
-			if err != nil {
-				errExitf("error running socket server: %s", err)
-			}
-		}
-		if node.Cpctl.Port != 0 {
-			li, err := net.Listen("tcp", fmt.Sprintf(":%d", node.Cpctl.Port))
-			if err != nil {
-				errExitf("error initializing cpctl web server: %s", err)
-			}
-			err = csrv.ServeHTTP(ctx, li)
-			if err != nil {
-				errExitf("error running cpctl web server: %s", err)
-			}
-		}
-		for _, backend := range node.Backends {
-			err = backend_registry.RunBackend(ctx, n, backend.BackendType, defaultCost(backend.Cost), backend.Params)
-			if err != nil {
-				errExitf("error initializing backend: %s", err)
-			}
-		}
+
 		log.Infof("node %s started", identity)
 		<-ctx.Done()
 	},
@@ -577,13 +476,6 @@ func openWebBrowser(url string) error {
 		err = fmt.Errorf("unsupported platform")
 	}
 	return err
-}
-
-func defaultCost(cost float32) float32 {
-	if cost <= 0 {
-		return 1.0
-	}
-	return cost
 }
 
 func formatNode(addr string, nodeNames map[string]string) string {

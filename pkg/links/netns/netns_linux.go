@@ -122,11 +122,11 @@ func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, err
 				return
 			}
 			if !closed && s == linkReadyMessage {
-				log.Debugf("got link ready message")
+				log.Debugf("netns %s initialized", addr.String())
 				closed = true
 				close(chanReady)
 			} else {
-				log.Debugf("netns_shim: %s", s)
+				log.Debugf("netns_shim extra ouptut: %s", s)
 			}
 		}
 	}()
@@ -139,7 +139,7 @@ func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, err
 			if rerr != nil {
 				return
 			}
-			log.Warnf("netns_shim error: %s", s)
+			log.Errorf("netns_shim error: %s", s)
 		}
 	}()
 

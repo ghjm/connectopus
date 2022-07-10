@@ -8,37 +8,44 @@ nodes:
   foo:
     address: FD00::1:1
     tun_devs:
-      - name: foo-tun
+      foo-tun:
         device: ctun
         address: FD00::1:2
     namespaces:
-      - name: foo-ns
+      foo-ns:
         address: FD00::1:3
     backends:
-      - type: dtls-dialer
-        params:
-          peer: localhost:4444
-          psk: test-psk
+      b1:
+        type: dtls-dialer
+        peer: localhost:4444
+        psk: test-psk
     cpctl:
       port: 8123
 
   bar:
     address: FD00::2:1
+    namespaces:
+      bar-ns:
+        address: FD00::2:3
     backends:
-      - type: dtls-listener
-        params:
-          port: 4444
-          psk: test-psk
+      b1:
+        type: dtls-listener
+        port: 4444
+        psk: test-psk
 
   baz:
     address: FD00::3:1
+    namespaces:
+      bar-ns:
+        address: FD00::3:3
     backends:
-      - type: dtls-dialer
-        params:
-          peer: localhost:4444
-          psk: test-psk
+      b1:
+        type: dtls-dialer
+        peer: localhost:4444
+        psk: test-psk
     services:
-      - port: 7
+      echo:
+        port: 7
         command: /bin/cat
         win_command: find /v ""
 
