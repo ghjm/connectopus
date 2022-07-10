@@ -31,44 +31,15 @@ import (
 	"time"
 )
 
-func errExit(err error) {
-	if errors.Is(err, cpctl.ErrMultipleNode) {
-		errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
-	}
-	fmt.Printf("Error: %s\n", err)
-	exit_handler.RunExitFuncs()
-	os.Exit(1)
-}
-
-func errExitf(format string, args ...any) {
-	fmt.Printf(fmt.Sprintf("Error: %s\n", format), args...)
-	exit_handler.RunExitFuncs()
-	os.Exit(1)
-}
-
+// Root Command
 var socketFile string
 var socketNode string
-
 var rootCmd = &cobra.Command{
 	Use:   "connectopus",
 	Short: "CLI for Connectopus",
 }
 
-func abbreviateKey(keyStr string) (string, error) {
-	key, err := proto.ParseAuthorizedKey(keyStr)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s [...] %s", key.PublicKey.Type(), key.Comment), nil
-}
-
-func defaultCost(cost float32) float32 {
-	if cost <= 0 {
-		return 1.0
-	}
-	return cost
-}
-
+// Node Command
 var configFile string
 var identity string
 var logLevel string
@@ -211,23 +182,7 @@ var nodeCmd = &cobra.Command{
 	},
 }
 
-var netnsFd int
-var netnsTunIf string
-var netnsAddr string
-var netnsMTU int
-var netnsShimCmd = &cobra.Command{
-	Use:     "netns_shim",
-	Args:    cobra.NoArgs,
-	Version: version.Version(),
-	Hidden:  true,
-	Run: func(cmd *cobra.Command, args []string) {
-		err := netns.RunShim(netnsFd, netnsTunIf, uint16(netnsMTU), netnsAddr)
-		if err != nil {
-			errExitf("error running netns shim: %s", err)
-		}
-	},
-}
-
+// Get Token Command
 var keyFile string
 var keyText string
 var tokenDuration string
@@ -244,6 +199,7 @@ var getTokenCmd = &cobra.Command{
 	},
 }
 
+// Verify Token Command
 var token string
 var verbose bool
 var verifyTokenCmd = &cobra.Command{
@@ -301,23 +257,7 @@ var verifyTokenCmd = &cobra.Command{
 	},
 }
 
-// openWebBrowser opens the default web browser to a given URL
-func openWebBrowser(url string) error {
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		//nolint:goerr113
-		err = fmt.Errorf("unsupported platform")
-	}
-	return err
-}
-
+// UI Command
 var noBrowser bool
 var localUIPort int
 var uiCmd = &cobra.Command{
@@ -370,15 +310,7 @@ var uiCmd = &cobra.Command{
 	},
 }
 
-func formatNode(addr string, nodeNames map[string]string) string {
-	name := nodeNames[addr]
-	if name == "" {
-		return fmt.Sprintf("[%s]", addr)
-	} else {
-		return fmt.Sprintf("%s [%s]", name, addr)
-	}
-}
-
+// Status Command
 var proxyTo string
 var statusCmd = &cobra.Command{
 	Use:   "status",
@@ -477,6 +409,7 @@ var statusCmd = &cobra.Command{
 	},
 }
 
+// Nsenter Command
 var namespaceName string
 var nsenterCmd = &cobra.Command{
 	Use:   "nsenter",
@@ -534,6 +467,25 @@ var nsenterCmd = &cobra.Command{
 	},
 }
 
+// Netns Shim (called internally - not used by users)
+var netnsFd int
+var netnsTunIf string
+var netnsAddr string
+var netnsMTU int
+var netnsShimCmd = &cobra.Command{
+	Use:     "netns_shim",
+	Args:    cobra.NoArgs,
+	Version: version.Version(),
+	Hidden:  true,
+	Run: func(cmd *cobra.Command, args []string) {
+		err := netns.RunShim(netnsFd, netnsTunIf, uint16(netnsMTU), netnsAddr)
+		if err != nil {
+			errExitf("error running netns shim: %s", err)
+		}
+	},
+}
+
+// Setup-tunnel command
 var uid int
 var gid int
 var setupTunnelCmd = &cobra.Command{
@@ -582,6 +534,65 @@ var setupTunnelCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+// errExit halts the program on error
+func errExit(err error) {
+	if errors.Is(err, cpctl.ErrMultipleNode) {
+		errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
+	}
+	fmt.Printf("Error: %s\n", err)
+	exit_handler.RunExitFuncs()
+	os.Exit(1)
+}
+
+// errExit halts the program on error with a formatted message
+func errExitf(format string, args ...any) {
+	fmt.Printf(fmt.Sprintf("Error: %s\n", format), args...)
+	exit_handler.RunExitFuncs()
+	os.Exit(1)
+}
+
+// abbreviateKey returns a shorter, human-readable version of an SSH public key
+func abbreviateKey(keyStr string) (string, error) {
+	key, err := proto.ParseAuthorizedKey(keyStr)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s [...] %s", key.PublicKey.Type(), key.Comment), nil
+}
+
+// openWebBrowser opens the default web browser to a given URL
+func openWebBrowser(url string) error {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		//nolint:goerr113
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
+}
+
+func defaultCost(cost float32) float32 {
+	if cost <= 0 {
+		return 1.0
+	}
+	return cost
+}
+
+func formatNode(addr string, nodeNames map[string]string) string {
+	name := nodeNames[addr]
+	if name == "" {
+		return fmt.Sprintf("[%s]", addr)
+	} else {
+		return fmt.Sprintf("%s [%s]", name, addr)
+	}
 }
 
 func main() {
