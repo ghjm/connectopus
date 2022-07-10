@@ -559,11 +559,11 @@ var setupTunnelCmd = &cobra.Command{
 			errExitf("no such node in config file")
 		}
 		mtu := netopus.LeastMTU(node, 1500)
-		for _, tunDev := range node.TunDevs {
+		for name, tunDev := range node.TunDevs {
 			_, err := tun.SetupLink(tunDev.DeviceName, net.IP(tunDev.Address), config.Global.Subnet.AsIPNet(),
 				mtu, tun.WithUidGid(uint(uid), uint(gid)), tun.WithPersist())
 			if err != nil {
-				errExitf("error setting up %s: %s", tunDev.Name, err)
+				errExitf("error setting up %s: %s", name, err)
 			}
 		}
 	},

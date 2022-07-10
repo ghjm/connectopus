@@ -36,14 +36,12 @@ type Service struct {
 }
 
 type TunDev struct {
-	Name       string   `yaml:"name"`
 	DeviceName string   `yaml:"device"`
 	Address    proto.IP `yaml:"address"`
 	Cost       float32  `yaml:"cost"`
 }
 
 type Namespace struct {
-	Name    string   `yaml:"name"`
 	Address proto.IP `yaml:"address"`
 	Cost    float32  `yaml:"cost"`
 }

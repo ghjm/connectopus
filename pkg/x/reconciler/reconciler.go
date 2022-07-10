@@ -11,7 +11,7 @@ import (
 
 type ConfigItem interface {
 	ParentEqual(ConfigItem) bool
-	Start(context.Context, any) (any, error)
+	Start(context.Context, string, any) (any, error)
 	Children() map[string]ConfigItem
 }
 
@@ -50,7 +50,7 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 		once := sync.Once{}
 		go func() {
 			for {
-				childInstance, err := ci.Start(ri.ctx, instance)
+				childInstance, err := ci.Start(ri.ctx, ri.name, instance)
 				ri.instance.Set(childInstance)
 				ri.status.Set(err)
 				once.Do(func() { close(startChan) })
@@ -119,6 +119,10 @@ func (ri *RunningItem) Instance() any {
 
 func (ri *RunningItem) Config() ConfigItem {
 	return ri.config
+}
+
+func (ri *RunningItem) Name() string {
+	return ri.name
 }
 
 func (ri *RunningItem) Children() map[string]*RunningItem {

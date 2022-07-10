@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
@@ -22,7 +21,6 @@ import (
 	"math"
 	"net"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -38,7 +36,7 @@ type netopus struct {
 	epoch          uint64
 	sequence       syncro.Var[uint64]
 	knownNodeInfo  syncro.Map[proto.IP, nodeInfo]
-	externalRoutes syncro.Var[[]externalRouteInfo]
+	externalRoutes syncro.Map[string, externalRouteInfo]
 	updateSender   timerunner.TimeRunner
 	oobPorts       syncro.Map[uint16, *OOBPacketConn]
 }
@@ -51,7 +49,6 @@ const (
 
 // externalRouteInfo stores information about a route
 type externalRouteInfo struct {
-	name               string
 	dest               proto.Subnet
 	cost               float32
 	outgoingPacketFunc func(data []byte) error
@@ -183,18 +180,15 @@ func (n *netopus) MTU() uint16 {
 
 // backendReadLoop reads messages from the connection and sends them to a channel
 func (p *protoSession) backendReadLoop() {
+	defer p.cancel()
 	for {
 		data, err := p.conn.ReadMessage()
 		if p.ctx.Err() != nil {
 			return
 		}
 		if err != nil {
-			if errors.Is(err, syscall.ECONNREFUSED) {
-				p.cancel()
-				return
-			}
 			log.Warnf("protocol read error: %s", err)
-			continue
+			return
 		}
 		select {
 		case <-p.ctx.Done():
@@ -205,6 +199,7 @@ func (p *protoSession) backendReadLoop() {
 }
 
 func (p *protoSession) routeReader() {
+	defer p.cancel()
 	orc := p.oobRouteConn.Get()
 	reader := bufio.NewReader(orc)
 	for {
@@ -218,7 +213,6 @@ func (p *protoSession) routeReader() {
 		}
 		if err != nil {
 			log.Errorf("OOB route reader failure: %s", err)
-			p.cancel()
 			return
 		}
 		viaNode := p.remoteAddr.Get()
@@ -620,7 +614,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 
 	// Check if this packet is destined to an external route
 	var opf func([]byte) error
-	n.externalRoutes.WorkWithReadOnly(func(routes []externalRouteInfo) {
+	n.externalRoutes.WorkWithReadOnly(func(routes map[string]externalRouteInfo) {
 		for _, r := range routes {
 			if r.dest.Contains(dest) {
 				opf = r.outgoingPacketFunc
@@ -766,7 +760,7 @@ func (n *netopus) generateRoutingUpdate() (*proto.RoutingUpdate, error) {
 			}
 		}
 	})
-	n.externalRoutes.WorkWithReadOnly(func(routes []externalRouteInfo) {
+	n.externalRoutes.WorkWithReadOnly(func(routes map[string]externalRouteInfo) {
 		for _, r := range routes {
 			conns[r.dest] = r.cost
 		}
@@ -900,30 +894,16 @@ func (n *netopus) AddExternalRoute(name string, dest proto.Subnet, cost float32,
 	if cost <= 0 {
 		cost = 1.0
 	}
-	n.externalRoutes.WorkWith(func(_routes *[]externalRouteInfo) {
-		routes := *_routes
-		routes = append(routes, externalRouteInfo{
-			name:               name,
-			dest:               dest,
-			cost:               cost,
-			outgoingPacketFunc: outgoingPacketFunc,
-		})
-		*_routes = routes
+	n.externalRoutes.Set(name, externalRouteInfo{
+		dest:               dest,
+		cost:               cost,
+		outgoingPacketFunc: outgoingPacketFunc,
 	})
 }
 
 // DelExternalRoute implements ExternalRouter
 func (n *netopus) DelExternalRoute(name string) {
-	n.externalRoutes.WorkWith(func(_routes *[]externalRouteInfo) {
-		routes := *_routes
-		newRoutes := make([]externalRouteInfo, 0, len(routes))
-		for _, r := range routes {
-			if r.name != name {
-				newRoutes = append(newRoutes, r)
-			}
-		}
-		*_routes = newRoutes
-	})
+	n.externalRoutes.Delete(name)
 }
 
 // SubscribeUpdates implements ExternalRouter

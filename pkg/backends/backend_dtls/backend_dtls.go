@@ -16,7 +16,7 @@ import (
 
 // implements BackendConnection
 type dtlsBackend struct {
-	conn     *dtls.Conn
+	conn     net.Conn
 	isServer bool
 }
 
@@ -103,11 +103,18 @@ func (d *Dialer) getDtlsConfig(ctx context.Context) *dtls.Config {
 }
 
 func (d *Dialer) Run(ctx context.Context, pr backends.ProtocolRunner) error {
-	addr := &net.UDPAddr{IP: d.DestAddr, Port: int(d.DestPort)}
+	addr := net.JoinHostPort(d.DestAddr.String(), strconv.Itoa(int(d.DestPort)))
 	dtlsConfig := d.getDtlsConfig(ctx)
 	go backends.RunDialer(ctx, pr, d.Cost, func() (backends.BackendConnection, error) {
-		log.Debugf("dtls dialing %s", addr.String())
-		conn, err := dtls.DialWithContext(ctx, "udp", addr, dtlsConfig)
+		log.Debugf("dtls dialing %s", addr)
+		d := net.Dialer{
+			Timeout: 30 * time.Second,
+		}
+		conn, err := d.DialContext(ctx, "udp", addr)
+		if err != nil {
+			return nil, err
+		}
+		conn, err = dtls.ClientWithContext(ctx, conn, dtlsConfig)
 		if err != nil {
 			return nil, err
 		}

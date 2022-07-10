@@ -82,7 +82,7 @@ type nodeInstance struct {
 	ri       *reconciler.RunningItem
 }
 
-func (nc NodeCfg) Start(ctx context.Context, instance any) (any, error) {
+func (nc NodeCfg) Start(ctx context.Context, name string, instance any) (any, error) {
 	ri, ok := instance.(*reconciler.RunningItem)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -141,7 +141,7 @@ func (c CpctlCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, c)
 }
 
-func (c CpctlCfg) Start(ctx context.Context, instance any) (any, error) {
+func (c CpctlCfg) Start(ctx context.Context, name string, instance any) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -219,7 +219,7 @@ func (b BackendCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, b)
 }
 
-func (b BackendCfg) Start(ctx context.Context, instance any) (any, error) {
+func (b BackendCfg) Start(ctx context.Context, name string, instance any) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -251,7 +251,7 @@ func (s ServiceCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, s)
 }
 
-func (s ServiceCfg) Start(ctx context.Context, instance any) (any, error) {
+func (s ServiceCfg) Start(ctx context.Context, name string, instance any) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -277,7 +277,7 @@ func (t TunDevCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, t)
 }
 
-func (t TunDevCfg) Start(ctx context.Context, instance any) (any, error) {
+func (t TunDevCfg) Start(ctx context.Context, name string, instance any) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -298,7 +298,7 @@ func (t TunDevCfg) Start(ctx context.Context, instance any) (any, error) {
 			}
 		}
 	}()
-	inst.n.AddExternalRoute(t.Name, proto.NewHostOnlySubnet(t.Address), defaultCost(t.Cost), tunLink.SendPacket)
+	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(t.Address), defaultCost(t.Cost), tunLink.SendPacket)
 	return inst, nil
 }
 
@@ -316,7 +316,7 @@ func (n NamespaceCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, n)
 }
 
-func (n NamespaceCfg) Start(ctx context.Context, instance any) (any, error) {
+func (n NamespaceCfg) Start(ctx context.Context, name string, instance any) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -337,8 +337,8 @@ func (n NamespaceCfg) Start(ctx context.Context, instance any) (any, error) {
 			}
 		}
 	}()
-	inst.n.AddExternalRoute(n.Name, proto.NewHostOnlySubnet(n.Address), defaultCost(n.Cost), ns.SendPacket)
-	inst.nsreg.Add(n.Name, ns.PID())
+	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(n.Address), defaultCost(n.Cost), ns.SendPacket)
+	inst.nsreg.Add(name, ns.PID())
 	return inst, nil
 }
 
