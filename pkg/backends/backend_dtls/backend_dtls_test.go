@@ -14,10 +14,7 @@ import (
 func TestBackendDtlsPSK(t *testing.T) {
 	defer goleak.VerifyNone(t, goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"), goleak.IgnoreTopFunction("sync.runtime_Semacquire"))
 	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		cancel()
-		time.Sleep(250 * time.Millisecond)
-	}()
+	defer cancel()
 
 	n1 := channel_runner.NewChannelRunner()
 	n2 := channel_runner.NewChannelRunner()

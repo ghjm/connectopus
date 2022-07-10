@@ -90,18 +90,16 @@ func (d *Dialer) Run(ctx context.Context, pr backends.ProtocolRunner) error {
 		addr := net.JoinHostPort(d.DestAddr.String(), strconv.Itoa(int(d.DestPort)))
 		log.Debugf("tcp dialing %s", addr)
 		var conn net.Conn
-		if d.TLS == nil {
-			var err error
-			conn, err = net.Dial("tcp", addr)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			var err error
-			conn, err = tls.Dial("tcp", addr, d.TLS)
-			if err != nil {
-				return nil, err
-			}
+		var err error
+		dc := net.Dialer{
+			Timeout: 30 * time.Second,
+		}
+		conn, err = dc.DialContext(ctx, "tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		if d.TLS != nil {
+			conn = tls.Client(conn, d.TLS)
 		}
 		go func() {
 			<-ctx.Done()
@@ -182,18 +180,14 @@ func (l *Listener) Run(ctx context.Context, pr backends.ProtocolRunner) (net.Add
 		addr = net.JoinHostPort(l.ListenAddr.String(), strconv.Itoa(int(l.ListenPort)))
 	}
 	var li net.Listener
-	if l.TLS == nil {
-		var err error
-		li, err = net.Listen("tcp", addr)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		var err error
-		li, err = tls.Listen("tcp", addr, l.TLS)
-		if err != nil {
-			return nil, err
-		}
+	var err error
+	lc := net.ListenConfig{}
+	li, err = lc.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	if l.TLS != nil {
+		li = tls.NewListener(li, l.TLS)
 	}
 	go func() {
 		<-ctx.Done()
