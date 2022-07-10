@@ -78,7 +78,7 @@ func TestComponents(t *testing.T) {
 	exp.Expect("started A1")
 	exp.Expect("started B1")
 	exp.Expect("started C1")
-	main := NewRunningItem(testCtx)
+	main := NewRunningItem(testCtx, "test")
 	main.Reconcile(config1, nil)
 	exp.WaitClear()
 	exp.Expect("stopped main 1")

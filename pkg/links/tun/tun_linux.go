@@ -54,14 +54,19 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 	var tunIf *water.Interface
 	tunIf, err = water.New(waterCfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error opening tunnel interface: %s", err)
 	}
+	success := false
+	defer func() {
+		if !success {
+			_ = tunIf.Close()
+		}
+	}()
 	if nl == nil {
 		nl, err = netlink.LinkByName(deviceName)
 		if err != nil {
 			return nil, fmt.Errorf("error accessing tun device: %s", err)
 		}
-
 	}
 	var addrs []netlink.Addr
 	addrs, err = netlink.AddrList(nl, netlink.FAMILY_V6)
@@ -128,6 +133,7 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 		}
 	}
 
+	success = true
 	return tunIf, nil
 }
 
@@ -156,6 +162,11 @@ func New(ctx context.Context, deviceName string, tunAddr net.IP, subnet *net.IPN
 		tunRWC: tunIf,
 		mtu:    mtu,
 	}
+	go func() {
+		<-ctx.Done()
+		fmt.Printf("closing tunif\n")
+		_ = tunIf.Close()
+	}()
 	l.Publisher = *chanreader.NewPublisher(ctx, tunIf, chanreader.WithBufferSize(int(mtu)))
 	return l, nil
 }

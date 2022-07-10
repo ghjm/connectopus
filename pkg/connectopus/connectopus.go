@@ -23,7 +23,7 @@ func RunNode(ctx context.Context, cfgData []byte, identity string) (*reconciler.
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
 	}
-	ri := reconciler.NewRunningItem(ctx)
+	ri := reconciler.NewRunningItem(ctx, identity)
 	nodeCfg := NodeCfg{
 		Config:   cfg,
 		identity: identity,
@@ -57,6 +57,9 @@ func (nc NodeCfg) ParentEqual(item reconciler.ConfigItem) bool {
 		return false
 	}
 	if ci.identity != nc.identity {
+		return false
+	}
+	if !reflect.DeepEqual(ci.Global, nc.Global) {
 		return false
 	}
 	cn, cnOK := ci.Nodes[ci.identity]
@@ -98,7 +101,7 @@ func (nc NodeCfg) Start(ctx context.Context, instance any) (any, error) {
 	var err error
 	inst.n, err = netopus.New(ctx, node.Address, nc.identity, netopus.LeastMTU(node, 1500))
 	if err != nil {
-		return nil, fmt.Errorf("error initializing Netopus: %w", err)
+		return nil, err
 	}
 	return inst, nil
 }

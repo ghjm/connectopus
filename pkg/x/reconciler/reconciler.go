@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
+	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -15,6 +16,7 @@ type ConfigItem interface {
 }
 
 type RunningItem struct {
+	name      string
 	parentCtx context.Context
 	config    ConfigItem
 	ctx       context.Context
@@ -24,8 +26,9 @@ type RunningItem struct {
 	children  syncro.Map[string, *RunningItem]
 }
 
-func NewRunningItem(ctx context.Context) *RunningItem {
+func NewRunningItem(ctx context.Context, name string) *RunningItem {
 	return &RunningItem{
+		name:      name,
 		parentCtx: ctx,
 		cancel:    func() {},
 		status:    syncro.Var[error]{},
@@ -37,6 +40,9 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 	oldConfig := ri.config
 	ri.config = ci
 	if !ci.ParentEqual(oldConfig) {
+		if ri.ctx != nil {
+			log.Infof("Restarting %s", ri.name)
+		}
 		ri.cancel()
 		ri.children = syncro.Map[string, *RunningItem]{}
 		ri.ctx, ri.cancel = context.WithCancel(ri.parentCtx)
@@ -49,7 +55,10 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 				ri.status.Set(err)
 				once.Do(func() { close(startChan) })
 				if err == nil {
+					log.Infof("Started %s", ri.name)
 					return
+				} else {
+					log.Infof("Failed to start %s: %s", ri.name, err)
 				}
 				timer := time.NewTimer(5 * time.Second)
 				select {
@@ -69,7 +78,7 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 		for name, cci := range ciChildren {
 			cri, ok := rc[name]
 			if !ok {
-				cri = NewRunningItem(ri.ctx)
+				cri = NewRunningItem(ri.ctx, fmt.Sprintf("%s.%s", ri.name, name))
 			}
 			cri.Reconcile(cci, parentInstance)
 			rc[name] = cri
@@ -77,6 +86,9 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 		for name, rci := range rc {
 			_, ok := ciChildren[name]
 			if !ok {
+				if rci.ctx != nil {
+					log.Infof("Removing %s", rci.name)
+				}
 				rci.cancel()
 				delete(rc, name)
 			}
