@@ -20,9 +20,17 @@ func NewClient(cli *http.Client, baseURL string, interceptors ...clientv2.Reques
 type Query struct {
 	Netns  []*NetnsResult "json:\"netns\" graphql:\"netns\""
 	Status Status         "json:\"status\" graphql:\"status\""
+	Config ConfigResult   "json:\"config\" graphql:\"config\""
 }
 type Mutation struct {
-	Dummy DummyResult "json:\"dummy\" graphql:\"dummy\""
+	UpdateConfig ConfigUpdateResult "json:\"updateConfig\" graphql:\"updateConfig\""
+}
+type GetConfig_Config struct {
+	Yaml      string "json:\"yaml\" graphql:\"yaml\""
+	Signature string "json:\"signature\" graphql:\"signature\""
+}
+type SetConfig_UpdateConfig struct {
+	MutationID string "json:\"mutationId\" graphql:\"mutationId\""
 }
 type GetNetns_Netns struct {
 	Name string "json:\"name\" graphql:\"name\""
@@ -54,11 +62,56 @@ type GetStatus_Status struct {
 	Nodes    []*GetStatus_Status_Nodes    "json:\"nodes\" graphql:\"nodes\""
 	Sessions []*GetStatus_Status_Sessions "json:\"sessions\" graphql:\"sessions\""
 }
+type GetConfig struct {
+	Config GetConfig_Config "json:\"config\" graphql:\"config\""
+}
+type SetConfig struct {
+	UpdateConfig SetConfig_UpdateConfig "json:\"updateConfig\" graphql:\"updateConfig\""
+}
 type GetNetns struct {
 	Netns []*GetNetns_Netns "json:\"netns\" graphql:\"netns\""
 }
 type GetStatus struct {
 	Status GetStatus_Status "json:\"status\" graphql:\"status\""
+}
+
+const GetConfigDocument = `query GetConfig {
+	config {
+		yaml
+		signature
+	}
+}
+`
+
+func (c *Client) GetConfig(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetConfig, error) {
+	vars := map[string]interface{}{}
+
+	var res GetConfig
+	if err := c.Client.Post(ctx, "GetConfig", GetConfigDocument, &res, vars, interceptors...); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const SetConfigDocument = `mutation SetConfig ($input: ConfigUpdateInput!) {
+	updateConfig(config: $input) {
+		mutationId
+	}
+}
+`
+
+func (c *Client) SetConfig(ctx context.Context, input ConfigUpdateInput, interceptors ...clientv2.RequestInterceptor) (*SetConfig, error) {
+	vars := map[string]interface{}{
+		"input": input,
+	}
+
+	var res SetConfig
+	if err := c.Client.Post(ctx, "SetConfig", SetConfigDocument, &res, vars, interceptors...); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 const GetNetnsDocument = `query GetNetns ($name: String) {

@@ -1,0 +1,12 @@
+query GetConfig {
+    config {
+        yaml
+        signature
+    }
+}
+
+mutation SetConfig($input: ConfigUpdateInput!) {
+    updateConfig(config: $input) {
+        mutationId
+    }
+}

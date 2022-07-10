@@ -1,11 +1,11 @@
 type Query {
   netns(filter: NetnsFilter): [NetnsResult!]!
   status: Status!
+  config: ConfigResult!
 }
 
 type Mutation {
-  # The schema generator seems to require at least one mutation
-  dummy: DummyResult!
+  updateConfig(config: ConfigUpdateInput!): ConfigUpdateResult!
 }
 
 input NetnsFilter {
@@ -15,10 +15,6 @@ input NetnsFilter {
 type NetnsResult {
   name: String!
   pid: Int!
-}
-
-type DummyResult {
-  mutationId: ID!
 }
 
 type Status {
@@ -46,8 +42,25 @@ type StatusNodeConn {
   cost: Float!
 }
 
-type StatusSession{
+type StatusSession {
   addr: String!
   connected: Boolean!
   conn_start: String!
+}
+
+type ConfigResult {
+  yaml: String!
+  signature: String!
+}
+
+scalar Time
+
+input ConfigUpdateInput {
+  effective: Time
+  yaml: String!
+  signature: String!
+}
+
+type ConfigUpdateResult {
+  mutationId: ID!
 }

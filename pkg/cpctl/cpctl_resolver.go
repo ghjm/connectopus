@@ -5,14 +5,18 @@ import (
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/proto"
+	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
+	"gopkg.in/yaml.v3"
 	"time"
 )
 
 type Resolver struct {
-	C     *config.Config
-	N     proto.Netopus
-	NsReg *netns.Registry
+	GetConfig           func() *config.Config
+	GetNetopus          func() proto.Netopus
+	GetNsReg            func() *netns.Registry
+	GetReconcilerStatus func() error
+	UpdateNodeConfig    func([]byte) error
 }
 
 func (r *Resolver) Query() QueryResolver {
@@ -21,11 +25,12 @@ func (r *Resolver) Query() QueryResolver {
 
 func (r *Resolver) Netns(_ context.Context, filter *NetnsFilter) ([]*NetnsResult, error) {
 	var nspid []netns.NamePID
-	if r.NsReg != nil {
+	nsReg := r.GetNsReg()
+	if nsReg != nil {
 		if filter == nil || filter.Name == nil {
-			nspid = r.NsReg.GetAll()
+			nspid = nsReg.GetAll()
 		} else {
-			nsp, err := r.NsReg.Get(*filter.Name)
+			nsp, err := nsReg.Get(*filter.Name)
 			if err == nil {
 				nspid = []netns.NamePID{{Name: *filter.Name, PID: nsp}}
 			}
@@ -39,16 +44,17 @@ func (r *Resolver) Netns(_ context.Context, filter *NetnsFilter) ([]*NetnsResult
 }
 
 func (r *Resolver) Status(_ context.Context) (*Status, error) {
-	ns := r.N.Status()
+	c := r.GetConfig()
+	ns := r.GetNetopus().Status()
 	stat := &Status{
 		Name: ns.Name,
 		Addr: ns.Addr.String(),
 		Global: &StatusGlobal{
-			Domain: r.C.Global.Domain,
-			Subnet: r.C.Global.Subnet.String(),
+			Domain: c.Global.Domain,
+			Subnet: c.Global.Subnet.String(),
 		},
 	}
-	for _, key := range r.C.Global.AuthorizedKeys {
+	for _, key := range c.Global.AuthorizedKeys {
 		stat.Global.AuthorizedKeys = append(stat.Global.AuthorizedKeys, key.String())
 	}
 	for routerNode, routerRoutes := range ns.RouterNodes {
@@ -89,6 +95,20 @@ func (r *Resolver) Mutation() MutationResolver {
 	return r
 }
 
-func (r *Resolver) Dummy(_ context.Context) (*DummyResult, error) {
-	return &DummyResult{}, nil
+func (r *Resolver) Config(_ context.Context) (*ConfigResult, error) {
+	cfg := r.GetConfig()
+	yamlCfg, err := yaml.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfigResult{
+		Yaml: string(yamlCfg),
+	}, nil
+}
+
+func (r *Resolver) UpdateConfig(_ context.Context, config ConfigUpdateInput) (*ConfigUpdateResult, error) {
+	err := r.UpdateNodeConfig([]byte(config.Yaml))
+	return &ConfigUpdateResult{
+		MutationID: uuid.NewString(),
+	}, err
 }

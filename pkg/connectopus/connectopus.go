@@ -23,13 +23,27 @@ func RunNode(ctx context.Context, cfgData []byte, identity string) (*reconciler.
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
 	}
+	ri := reconciler.NewRunningItem(ctx)
 	nodeCfg := NodeCfg{
 		Config:   cfg,
 		identity: identity,
 	}
-	ri := reconciler.NewRunningItem(ctx)
-	ri.Reconcile(nodeCfg, nil)
+	ri.Reconcile(nodeCfg, ri)
 	return ri, ri.Status()
+}
+
+func UpdateNode(ri *reconciler.RunningItem, cfgData []byte) error {
+	cfg, err := config.ParseConfig(cfgData)
+	if err != nil {
+		return fmt.Errorf("error parsing config: %w", err)
+	}
+	nodeCfg, ok := ri.Config().(NodeCfg)
+	if !ok {
+		return fmt.Errorf("running instance config is wrong type")
+	}
+	nodeCfg.Config = cfg
+	ri.Reconcile(nodeCfg, ri)
+	return ri.Status()
 }
 
 type NodeCfg struct {
@@ -62,9 +76,14 @@ type nodeInstance struct {
 	node     *config.Node
 	n        proto.Netopus
 	nsreg    *netns.Registry
+	ri       *reconciler.RunningItem
 }
 
-func (nc NodeCfg) Start(ctx context.Context, _ any) (any, error) {
+func (nc NodeCfg) Start(ctx context.Context, instance any) (any, error) {
+	ri, ok := instance.(*reconciler.RunningItem)
+	if !ok {
+		return nil, fmt.Errorf("error retrieving instance: bad type")
+	}
 	node, ok := nc.Nodes[nc.identity]
 	if !ok {
 		return nil, fmt.Errorf("invalid identity for config")
@@ -74,6 +93,7 @@ func (nc NodeCfg) Start(ctx context.Context, _ any) (any, error) {
 		identity: nc.identity,
 		node:     &node,
 		nsreg:    &netns.Registry{},
+		ri:       ri,
 	}
 	var err error
 	inst.n, err = netopus.New(ctx, node.Address, nc.identity, netopus.LeastMTU(node, 1500))
@@ -133,9 +153,18 @@ func (c CpctlCfg) Start(ctx context.Context, instance any) (any, error) {
 	}
 	csrv := cpctl.Server{
 		Resolver: cpctl.Resolver{
-			C:     inst.cfg,
-			N:     inst.n,
-			NsReg: inst.nsreg,
+			GetConfig: func() *config.Config {
+				cfg := inst.ri.Config()
+				ncfg, ncOK := cfg.(NodeCfg)
+				if !ncOK {
+					return nil
+				}
+				return ncfg.Config
+			},
+			GetNetopus:          func() proto.Netopus { return inst.n },
+			GetNsReg:            func() *netns.Registry { return inst.nsreg },
+			GetReconcilerStatus: func() error { return inst.ri.Status() },
+			UpdateNodeConfig:    func(config []byte) error { return UpdateNode(inst.ri, config) },
 		},
 		SigningMethod: sm,
 	}

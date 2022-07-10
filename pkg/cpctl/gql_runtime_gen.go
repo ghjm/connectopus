@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
@@ -44,12 +45,17 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
-	DummyResult struct {
+	ConfigResult struct {
+		Signature func(childComplexity int) int
+		Yaml      func(childComplexity int) int
+	}
+
+	ConfigUpdateResult struct {
 		MutationID func(childComplexity int) int
 	}
 
 	Mutation struct {
-		Dummy func(childComplexity int) int
+		UpdateConfig func(childComplexity int, config ConfigUpdateInput) int
 	}
 
 	NetnsResult struct {
@@ -58,6 +64,7 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
+		Config func(childComplexity int) int
 		Netns  func(childComplexity int, filter *NetnsFilter) int
 		Status func(childComplexity int) int
 	}
@@ -95,11 +102,12 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	Dummy(ctx context.Context) (*DummyResult, error)
+	UpdateConfig(ctx context.Context, config ConfigUpdateInput) (*ConfigUpdateResult, error)
 }
 type QueryResolver interface {
 	Netns(ctx context.Context, filter *NetnsFilter) ([]*NetnsResult, error)
 	Status(ctx context.Context) (*Status, error)
+	Config(ctx context.Context) (*ConfigResult, error)
 }
 
 type executableSchema struct {
@@ -117,19 +125,38 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	_ = ec
 	switch typeName + "." + field {
 
-	case "DummyResult.mutationId":
-		if e.complexity.DummyResult.MutationID == nil {
+	case "ConfigResult.signature":
+		if e.complexity.ConfigResult.Signature == nil {
 			break
 		}
 
-		return e.complexity.DummyResult.MutationID(childComplexity), true
+		return e.complexity.ConfigResult.Signature(childComplexity), true
 
-	case "Mutation.dummy":
-		if e.complexity.Mutation.Dummy == nil {
+	case "ConfigResult.yaml":
+		if e.complexity.ConfigResult.Yaml == nil {
 			break
 		}
 
-		return e.complexity.Mutation.Dummy(childComplexity), true
+		return e.complexity.ConfigResult.Yaml(childComplexity), true
+
+	case "ConfigUpdateResult.mutationId":
+		if e.complexity.ConfigUpdateResult.MutationID == nil {
+			break
+		}
+
+		return e.complexity.ConfigUpdateResult.MutationID(childComplexity), true
+
+	case "Mutation.updateConfig":
+		if e.complexity.Mutation.UpdateConfig == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateConfig_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateConfig(childComplexity, args["config"].(ConfigUpdateInput)), true
 
 	case "NetnsResult.name":
 		if e.complexity.NetnsResult.Name == nil {
@@ -144,6 +171,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.NetnsResult.Pid(childComplexity), true
+
+	case "Query.config":
+		if e.complexity.Query.Config == nil {
+			break
+		}
+
+		return e.complexity.Query.Config(childComplexity), true
 
 	case "Query.netns":
 		if e.complexity.Query.Netns == nil {
@@ -284,6 +318,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputConfigUpdateInput,
 		ec.unmarshalInputNetnsFilter,
 	)
 	first := true
@@ -364,6 +399,21 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_updateConfig_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 ConfigUpdateInput
+	if tmp, ok := rawArgs["config"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("config"))
+		arg0, err = ec.unmarshalNConfigUpdateInput2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigUpdateInput(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["config"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -432,8 +482,96 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _DummyResult_mutationId(ctx context.Context, field graphql.CollectedField, obj *DummyResult) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_DummyResult_mutationId(ctx, field)
+func (ec *executionContext) _ConfigResult_yaml(ctx context.Context, field graphql.CollectedField, obj *ConfigResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ConfigResult_yaml(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Yaml, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ConfigResult_yaml(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ConfigResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ConfigResult_signature(ctx context.Context, field graphql.CollectedField, obj *ConfigResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ConfigResult_signature(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Signature, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ConfigResult_signature(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ConfigResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ConfigUpdateResult_mutationId(ctx context.Context, field graphql.CollectedField, obj *ConfigUpdateResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ConfigUpdateResult_mutationId(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -463,9 +601,9 @@ func (ec *executionContext) _DummyResult_mutationId(ctx context.Context, field g
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_DummyResult_mutationId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_ConfigUpdateResult_mutationId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "DummyResult",
+		Object:     "ConfigUpdateResult",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -476,8 +614,8 @@ func (ec *executionContext) fieldContext_DummyResult_mutationId(ctx context.Cont
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_dummy(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_dummy(ctx, field)
+func (ec *executionContext) _Mutation_updateConfig(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateConfig(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -490,7 +628,7 @@ func (ec *executionContext) _Mutation_dummy(ctx context.Context, field graphql.C
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().Dummy(rctx)
+		return ec.resolvers.Mutation().UpdateConfig(rctx, fc.Args["config"].(ConfigUpdateInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -502,12 +640,12 @@ func (ec *executionContext) _Mutation_dummy(ctx context.Context, field graphql.C
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*DummyResult)
+	res := resTmp.(*ConfigUpdateResult)
 	fc.Result = res
-	return ec.marshalNDummyResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐDummyResult(ctx, field.Selections, res)
+	return ec.marshalNConfigUpdateResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigUpdateResult(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_dummy(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_updateConfig(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -516,10 +654,21 @@ func (ec *executionContext) fieldContext_Mutation_dummy(ctx context.Context, fie
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "mutationId":
-				return ec.fieldContext_DummyResult_mutationId(ctx, field)
+				return ec.fieldContext_ConfigUpdateResult_mutationId(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type DummyResult", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type ConfigUpdateResult", field.Name)
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateConfig_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
 	}
 	return fc, nil
 }
@@ -724,6 +873,56 @@ func (ec *executionContext) fieldContext_Query_status(ctx context.Context, field
 				return ec.fieldContext_Status_sessions(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Status", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_config(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_config(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Config(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*ConfigResult)
+	fc.Result = res
+	return ec.marshalNConfigResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_config(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "yaml":
+				return ec.fieldContext_ConfigResult_yaml(ctx, field)
+			case "signature":
+				return ec.fieldContext_ConfigResult_signature(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ConfigResult", field.Name)
 		},
 	}
 	return fc, nil
@@ -3365,6 +3564,50 @@ func (ec *executionContext) fieldContext___Type_specifiedByURL(ctx context.Conte
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputConfigUpdateInput(ctx context.Context, obj interface{}) (ConfigUpdateInput, error) {
+	var it ConfigUpdateInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"effective", "yaml", "signature"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "effective":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("effective"))
+			it.Effective, err = ec.unmarshalOTime2ᚖtimeᚐTime(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "yaml":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("yaml"))
+			it.Yaml, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "signature":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("signature"))
+			it.Signature, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputNetnsFilter(ctx context.Context, obj interface{}) (NetnsFilter, error) {
 	var it NetnsFilter
 	asMap := map[string]interface{}{}
@@ -3401,19 +3644,54 @@ func (ec *executionContext) unmarshalInputNetnsFilter(ctx context.Context, obj i
 
 // region    **************************** object.gotpl ****************************
 
-var dummyResultImplementors = []string{"DummyResult"}
+var configResultImplementors = []string{"ConfigResult"}
 
-func (ec *executionContext) _DummyResult(ctx context.Context, sel ast.SelectionSet, obj *DummyResult) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, dummyResultImplementors)
+func (ec *executionContext) _ConfigResult(ctx context.Context, sel ast.SelectionSet, obj *ConfigResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, configResultImplementors)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("DummyResult")
+			out.Values[i] = graphql.MarshalString("ConfigResult")
+		case "yaml":
+
+			out.Values[i] = ec._ConfigResult_yaml(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "signature":
+
+			out.Values[i] = ec._ConfigResult_signature(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var configUpdateResultImplementors = []string{"ConfigUpdateResult"}
+
+func (ec *executionContext) _ConfigUpdateResult(ctx context.Context, sel ast.SelectionSet, obj *ConfigUpdateResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, configUpdateResultImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ConfigUpdateResult")
 		case "mutationId":
 
-			out.Values[i] = ec._DummyResult_mutationId(ctx, field, obj)
+			out.Values[i] = ec._ConfigUpdateResult_mutationId(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -3448,10 +3726,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "dummy":
+		case "updateConfig":
 
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_dummy(ctx, field)
+				return ec._Mutation_updateConfig(ctx, field)
 			})
 
 			if out.Values[i] == graphql.Null {
@@ -3555,6 +3833,29 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_status(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx, innerFunc)
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return rrm(innerCtx)
+			})
+		case "config":
+			field := field
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_config(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
@@ -4141,18 +4442,37 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNDummyResult2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐDummyResult(ctx context.Context, sel ast.SelectionSet, v DummyResult) graphql.Marshaler {
-	return ec._DummyResult(ctx, sel, &v)
+func (ec *executionContext) marshalNConfigResult2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigResult(ctx context.Context, sel ast.SelectionSet, v ConfigResult) graphql.Marshaler {
+	return ec._ConfigResult(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDummyResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐDummyResult(ctx context.Context, sel ast.SelectionSet, v *DummyResult) graphql.Marshaler {
+func (ec *executionContext) marshalNConfigResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigResult(ctx context.Context, sel ast.SelectionSet, v *ConfigResult) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._DummyResult(ctx, sel, v)
+	return ec._ConfigResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNConfigUpdateInput2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigUpdateInput(ctx context.Context, v interface{}) (ConfigUpdateInput, error) {
+	res, err := ec.unmarshalInputConfigUpdateInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNConfigUpdateResult2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigUpdateResult(ctx context.Context, sel ast.SelectionSet, v ConfigUpdateResult) graphql.Marshaler {
+	return ec._ConfigUpdateResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNConfigUpdateResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋcpctlᚐConfigUpdateResult(ctx context.Context, sel ast.SelectionSet, v *ConfigUpdateResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ConfigUpdateResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v interface{}) (float64, error) {
@@ -4787,6 +5107,22 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 		return graphql.Null
 	}
 	res := graphql.MarshalString(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOTime2ᚖtimeᚐTime(ctx context.Context, v interface{}) (*time.Time, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalTime(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel ast.SelectionSet, v *time.Time) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalTime(*v)
 	return res
 }
 

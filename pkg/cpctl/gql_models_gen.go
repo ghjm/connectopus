@@ -2,7 +2,22 @@
 
 package cpctl
 
-type DummyResult struct {
+import (
+	"time"
+)
+
+type ConfigResult struct {
+	Yaml      string `json:"yaml"`
+	Signature string `json:"signature"`
+}
+
+type ConfigUpdateInput struct {
+	Effective *time.Time `json:"effective"`
+	Yaml      string     `json:"yaml"`
+	Signature string     `json:"signature"`
+}
+
+type ConfigUpdateResult struct {
 	MutationID string `json:"mutationId"`
 }
 

@@ -15,11 +15,13 @@ import (
 	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/x/bridge"
 	"github.com/ghjm/connectopus/pkg/x/exit_handler"
+	"github.com/ghjm/connectopus/pkg/x/file_cleaner"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -39,7 +41,7 @@ var rootCmd = &cobra.Command{
 }
 
 // Node Command
-var configFile string
+var configFilename string
 var identity string
 var logLevel string
 var nodeCmd = &cobra.Command{
@@ -63,7 +65,7 @@ var nodeCmd = &cobra.Command{
 			}
 		}
 
-		cfgData, err := ioutil.ReadFile(configFile)
+		cfgData, err := ioutil.ReadFile(configFilename)
 		if err != nil {
 			errExitf("error loading config file: %s", err)
 		}
@@ -153,6 +155,138 @@ var verifyTokenCmd = &cobra.Command{
 		if expirationDate != nil {
 			fmt.Printf("  Expiration: %s\n", expirationDate.String())
 		}
+	},
+}
+
+var configCmd = &cobra.Command{
+	Use:   "config",
+	Short: "Commands involving configuration",
+}
+
+// Get Config Command
+var getConfigCmd = &cobra.Command{
+	Use:     "get",
+	Aliases: []string{"read", "save", "download", "dump"},
+	Short:   "Retrieve the running configuration and save it as YAML",
+	Args:    cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
+		if err != nil {
+			errExit(err)
+		}
+		var config *cpctl.GetConfig
+		config, err = client.GetConfig(context.Background())
+		if err != nil {
+			errExit(err)
+		}
+		if configFilename == "" {
+			fmt.Printf(config.Config.Yaml)
+		} else {
+			err = ioutil.WriteFile(configFilename, []byte(config.Config.Yaml), 0600)
+			if err != nil {
+				errExit(err)
+			}
+			fmt.Printf("Config saved to %s\n", configFilename)
+		}
+	},
+}
+
+// Set Config Command
+var setConfigCmd = &cobra.Command{
+	Use:     "set",
+	Aliases: []string{"write", "load", "upload"},
+	Short:   "Update the running configuration from a file or stdin",
+	Args:    cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
+		if err != nil {
+			errExit(err)
+		}
+		var configFile *os.File
+		if configFilename == "-" {
+			configFile = os.Stdin
+		} else {
+			configFile, err = os.Open(configFilename)
+			if err != nil {
+				errExit(err)
+			}
+		}
+		var yaml []byte
+		yaml, err = io.ReadAll(configFile)
+		if err != nil {
+			errExit(err)
+		}
+		_, err = client.SetConfig(context.Background(), cpctl.ConfigUpdateInput{
+			Yaml:      string(yaml),
+			Signature: "",
+		})
+		if err != nil {
+			errExit(err)
+		}
+	},
+}
+
+// Edit Config Command
+var editConfigCmd = &cobra.Command{
+	Use:   "edit",
+	Short: "Edit the running configuration",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
+		if err != nil {
+			errExitf("error opening socket client: %s", err)
+		}
+		var config *cpctl.GetConfig
+		config, err = client.GetConfig(context.Background())
+		if err != nil {
+			errExitf("error getting current config: %s", err)
+		}
+		var tmpFile *os.File
+		tmpFile, err = ioutil.TempFile("", "connectopus-config-*.yml")
+		if err != nil {
+			errExitf("error creating temp file: %s", err)
+		}
+		file_cleaner.DeleteOnExit(tmpFile.Name())
+		_, err = tmpFile.Write([]byte(config.Config.Yaml))
+		if err != nil {
+			errExitf("error writing temp file: %s", err)
+		}
+		err = tmpFile.Close()
+		if err != nil {
+			errExitf("error closing temp file: %s", err)
+		}
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = os.Getenv("VISUAL")
+		}
+		if editor == "" {
+			errExitf("unable to find an editor.  Please set EDITOR or VISUAL.")
+		}
+		c := exec.Command(editor, tmpFile.Name())
+		c.Stdin = os.Stdin
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		err = c.Run()
+		if err != nil {
+			errExitf("error running editor: %s", err)
+		}
+		var newYaml []byte
+		newYaml, err = ioutil.ReadFile(tmpFile.Name())
+		if err != nil {
+			errExitf("error reading temp file: %s", err)
+		}
+		if string(newYaml) == config.Config.Yaml {
+			fmt.Printf("Config file unchanged.  Not updating.\n")
+			return
+		}
+		_, err = client.SetConfig(context.Background(), cpctl.ConfigUpdateInput{
+			Yaml:      string(newYaml),
+			Signature: "",
+		})
+		if err != nil {
+			errExitf("error updating config: %s", err)
+		}
+		fmt.Printf("Configuration updated.\n")
 	},
 }
 
@@ -416,7 +550,7 @@ var setupTunnelCmd = &cobra.Command{
 				uid = os.Getgid()
 			}
 		}
-		config, err := config.LoadConfig(configFile)
+		config, err := config.LoadConfig(configFilename)
 		if err != nil {
 			errExitf("error reading config file: %s", err)
 		}
@@ -488,7 +622,42 @@ func formatNode(addr string, nodeNames map[string]string) string {
 }
 
 func main() {
-	nodeCmd.Flags().StringVar(&configFile, "config", "", "Config file name (required)")
+
+	getConfigCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	getConfigCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
+	getConfigCmd.Flags().StringVar(&socketFile, "socketfile", "",
+		"Socket file to communicate between CLI and node")
+	getConfigCmd.Flags().StringVar(&socketNode, "node", "",
+		"Select which node's socket file to open, if there are multiple")
+	getConfigCmd.Flags().StringVar(&proxyTo, "proxy-to", "",
+		"Node to communicate with (non-local implies proxy)")
+	getConfigCmd.Flags().StringVar(&configFilename, "filename", "",
+		"Filename to save to (default is print to stdout)")
+
+	setConfigCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	setConfigCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
+	setConfigCmd.Flags().StringVar(&socketFile, "socketfile", "",
+		"Socket file to communicate between CLI and node")
+	setConfigCmd.Flags().StringVar(&socketNode, "node", "",
+		"Select which node's socket file to open, if there are multiple")
+	setConfigCmd.Flags().StringVar(&proxyTo, "proxy-to", "",
+		"Node to communicate with (non-local implies proxy)")
+	setConfigCmd.Flags().StringVar(&configFilename, "filename", "",
+		"Filename to read from (- means read from stdin)")
+	_ = setConfigCmd.MarkFlagRequired("filename")
+
+	editConfigCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	editConfigCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
+	editConfigCmd.Flags().StringVar(&socketFile, "socketfile", "",
+		"Socket file to communicate between CLI and node")
+	editConfigCmd.Flags().StringVar(&socketNode, "node", "",
+		"Select which node's socket file to open, if there are multiple")
+	editConfigCmd.Flags().StringVar(&proxyTo, "proxy-to", "",
+		"Node to communicate with (non-local implies proxy)")
+
+	configCmd.AddCommand(getConfigCmd, setConfigCmd, editConfigCmd)
+
+	nodeCmd.Flags().StringVar(&configFilename, "config", "", "Config file name (required)")
 	_ = nodeCmd.MarkFlagRequired("config")
 	nodeCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
 	_ = nodeCmd.MarkFlagRequired("id")
@@ -539,14 +708,14 @@ func main() {
 	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
 		"UI port on localhost")
 
-	setupTunnelCmd.Flags().StringVar(&configFile, "config", "", "Config file name (required)")
+	setupTunnelCmd.Flags().StringVar(&configFilename, "config", "", "Config file name (required)")
 	_ = setupTunnelCmd.MarkFlagRequired("config")
 	setupTunnelCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
 	_ = setupTunnelCmd.MarkFlagRequired("id")
 	setupTunnelCmd.Flags().IntVar(&uid, "uid", -1, "User ID who will own the tunnel")
 	setupTunnelCmd.Flags().IntVar(&gid, "gid", -1, "Group ID who will own the tunnel")
 
-	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd)
+	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd, configCmd)
 	if runtime.GOOS == "linux" {
 		rootCmd.AddCommand(nsenterCmd, setupTunnelCmd)
 	}

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"github.com/ghjm/connectopus/pkg/config"
+	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
@@ -58,11 +59,15 @@ func TestCpctl(t *testing.T) {
 	}
 	r := Server{
 		Resolver: Resolver{
-			C: &config.Config{
-				Global: config.Global{
-					AuthorizedKeys: []proto.MarshalablePublicKey{mpk},
-				},
+			GetConfig: func() *config.Config {
+				return &config.Config{
+					Global: config.Global{
+						AuthorizedKeys: []proto.MarshalablePublicKey{mpk},
+					},
+				}
 			},
+			GetNetopus: func() proto.Netopus { return nil },
+			GetNsReg:   func() *netns.Registry { return nil },
 		},
 		SigningMethod: sm,
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"sync"
+	"time"
 )
 
 type ConfigItem interface {
@@ -32,14 +34,33 @@ func NewRunningItem(ctx context.Context) *RunningItem {
 }
 
 func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
-	if !ci.ParentEqual(ri.config) {
+	oldConfig := ri.config
+	ri.config = ci
+	if !ci.ParentEqual(oldConfig) {
 		ri.cancel()
 		ri.children = syncro.Map[string, *RunningItem]{}
 		ri.ctx, ri.cancel = context.WithCancel(ri.parentCtx)
-		ri.config = ci
-		childInstance, err := ci.Start(ri.ctx, instance)
-		ri.instance.Set(childInstance)
-		ri.status.Set(err)
+		startChan := make(chan struct{})
+		once := sync.Once{}
+		go func() {
+			for {
+				childInstance, err := ci.Start(ri.ctx, instance)
+				ri.instance.Set(childInstance)
+				ri.status.Set(err)
+				once.Do(func() { close(startChan) })
+				if err == nil {
+					return
+				}
+				timer := time.NewTimer(5 * time.Second)
+				select {
+				case <-ri.ctx.Done():
+					timer.Stop()
+					return
+				case <-timer.C:
+				}
+			}
+		}()
+		<-startChan
 	}
 	ri.children.WorkWith(func(_rc *map[string]*RunningItem) {
 		rc := *_rc
@@ -82,6 +103,10 @@ func (ri *RunningItem) Status() error {
 
 func (ri *RunningItem) Instance() any {
 	return ri.instance.Get()
+}
+
+func (ri *RunningItem) Config() ConfigItem {
+	return ri.config
 }
 
 func (ri *RunningItem) Children() map[string]*RunningItem {

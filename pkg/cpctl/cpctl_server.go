@@ -26,8 +26,11 @@ func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handle
 	serverMux := mux
 	if auth {
 		var authKeys []string
-		for _, k := range s.C.Global.AuthorizedKeys {
-			authKeys = append(authKeys, k.String())
+		cfg := s.GetConfig()
+		if cfg != nil {
+			for _, k := range cfg.Global.AuthorizedKeys {
+				authKeys = append(authKeys, k.String())
+			}
 		}
 		serverMux = &ssh_jwt.Handler{
 			AuthorizedKeys: authKeys,
@@ -99,7 +102,7 @@ func (s *Server) ServeHTTP(ctx context.Context, li net.Listener) error {
 	mux.HandleFunc("/api", s.HandlePlayground)
 	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: s})))
 
-	p := NewProxy(s.N)
+	p := NewProxy(s.GetNetopus())
 	mux.Handle("/proxy/", p)
 
 	s.runServer(ctx, li, mux, true)
