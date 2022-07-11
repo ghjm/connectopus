@@ -14,8 +14,12 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/reconciler"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"reflect"
+	"strings"
+	"time"
 )
 
 func RunNode(ctx context.Context, cfgData []byte, identity string) (*reconciler.RunningItem, error) {
@@ -113,6 +117,7 @@ func (nc NodeCfg) Children() map[string]reconciler.ConfigItem {
 	}
 	children := make(map[string]reconciler.ConfigItem)
 	children["cpctl"] = CpctlCfg(node.Cpctl)
+	children["dns"] = DnsCfg(node.Dns)
 	for k, v := range node.Backends {
 		children[fmt.Sprintf("backend.%s", k)] = BackendCfg(v)
 	}
@@ -206,6 +211,97 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any) (any, er
 }
 
 func (c CpctlCfg) Children() map[string]reconciler.ConfigItem {
+	return nil
+}
+
+type DnsCfg config.Dns
+
+func (d DnsCfg) ParentEqual(item reconciler.ConfigItem) bool {
+	ci, ok := item.(DnsCfg)
+	if !ok {
+		return false
+	}
+	return reflect.DeepEqual(ci, d)
+}
+
+func (d DnsCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+	inst, ok := instance.(*nodeInstance)
+	if !ok {
+		return nil, fmt.Errorf("error retrieving instance: bad type")
+	}
+
+	if d.Disable {
+		return inst, nil
+	}
+
+	pc, err := inst.n.DialUDP(53, nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("udp listener error: %s", err)
+	}
+	go func() {
+		<-ctx.Done()
+		_ = pc.Close()
+	}()
+
+	var li net.Listener
+	li, err = inst.n.ListenTCP(53)
+	if err != nil {
+		return nil, fmt.Errorf("tcp listener error: %s", err)
+	}
+	go func() {
+		<-ctx.Done()
+		_ = li.Close()
+	}()
+
+	handler := &dns.ServeMux{}
+	handler.HandleFunc(inst.cfg.Global.Domain, func(w dns.ResponseWriter, r *dns.Msg) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Compress = false
+		if r.Opcode == dns.OpcodeQuery {
+			for _, q := range m.Question {
+				switch q.Qtype {
+				case dns.TypeAAAA:
+					qs := strings.TrimSuffix(q.Name, ".")
+					qs = strings.TrimSuffix(qs, inst.cfg.Global.Domain)
+					qs = strings.TrimSuffix(qs, ".")
+					log.Printf("Query for %s trimmed %s\n", q.Name, qs)
+					ip := inst.n.Status().NameToAddr[qs]
+					if ip != "" {
+						rr, err := dns.NewRR(fmt.Sprintf("%s AAAA %s", q.Name, ip))
+						if err == nil {
+							m.Answer = append(m.Answer, rr)
+						}
+					}
+				}
+			}
+		}
+		_ = w.WriteMsg(m)
+	})
+
+	server := &dns.Server{
+		Addr:         ":53",
+		Net:          "udp",
+		Listener:     li,
+		PacketConn:   pc,
+		Handler:      handler,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
+	go func() {
+		err = server.ActivateAndServe()
+		if err != nil && ctx.Err() == nil {
+			log.Warnf("dns server error: %s", err)
+		}
+	}()
+	go func() {
+		<-ctx.Done()
+		_ = server.Shutdown()
+	}()
+	return inst, nil
+}
+
+func (d DnsCfg) Children() map[string]reconciler.ConfigItem {
 	return nil
 }
 

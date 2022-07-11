@@ -27,6 +27,7 @@ type Node struct {
 	TunDevs    map[string]TunDev    `yaml:"tun_devs,omitempty"`
 	Namespaces map[string]Namespace `yaml:"namespaces,omitempty"`
 	Cpctl      Cpctl                `yaml:"cpctl,omitempty"`
+	Dns        Dns                  `yaml:"dns,omitempty"`
 }
 
 type Service struct {
@@ -50,6 +51,10 @@ type Cpctl struct {
 	SocketFile string `yaml:"socket_file"`
 	NoSocket   bool   `yaml:"no_socket"`
 	Port       int    `yaml:"port"`
+}
+
+type Dns struct {
+	Disable bool `yaml:"disable"`
 }
 
 func ExpandFilename(nodeID, filename string) (string, error) {

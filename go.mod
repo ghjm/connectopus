@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
+	github.com/miekg/dns v1.1.50
 	github.com/pion/dtls/v2 v2.1.5
 	github.com/sirupsen/logrus v1.8.1
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
