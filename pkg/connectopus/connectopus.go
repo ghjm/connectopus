@@ -6,6 +6,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/cpctl"
+	"github.com/ghjm/connectopus/pkg/dns"
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/links/tun"
 	"github.com/ghjm/connectopus/pkg/netopus"
@@ -14,11 +15,9 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/reconciler"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/miekg/dns"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"reflect"
-	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,7 +26,7 @@ func RunNode(ctx context.Context, cfgData []byte, identity string) (*reconciler.
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
 	}
-	ri := reconciler.NewRunningItem(ctx, identity)
+	ri := reconciler.NewRootRunningItem(ctx, identity)
 	nodeCfg := NodeCfg{
 		Config:   cfg,
 		identity: identity,
@@ -48,6 +47,15 @@ func UpdateNode(ri *reconciler.RunningItem, cfgData []byte) error {
 	nodeCfg.Config = cfg
 	ri.Reconcile(nodeCfg, ri)
 	return ri.Status()
+}
+
+type nodeInstance struct {
+	cfg      *config.Config
+	identity string
+	node     *config.Node
+	n        proto.Netopus
+	nsreg    *netns.Registry
+	ri       *reconciler.RunningItem
 }
 
 type NodeCfg struct {
@@ -77,16 +85,7 @@ func (nc NodeCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return true
 }
 
-type nodeInstance struct {
-	cfg      *config.Config
-	identity string
-	node     *config.Node
-	n        proto.Netopus
-	nsreg    *netns.Registry
-	ri       *reconciler.RunningItem
-}
-
-func (nc NodeCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+func (nc NodeCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
 	ri, ok := instance.(*reconciler.RunningItem)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -107,6 +106,11 @@ func (nc NodeCfg) Start(ctx context.Context, name string, instance any) (any, er
 	if err != nil {
 		return nil, err
 	}
+	go func() {
+		<-ctx.Done()
+		time.Sleep(time.Second)
+		done()
+	}()
 	return inst, nil
 }
 
@@ -119,21 +123,25 @@ func (nc NodeCfg) Children() map[string]reconciler.ConfigItem {
 	children["cpctl"] = CpctlCfg(node.Cpctl)
 	children["dns"] = DnsCfg(node.Dns)
 	for k, v := range node.Backends {
-		children[fmt.Sprintf("backend.%s", k)] = BackendCfg(v)
+		children[k] = BackendCfg(v)
 	}
 	for k, v := range node.Namespaces {
-		children[fmt.Sprintf("namespace.%s", k)] = NamespaceCfg(v)
+		children[k] = NamespaceCfg(v)
 	}
 	for k, v := range node.Services {
-		children[fmt.Sprintf("service.%s", k)] = ServiceCfg(v)
+		children[k] = ServiceCfg(v)
 	}
 	for k, v := range node.TunDevs {
-		children[fmt.Sprintf("tundev.%s", k)] = TunDevCfg(v)
+		children[k] = TunDevCfg(v)
 	}
 	for k, v := range node.Namespaces {
-		children[fmt.Sprintf("namespace.%s", k)] = NamespaceCfg(v)
+		children[k] = NamespaceCfg(v)
 	}
 	return children
+}
+
+func (nc NodeCfg) Type() string {
+	return "node"
 }
 
 type CpctlCfg config.Cpctl
@@ -146,7 +154,7 @@ func (c CpctlCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, c)
 }
 
-func (c CpctlCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+func (c CpctlCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -176,25 +184,40 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any) (any, er
 		},
 		SigningMethod: sm,
 	}
+	wg := sync.WaitGroup{}
 	{
 		li, err := inst.n.ListenOOB(ctx, cpctl.ProxyPortNo)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing cpctl proxy listener: %w", err)
 		}
+		wg.Add(1)
+		go func() {
+			<-ctx.Done()
+			_ = li.Close()
+			wg.Done()
+		}()
 		err = csrv.ServeHTTP(ctx, li)
 		if err != nil {
 			return nil, fmt.Errorf("error running cpctl proxy server: %w", err)
 		}
+
 	}
 	if !c.NoSocket {
 		socketFile, err := config.ExpandFilename(inst.identity, c.SocketFile)
 		if err != nil {
 			return nil, fmt.Errorf("error expanding socket filename: %w", err)
 		}
-		err = csrv.ServeUnix(ctx, socketFile)
+		var li net.Listener
+		li, err = csrv.ServeUnix(ctx, socketFile)
 		if err != nil {
 			return nil, fmt.Errorf("error running socket server: %w", err)
 		}
+		wg.Add(1)
+		go func() {
+			<-ctx.Done()
+			_ = li.Close()
+			wg.Done()
+		}()
 	}
 	if c.Port != 0 {
 		lc := net.ListenConfig{}
@@ -204,14 +227,30 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any) (any, er
 		}
 		err = csrv.ServeHTTP(ctx, li)
 		if err != nil {
+			_ = li.Close()
 			return nil, fmt.Errorf("error running cpctl web server: %w", err)
 		}
+		wg.Add(1)
+		go func() {
+			<-ctx.Done()
+			_ = li.Close()
+			wg.Done()
+		}()
 	}
+	go func() {
+		<-ctx.Done()
+		wg.Wait()
+		done()
+	}()
 	return inst, nil
 }
 
 func (c CpctlCfg) Children() map[string]reconciler.ConfigItem {
 	return nil
+}
+
+func (c CpctlCfg) Type() string {
+	return "cpctl"
 }
 
 type DnsCfg config.Dns
@@ -224,7 +263,7 @@ func (d DnsCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, d)
 }
 
-func (d DnsCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+func (d DnsCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -238,71 +277,38 @@ func (d DnsCfg) Start(ctx context.Context, name string, instance any) (any, erro
 	if err != nil {
 		return nil, fmt.Errorf("udp listener error: %s", err)
 	}
-	go func() {
-		<-ctx.Done()
-		_ = pc.Close()
-	}()
 
 	var li net.Listener
 	li, err = inst.n.ListenTCP(53)
 	if err != nil {
+		_ = pc.Close()
 		return nil, fmt.Errorf("tcp listener error: %s", err)
 	}
-	go func() {
-		<-ctx.Done()
-		_ = li.Close()
-	}()
 
-	handler := &dns.ServeMux{}
-	handler.HandleFunc(inst.cfg.Global.Domain, func(w dns.ResponseWriter, r *dns.Msg) {
-		m := new(dns.Msg)
-		m.SetReply(r)
-		m.Compress = false
-		if r.Opcode == dns.OpcodeQuery {
-			for _, q := range m.Question {
-				switch q.Qtype {
-				case dns.TypeAAAA:
-					qs := strings.TrimSuffix(q.Name, ".")
-					qs = strings.TrimSuffix(qs, inst.cfg.Global.Domain)
-					qs = strings.TrimSuffix(qs, ".")
-					log.Printf("Query for %s trimmed %s\n", q.Name, qs)
-					ip := inst.n.Status().NameToAddr[qs]
-					if ip != "" {
-						rr, err := dns.NewRR(fmt.Sprintf("%s AAAA %s", q.Name, ip))
-						if err == nil {
-							m.Answer = append(m.Answer, rr)
-						}
-					}
-				}
-			}
-		}
-		_ = w.WriteMsg(m)
-	})
-
-	server := &dns.Server{
-		Addr:         ":53",
-		Net:          "udp",
-		Listener:     li,
-		PacketConn:   pc,
-		Handler:      handler,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+	srv := dns.Server{
+		Domain:     inst.cfg.Global.Domain,
+		PacketConn: pc,
+		Listener:   li,
+		LookupName: inst.n.LookupName,
+		LookupIP:   inst.n.LookupIP,
 	}
-	go func() {
-		err = server.ActivateAndServe()
-		if err != nil && ctx.Err() == nil {
-			log.Warnf("dns server error: %s", err)
-		}
-	}()
-	go func() {
-		<-ctx.Done()
-		_ = server.Shutdown()
-	}()
+
+	err = srv.Run(ctx)
+	if err != nil {
+		_ = pc.Close()
+		_ = li.Close()
+		return nil, err
+	}
+
 	return inst, nil
 }
 
 func (d DnsCfg) Children() map[string]reconciler.ConfigItem {
 	return nil
+}
+
+func (d DnsCfg) Type() string {
+	return "dns"
 }
 
 type BackendCfg config.Params
@@ -315,7 +321,7 @@ func (b BackendCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, b)
 }
 
-func (b BackendCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+func (b BackendCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -330,11 +336,19 @@ func (b BackendCfg) Start(ctx context.Context, name string, instance any) (any, 
 	if err != nil {
 		return nil, fmt.Errorf("error initializing backend: %w", err)
 	}
+	go func() {
+		<-ctx.Done()
+		done()
+	}()
 	return inst, nil
 }
 
 func (b BackendCfg) Children() map[string]reconciler.ConfigItem {
 	return nil
+}
+
+func (b BackendCfg) Type() string {
+	return "backend"
 }
 
 type ServiceCfg config.Service
@@ -347,7 +361,7 @@ func (s ServiceCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, s)
 }
 
-func (s ServiceCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+func (s ServiceCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -356,11 +370,19 @@ func (s ServiceCfg) Start(ctx context.Context, name string, instance any) (any, 
 	if err != nil {
 		return nil, fmt.Errorf("error initializing service: %w", err)
 	}
+	go func() {
+		<-ctx.Done()
+		done()
+	}()
 	return inst, nil
 }
 
 func (s ServiceCfg) Children() map[string]reconciler.ConfigItem {
 	return nil
+}
+
+func (s ServiceCfg) Type() string {
+	return "service"
 }
 
 type TunDevCfg config.TunDev
@@ -373,7 +395,7 @@ func (t TunDevCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, t)
 }
 
-func (t TunDevCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+func (t TunDevCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
@@ -383,18 +405,22 @@ func (t TunDevCfg) Start(ctx context.Context, name string, instance any) (any, e
 		return nil, fmt.Errorf("error initializing tunnel: %w", err)
 	}
 	tunCh := tunLink.SubscribePackets()
+	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(t.Address), defaultCost(t.Cost), tunLink.SendPacket)
+	inst.n.AddExternalName(name, t.Address)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				tunLink.UnsubscribePackets(tunCh)
+				inst.n.DelExternalName(name)
+				inst.n.DelExternalRoute(name)
+				done()
 				return
 			case packet := <-tunCh:
 				_ = inst.n.SendPacket(packet)
 			}
 		}
 	}()
-	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(t.Address), defaultCost(t.Cost), tunLink.SendPacket)
 	return inst, nil
 }
 
@@ -402,44 +428,57 @@ func (t TunDevCfg) Children() map[string]reconciler.ConfigItem {
 	return nil
 }
 
+func (t TunDevCfg) Type() string {
+	return "tundev"
+}
+
 type NamespaceCfg config.Namespace
 
-func (n NamespaceCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (nc NamespaceCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(NamespaceCfg)
 	if !ok {
 		return false
 	}
-	return reflect.DeepEqual(ci, n)
+	return reflect.DeepEqual(ci, nc)
 }
 
-func (n NamespaceCfg) Start(ctx context.Context, name string, instance any) (any, error) {
+func (nc NamespaceCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
 	inst, ok := instance.(*nodeInstance)
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
 	}
-	ns, err := netns.New(ctx, net.IP(n.Address), netns.WithMTU(inst.n.MTU()))
+	ns, err := netns.New(ctx, net.IP(nc.Address), netns.WithMTU(inst.n.MTU()))
 	if err != nil {
 		return nil, fmt.Errorf("error initializing namespace: %w", err)
 	}
 	nsCh := ns.SubscribePackets()
+	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(nc.Address), defaultCost(nc.Cost), ns.SendPacket)
+	inst.n.AddExternalName(name, nc.Address)
+	inst.nsreg.Add(name, ns.PID())
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				ns.UnsubscribePackets(nsCh)
+				inst.nsreg.Del(name)
+				inst.n.DelExternalName(name)
+				inst.n.DelExternalRoute(name)
+				done()
 				return
 			case packet := <-nsCh:
 				_ = inst.n.SendPacket(packet)
 			}
 		}
 	}()
-	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(n.Address), defaultCost(n.Cost), ns.SendPacket)
-	inst.nsreg.Add(name, ns.PID())
 	return inst, nil
 }
 
-func (n NamespaceCfg) Children() map[string]reconciler.ConfigItem {
+func (nc NamespaceCfg) Children() map[string]reconciler.ConfigItem {
 	return nil
+}
+
+func (nc NamespaceCfg) Type() string {
+	return "namespace"
 }
 
 func defaultCost(cost float32) float32 {

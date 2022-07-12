@@ -24,11 +24,12 @@ func (c Config) ParentEqual(item ConfigItem) bool {
 	return c.MainCfg == ci.MainCfg
 }
 
-func (c Config) Start(ctx context.Context, _ string, _ any) (any, error) {
+func (c Config) Start(ctx context.Context, _ string, _ any, done func()) (any, error) {
 	exp.Produce(fmt.Sprintf("started %s", c.MainCfg))
 	go func() {
 		<-ctx.Done()
 		exp.Produce(fmt.Sprintf("stopped %s", c.MainCfg))
+		done()
 	}()
 	return nil, nil
 }
@@ -39,6 +40,10 @@ func (c Config) Children() map[string]ConfigItem {
 		ci[n] = v
 	}
 	return ci
+}
+
+func (c Config) Type() string {
+	return "test"
 }
 
 var config1 = Config{
@@ -78,7 +83,7 @@ func TestComponents(t *testing.T) {
 	exp.Expect("started A1")
 	exp.Expect("started B1")
 	exp.Expect("started C1")
-	main := NewRunningItem(testCtx, "test")
+	main := NewRootRunningItem(testCtx, "test")
 	main.Reconcile(config1, nil)
 	exp.WaitClear()
 	exp.Expect("stopped main 1")

@@ -15,6 +15,7 @@ type Netopus interface {
 	netstack.UserStack
 	ExternalRouter
 	OOBConnector
+	NameService
 	Status() *Status
 	MTU() uint16
 }
@@ -31,6 +32,18 @@ type ExternalRouter interface {
 	SubscribeUpdates() <-chan RoutingPolicy
 	// UnsubscribeUpdates unsubscribes a previously subscribed updates channel
 	UnsubscribeUpdates(<-chan RoutingPolicy)
+}
+
+// NameService is a service that can map names to IP addresses
+type NameService interface {
+	// LookupName returns the IP for a name, with the IP being zero length if it is unknown.
+	LookupName(string) IP
+	// LookupIP returns the name for an IP, or the empty string if it is unknown.
+	LookupIP(IP) string
+	// AddExternalName adds an external name and associated IP address.
+	AddExternalName(string, IP)
+	// DelExternalName deletes a previous added external name.
+	DelExternalName(string)
 }
 
 type OOBAddr struct {

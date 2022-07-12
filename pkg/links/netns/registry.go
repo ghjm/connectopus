@@ -18,6 +18,10 @@ func (ns *Registry) Add(name string, pid int) {
 	ns.m.Set(name, pid)
 }
 
+func (ns *Registry) Del(name string) {
+	ns.m.Delete(name)
+}
+
 func (ns *Registry) GetAll() []NamePID {
 	var result []NamePID
 	ns.m.WorkWithReadOnly(func(m map[string]int) {

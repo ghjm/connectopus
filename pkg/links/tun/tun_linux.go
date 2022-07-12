@@ -164,7 +164,6 @@ func New(ctx context.Context, deviceName string, tunAddr net.IP, subnet *net.IPN
 	}
 	go func() {
 		<-ctx.Done()
-		fmt.Printf("closing tunif\n")
 		_ = tunIf.Close()
 	}()
 	l.Publisher = *chanreader.NewPublisher(ctx, tunIf, chanreader.WithBufferSize(int(mtu)))

@@ -37,6 +37,7 @@ type netopus struct {
 	sequence       syncro.Var[uint64]
 	knownNodeInfo  syncro.Map[proto.IP, nodeInfo]
 	externalRoutes syncro.Map[string, externalRouteInfo]
+	externalNames  syncro.Map[string, externalNameInfo]
 	updateSender   timerunner.TimeRunner
 	oobPorts       syncro.Map[uint16, *OOBPacketConn]
 }
@@ -52,6 +53,12 @@ type externalRouteInfo struct {
 	dest               proto.Subnet
 	cost               float32
 	outgoingPacketFunc func(data []byte) error
+}
+
+// externalNameInfo stores information about a name
+type externalNameInfo struct {
+	ip       proto.IP
+	fromNode string
 }
 
 // sessInfo stores information about sessions
@@ -220,6 +227,19 @@ func (p *protoSession) routeReader() {
 			msg.UpdateSequence, msg.Origin.String(), viaNode)
 		if p.n.handleRoutingUpdate(&msg) {
 			p.n.router.UpdateNode(msg.Origin, msg.Connections)
+			p.n.externalNames.WorkWith(func(_en *map[string]externalNameInfo) {
+				en := *_en
+				for k, v := range msg.Names {
+					r, ok := en[k]
+					if ok && r.fromNode == "" {
+						continue
+					}
+					en[k] = externalNameInfo{
+						ip:       v,
+						fromNode: msg.Origin.String(),
+					}
+				}
+			})
 			p.n.floodRoutingUpdate(&msg, &viaNode)
 		}
 	}
@@ -765,11 +785,18 @@ func (n *netopus) generateRoutingUpdate() (*proto.RoutingUpdate, error) {
 			conns[r.dest] = r.cost
 		}
 	})
+	names := make(map[string]proto.IP)
+	n.externalNames.WorkWithReadOnly(func(m map[string]externalNameInfo) {
+		for k, v := range m {
+			names[k] = v.ip
+		}
+	})
 	up := &proto.RoutingUpdate{
 		Origin:      n.addr,
 		NodeName:    n.name,
 		UpdateEpoch: n.epoch,
 		Connections: conns,
+		Names:       names,
 	}
 	n.sequence.WorkWith(func(_seq *uint64) {
 		seq := *_seq
@@ -914,4 +941,63 @@ func (n *netopus) SubscribeUpdates() <-chan proto.RoutingPolicy {
 // UnsubscribeUpdates implements ExternalRouter
 func (n *netopus) UnsubscribeUpdates(ch <-chan proto.RoutingPolicy) {
 	n.router.UnsubscribeUpdates(ch)
+}
+
+// AddExternalName implements NameService
+func (n *netopus) AddExternalName(name string, ip proto.IP) {
+	n.externalNames.Set(name, externalNameInfo{
+		ip:       ip,
+		fromNode: "",
+	})
+}
+
+// DelExternalName implements NameService
+func (n *netopus) DelExternalName(name string) {
+	n.externalNames.Delete(name)
+}
+
+// LookupName implements NameService
+func (n *netopus) LookupName(name string) proto.IP {
+	if name == n.name {
+		a := n.addr
+		return a
+	}
+	var foundIP proto.IP
+	n.knownNodeInfo.WorkWithReadOnly(func(kn map[proto.IP]nodeInfo) {
+		for k, v := range kn {
+			if v.name == name {
+				foundIP = k
+				return
+			}
+		}
+	})
+	if len(foundIP) > 0 {
+		return foundIP
+	}
+	v, ok := n.externalNames.Get(name)
+	if ok {
+		return v.ip
+	}
+	return ""
+}
+
+// LookupIP implements NameService
+func (n *netopus) LookupIP(ip proto.IP) string {
+	if ip.Equal(n.addr) {
+		return n.name
+	}
+	ni, ok := n.knownNodeInfo.Get(ip)
+	if ok {
+		return ni.name
+	}
+	foundName := ""
+	n.externalNames.WorkWithReadOnly(func(en map[string]externalNameInfo) {
+		for k, v := range en {
+			if v.ip == ip {
+				foundName = k
+				return
+			}
+		}
+	})
+	return foundName
 }

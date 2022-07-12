@@ -45,6 +45,7 @@ type RoutingUpdate struct {
 	UpdateEpoch    uint64
 	UpdateSequence uint64
 	Connections    RoutingConns
+	Names          map[string]IP
 }
 
 // OOBMessage is an out-of-band message

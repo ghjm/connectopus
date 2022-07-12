@@ -59,19 +59,19 @@ func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handle
 	}()
 }
 
-func (s *Server) ServeUnix(ctx context.Context, socketFile string) error {
+func (s *Server) ServeUnix(ctx context.Context, socketFile string) (net.Listener, error) {
 	err := os.MkdirAll(path.Dir(socketFile), 0700)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = os.Remove(socketFile)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return nil, err
 	}
 	var li net.Listener
 	li, err = net.Listen("unix", socketFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	delHandle := file_cleaner.DeleteOnExit(socketFile)
 	go func() {
@@ -80,9 +80,15 @@ func (s *Server) ServeUnix(ctx context.Context, socketFile string) error {
 	}()
 	err = os.Chmod(socketFile, 0600)
 	if err != nil {
-		return err
+		_ = li.Close()
+		return nil, err
 	}
-	return s.ServeHTTP(ctx, li)
+	err = s.ServeHTTP(ctx, li)
+	if err != nil {
+		_ = li.Close()
+		return nil, err
+	}
+	return li, nil
 }
 
 func (s *Server) HandlePlayground(w http.ResponseWriter, req *http.Request) {

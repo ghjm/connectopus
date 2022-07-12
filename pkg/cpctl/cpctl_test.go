@@ -75,7 +75,7 @@ func TestCpctl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = r.ServeUnix(ctx, fn)
+	_, err = r.ServeUnix(ctx, fn)
 	if err != nil {
 		t.Fatal(err)
 	}
