@@ -87,6 +87,7 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 		startChan := make(chan struct{})
 		once := sync.Once{}
 		go func() {
+			myType := ri.config.Type()
 			for {
 				ri.doneChan = make(chan struct{})
 				childInstance, err := ci.Start(ri.ctx, ri.name, instance, func() { close(ri.doneChan) })
@@ -94,10 +95,10 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 				ri.status.Set(err)
 				once.Do(func() { close(startChan) })
 				if err == nil {
-					log.Infof("Starting %s %s", ri.config.Type(), ri.QualifiedName())
+					log.Infof("Starting %s %s", myType, ri.QualifiedName())
 					return
 				} else {
-					log.Infof("Failed to start %s %s: %s", ri.config.Type(), ri.QualifiedName(), err)
+					log.Infof("Failed to start %s %s: %s", myType, ri.QualifiedName(), err)
 				}
 				timer := time.NewTimer(5 * time.Second)
 				select {
