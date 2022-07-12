@@ -1001,3 +1001,7 @@ func (n *netopus) LookupIP(ip proto.IP) string {
 	})
 	return foundName
 }
+
+func (n *netopus) Addr() proto.IP {
+	return n.addr
+}

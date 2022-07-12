@@ -505,13 +505,15 @@ var netnsFd int
 var netnsTunIf string
 var netnsAddr string
 var netnsMTU int
+var netnsDomain string
+var netnsDNSServer string
 var netnsShimCmd = &cobra.Command{
 	Use:     "netns_shim",
 	Args:    cobra.NoArgs,
 	Version: version.Version(),
 	Hidden:  true,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := netns.RunShim(netnsFd, netnsTunIf, uint16(netnsMTU), netnsAddr)
+		err := netns.RunShim(netnsFd, netnsTunIf, uint16(netnsMTU), netnsAddr, netnsDomain, netnsDNSServer)
 		if err != nil {
 			errExitf("error running netns shim: %s", err)
 		}
@@ -666,10 +668,14 @@ func main() {
 	netnsShimCmd.Flags().IntVar(&netnsFd, "fd", 0, "file descriptor")
 	_ = netnsShimCmd.MarkFlagRequired("fd")
 	netnsShimCmd.Flags().StringVar(&netnsTunIf, "tunif", "", "tun interface name")
-	_ = netnsShimCmd.MarkFlagRequired("fd")
+	_ = netnsShimCmd.MarkFlagRequired("tunif")
 	netnsShimCmd.Flags().StringVar(&netnsAddr, "addr", "", "ip address")
 	_ = netnsShimCmd.MarkFlagRequired("addr")
 	netnsShimCmd.Flags().IntVar(&netnsMTU, "mtu", 1500, "link MTU")
+	netnsShimCmd.Flags().StringVar(&netnsDomain, "domain", "", "dns domain name")
+	_ = netnsShimCmd.MarkFlagRequired("domain")
+	netnsShimCmd.Flags().StringVar(&netnsDNSServer, "dns-server", "", "dns server")
+	_ = netnsShimCmd.MarkFlagRequired("dns-server")
 
 	statusCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
 	statusCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")

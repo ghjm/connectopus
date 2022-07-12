@@ -29,7 +29,7 @@ func TestAsRootNetns(t *testing.T) {
 
 	addr := net.ParseIP("FD02:3517:34dd:65f1:2bc8:7ae7:8c81:1")
 	remote := net.ParseIP("FD02:3517:34dd:65f1:2bc8:7ae7:8c81:2")
-	ns, err := New(ctx, addr, WithShimBin("../../../connectopus"))
+	ns, err := New(ctx, addr, "netns.test", "FD02:3517:34dd:65f1:2bc8:7ae7:8c81:1", WithShimBin("../../../connectopus"))
 	if err != nil {
 		t.Fatal(err)
 	}

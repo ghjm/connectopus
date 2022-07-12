@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"github.com/ghjm/connectopus/pkg/x/exit_handler"
+	"github.com/ghjm/connectopus/pkg/x/file_cleaner"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	log "github.com/sirupsen/logrus"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -37,7 +39,7 @@ type Link struct {
 }
 
 // New creates a new Linux network namespace based network stack
-func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, error) {
+func New(ctx context.Context, addr net.IP, domain string, dnsServer string, mods ...func(*newParams)) (*Link, error) {
 	params := &newParams{
 		mtu: 1500,
 	}
@@ -65,7 +67,8 @@ func New(ctx context.Context, addr net.IP, mods ...func(*newParams)) (*Link, err
 		}
 	}
 	cmd := exec.CommandContext(ctx, myExec, "netns_shim", "--fd", "3", "--tunif", "nstun",
-		"--addr", fmt.Sprintf("%s/128", addr.String()), "--mtu", fmt.Sprintf("%d", params.mtu))
+		"--addr", fmt.Sprintf("%s/128", addr.String()), "--mtu", fmt.Sprintf("%d", params.mtu),
+		"--domain", domain, "--dns-server", dnsServer)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Unshareflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER | syscall.CLONE_NEWNET | syscall.CLONE_NEWUTS,
 		UidMappings:  []syscall.SysProcIDMap{{ContainerID: 0, HostID: unix.Getuid(), Size: 1}},
@@ -184,15 +187,15 @@ func (ns *Link) MTU() uint16 {
 	return ns.mtu
 }
 
-func RunShim(fd int, tunif string, mtu uint16, addr string) error {
+func RunShim(fd int, tunif string, mtu uint16, addr string, domain string, dnsServer string) error {
 	// Bring up the lo interface
 	lo, err := netlink.LinkByName("lo")
 	if err != nil {
-		return fmt.Errorf("error opening lo: %v", err)
+		return fmt.Errorf("error opening lo: %w", err)
 	}
 	err = netlink.LinkSetUp(lo)
 	if err != nil {
-		return fmt.Errorf("error bringing up lo: %v", err)
+		return fmt.Errorf("error bringing up lo: %w", err)
 	}
 
 	// Create the tun interface
@@ -205,35 +208,35 @@ func RunShim(fd int, tunif string, mtu uint16, addr string) error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("error creating tun interface: %v", err)
+		return fmt.Errorf("error creating tun interface: %w", err)
 	}
 
 	// Set the tun interface address
 	var tunLink netlink.Link
 	tunLink, err = netlink.LinkByName(tunif)
 	if err != nil {
-		return fmt.Errorf("error opening tun interface: %v", err)
+		return fmt.Errorf("error opening tun interface: %w", err)
 	}
 	var tunAddr *netlink.Addr
 	tunAddr, err = netlink.ParseAddr(addr)
 	if err != nil {
-		return fmt.Errorf("error parsing IP address: %v", err)
+		return fmt.Errorf("error parsing IP address: %w", err)
 	}
 	err = netlink.AddrAdd(tunLink, tunAddr)
 	if err != nil {
-		return fmt.Errorf("error adding IP address to tun interface: %v", err)
+		return fmt.Errorf("error adding IP address to tun interface: %w", err)
 	}
 
 	// Set the tun MTU
 	err = netlink.LinkSetMTU(tunLink, int(mtu))
 	if err != nil {
-		return fmt.Errorf("error setting tun interface MTU: %v", err)
+		return fmt.Errorf("error setting tun interface MTU: %w", err)
 	}
 
 	// Bring up the tun interface
 	err = netlink.LinkSetUp(tunLink)
 	if err != nil {
-		return fmt.Errorf("error bringing up tun: %v", err)
+		return fmt.Errorf("error bringing up tun: %w", err)
 	}
 
 	// Set the tun interface IPv4 default route
@@ -247,7 +250,7 @@ func RunShim(fd int, tunif string, mtu uint16, addr string) error {
 		Hoplimit: 30,
 	})
 	if err != nil {
-		return fmt.Errorf("error adding IPv4 route to tun interface: %v", err)
+		return fmt.Errorf("error adding IPv4 route to tun interface: %w", err)
 	}
 
 	// Set the tun interface IPv6 default route
@@ -261,7 +264,31 @@ func RunShim(fd int, tunif string, mtu uint16, addr string) error {
 		Hoplimit: 30,
 	})
 	if err != nil {
-		return fmt.Errorf("error adding IPv6 route to tun interface: %v", err)
+		return fmt.Errorf("error adding IPv6 route to tun interface: %w", err)
+	}
+
+	// Create resolv.conf
+	var rf *os.File
+	rf, err = ioutil.TempFile("", "connectopus-resolv-*.conf")
+	if err != nil {
+		return fmt.Errorf("error creating resolv.conf temp file: %w", err)
+	}
+	rdh := file_cleaner.DeleteOnExit(rf.Name())
+	_, err = fmt.Fprintf(rf, "nameserver %s\n", dnsServer)
+	if err != nil {
+		return fmt.Errorf("error writing resolv.conf temp file: %w", err)
+	}
+	_, err = fmt.Fprintf(rf, "search %s\n", domain)
+	if err != nil {
+		return fmt.Errorf("error writing resolv.conf temp file: %w", err)
+	}
+	err = rf.Close()
+	if err != nil {
+		return fmt.Errorf("error closing resolv.conf temp file: %w", err)
+	}
+	err = syscall.Mount(rf.Name(), "/etc/resolv.conf", "", syscall.MS_BIND, "")
+	if err != nil {
+		return fmt.Errorf("error binding resolv.conf: %w", err)
 	}
 
 	// Notify that the link is ready
@@ -286,9 +313,11 @@ func RunShim(fd int, tunif string, mtu uint16, addr string) error {
 		}
 		cancel()
 	}()
+
 	<-ctx.Done()
 	err = serr.Get()
 	_ = tun.Close()
 	_ = f.Close()
+	_ = rdh.DeleteNow()
 	return err
 }

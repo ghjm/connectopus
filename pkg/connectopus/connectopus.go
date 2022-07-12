@@ -447,7 +447,7 @@ func (nc NamespaceCfg) Start(ctx context.Context, name string, instance any, don
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
 	}
-	ns, err := netns.New(ctx, net.IP(nc.Address), netns.WithMTU(inst.n.MTU()))
+	ns, err := netns.New(ctx, net.IP(nc.Address), inst.cfg.Global.Domain, inst.n.Addr().String(), netns.WithMTU(inst.n.MTU()))
 	if err != nil {
 		return nil, fmt.Errorf("error initializing namespace: %w", err)
 	}
