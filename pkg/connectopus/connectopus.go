@@ -30,6 +30,9 @@ func SignConfig(keyFile, keyText string, cfg config.Config, updateTime bool) ([]
 	if err != nil {
 		return nil, nil, fmt.Errorf("error initializing SSH agent: %s", err)
 	}
+	defer func() {
+		_ = a.Close()
+	}()
 	var keys []*agent.Key
 	keys, err = ssh_jwt.GetMatchingKeys(a, keyText)
 	if err != nil {

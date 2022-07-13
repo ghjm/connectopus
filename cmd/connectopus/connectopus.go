@@ -65,6 +65,7 @@ var initCmd = &cobra.Command{
 		}
 		var keys []*agent.Key
 		keys, err = ssh_jwt.GetMatchingKeys(a, keyText)
+		_ = a.Close()
 		if err != nil {
 			errExitf("error listing SSH keys: %s", err)
 		}
