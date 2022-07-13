@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -291,6 +292,36 @@ func RunShim(fd int, tunif string, mtu uint16, addr string, domain string, dnsSe
 		return fmt.Errorf("error binding resolv.conf: %w", err)
 	}
 
+	// Create nsswitch.conf
+	var origNsf []byte
+	origNsf, err = ioutil.ReadFile("/etc/nsswitch.conf")
+	if err != nil {
+		return fmt.Errorf("error reading nsswitch.conf: %w", err)
+	}
+	var nsf *os.File
+	nsf, err = ioutil.TempFile("", "connectopus-nsswitch-*.conf")
+	if err != nil {
+		return fmt.Errorf("error creating nsswitch.conf temp file: %w", err)
+	}
+	ndh := file_cleaner.DeleteOnExit(nsf.Name())
+	for _, line := range strings.Split(string(origNsf), "\n") {
+		if strings.HasPrefix(strings.TrimLeft(line, " "), "hosts:") {
+			line = "hosts: files dns"
+		}
+		_, err = fmt.Fprintf(nsf, "%s\n", line)
+		if err != nil {
+			return fmt.Errorf("error writing resolv.conf temp file: %w", err)
+		}
+	}
+	err = nsf.Close()
+	if err != nil {
+		return fmt.Errorf("error closing nsswitch.conf temp file: %w", err)
+	}
+	err = syscall.Mount(nsf.Name(), "/etc/nsswitch.conf", "", syscall.MS_BIND, "")
+	if err != nil {
+		return fmt.Errorf("error binding nsswitch.conf: %w", err)
+	}
+
 	// Notify that the link is ready
 	_, _ = fmt.Print(linkReadyMessage)
 
@@ -319,5 +350,6 @@ func RunShim(fd int, tunif string, mtu uint16, addr string, domain string, dnsSe
 	_ = tun.Close()
 	_ = f.Close()
 	_ = rdh.DeleteNow()
+	_ = ndh.DeleteNow()
 	return err
 }
