@@ -3,6 +3,7 @@ package proto
 import (
 	"encoding/json"
 	"gopkg.in/yaml.v3"
+	"strings"
 	"testing"
 )
 
@@ -112,5 +113,22 @@ func TestSubnetMarshaling(t *testing.T) {
 		if ys.String() != subnetStr {
 			t.Fatal("did not match")
 		}
+	}
+}
+
+func TestRandomSubnet(t *testing.T) {
+	s := RandomSubnet(ParseIP("FD00::0"), 8, 64).String()
+	if !strings.HasPrefix(s, "fd") {
+		t.Fatalf("incorrect prefix")
+	}
+	if !strings.HasSuffix(s, "::/64") {
+		t.Fatalf("incorrect suffix")
+	}
+	s = RandomSubnet(ParseIP("ABCD::0"), 16, 96).String()
+	if !strings.HasPrefix(s, "abcd") {
+		t.Fatalf("incorrect prefix")
+	}
+	if !strings.HasSuffix(s, "::/96") {
+		t.Fatalf("incorrect suffix")
 	}
 }

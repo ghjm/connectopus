@@ -19,6 +19,7 @@ type Netopus interface {
 	Status() *Status
 	MTU() uint16
 	Addr() IP
+	UpdateConfig([]byte, []byte, time.Time)
 }
 
 // ExternalRouter is a device that can accept and send packets to external routes

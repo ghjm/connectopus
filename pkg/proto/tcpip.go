@@ -1,8 +1,11 @@
 package proto
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"lukechampine.com/uint128"
 	"math/bits"
 	"net"
 )
@@ -51,6 +54,31 @@ func ParseCIDR(s string) (IP, Subnet, error) {
 	ip := IP(netIP)
 	subnet := Subnet(string(netSubnet.IP) + string(netSubnet.Mask))
 	return ip, subnet, nil
+}
+
+// RandomSubnet returns a subnet with an address starting with keepBits bits of IP and random for the rest of prefixBits
+func RandomSubnet(ip IP, keepBits uint, prefixBits uint) Subnet {
+	ipb := []byte(ip)
+	kv := uint128.New(
+		binary.BigEndian.Uint64(ipb[8:]),
+		binary.BigEndian.Uint64(ipb[:8]),
+	)
+	km := uint128.Max.Rsh(keepBits)
+	kv = kv.And(km.Xor(uint128.Max))
+
+	randb := make([]byte, 16)
+	_, _ = rand.Read(randb)
+	rv := uint128.FromBytes(randb)
+	rm := uint128.Max.Lsh(128 - prefixBits)
+	rv = rv.And(rm).And(km)
+
+	ipv := kv.Add(rv)
+
+	ipBytes := make([]byte, 16)
+	binary.BigEndian.PutUint64(ipBytes[8:], ipv.Lo)
+	binary.BigEndian.PutUint64(ipBytes[:8], ipv.Hi)
+
+	return NewSubnet(IP(ipBytes), CIDRMask(int(prefixBits), 128))
 }
 
 // String returns the human-readable string representation of this address.

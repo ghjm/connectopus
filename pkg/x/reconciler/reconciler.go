@@ -98,7 +98,7 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 					log.Infof("Starting %s %s", myType, ri.QualifiedName())
 					return
 				} else {
-					log.Infof("Failed to start %s %s: %s", myType, ri.QualifiedName(), err)
+					log.Warnf("Failed to start %s %s: %s", myType, ri.QualifiedName(), err)
 				}
 				timer := time.NewTimer(5 * time.Second)
 				select {
@@ -127,7 +127,7 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 			_, ok := ciChildren[name]
 			if !ok {
 				if rci.ctx != nil {
-					log.Infof("Removing %s", rci.name)
+					log.Infof("Removing %s %s", rci.config.Type(), rci.QualifiedName())
 				}
 				rci.cancel()
 				delete(rc, name)

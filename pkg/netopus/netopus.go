@@ -40,6 +40,8 @@ type netopus struct {
 	externalNames  syncro.Map[string, externalNameInfo]
 	updateSender   timerunner.TimeRunner
 	oobPorts       syncro.Map[uint16, *OOBPacketConn]
+	configInfo     syncro.Var[configInfo]
+	newConfigFunc  func([]byte, []byte)
 }
 
 const (
@@ -47,6 +49,12 @@ const (
 	connectionStateConnecting
 	connectionStateConnected
 )
+
+type configInfo struct {
+	configVersion   time.Time
+	configData      []byte
+	configSignature []byte
+}
 
 // externalRouteInfo stores information about a route
 type externalRouteInfo struct {
@@ -84,18 +92,30 @@ type protoSession struct {
 
 // nodeInfo represents known information about a node
 type nodeInfo struct {
-	name       string
-	epoch      uint64
-	sequence   uint64
-	lastUpdate time.Time
+	name          string
+	epoch         uint64
+	sequence      uint64
+	configVersion time.Time
+	lastUpdate    time.Time
+}
+
+type npOpts struct {
+	mtu uint16
+	ncf func([]byte, []byte)
 }
 
 // New constructs and returns a new network node on a given address
-func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Netopus, error) {
+func New(ctx context.Context, addr proto.IP, name string, opts ...func(*npOpts)) (proto.Netopus, error) {
+	o := &npOpts{
+		mtu: 1500,
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
 	if len(addr) != net.IPv6len {
 		return nil, fmt.Errorf("address must be IPv6")
 	}
-	stack, err := netstack.NewStackDefault(ctx, net.IP(addr), mtu)
+	stack, err := netstack.NewStackDefault(ctx, net.IP(addr), o.mtu)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +123,7 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		ctx:           ctx,
 		addr:          addr,
 		name:          name,
-		mtu:           mtu,
+		mtu:           o.mtu,
 		stack:         stack,
 		router:        router.New(ctx, addr, 100*time.Millisecond),
 		sessionInfo:   syncro.NewVar(make(sessInfo)),
@@ -111,6 +131,7 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		sequence:      syncro.Var[uint64]{},
 		knownNodeInfo: syncro.Map[proto.IP, nodeInfo]{},
 		oobPorts:      syncro.Map[uint16, *OOBPacketConn]{},
+		newConfigFunc: o.ncf,
 	}
 	go func() {
 		routerUpdateChan := n.router.SubscribeUpdates()
@@ -163,6 +184,18 @@ func New(ctx context.Context, addr proto.IP, name string, mtu uint16) (proto.Net
 		timerunner.Periodic(10*time.Second))
 	go n.monitorDeadNodes()
 	return n, nil
+}
+
+func WithMTU(mtu uint16) func(*npOpts) {
+	return func(o *npOpts) {
+		o.mtu = mtu
+	}
+}
+
+func WithNewConfigFunc(ncf func([]byte, []byte)) func(*npOpts) {
+	return func(o *npOpts) {
+		o.ncf = ncf
+	}
 }
 
 // LeastMTU gives the smallest MTU of any backend defined on a node.  If there are no backends, defaultMTU is returned.
@@ -628,7 +661,7 @@ func (n *netopus) SendPacket(packet []byte) error {
 	if limit <= 1 {
 		// No good - return an ICMPv6 Hop Limit Exceeded
 		n.sendICMPv6Error(ipv6Pkt, header.ICMPv6TimeExceeded, header.ICMPv6HopLimitExceeded)
-		return fmt.Errorf("hop limit expired")
+		return nil
 	}
 	ipv6Pkt.SetHopLimit(limit - 1)
 
@@ -791,12 +824,28 @@ func (n *netopus) generateRoutingUpdate() (*proto.RoutingUpdate, error) {
 			names[k] = v.ip
 		}
 	})
+	ci := n.configInfo.Get()
+	updating := false
+	n.knownNodeInfo.WorkWithReadOnly(func(m map[proto.IP]nodeInfo) {
+		for _, v := range m {
+			if v.configVersion.Before(ci.configVersion) {
+				updating = true
+				return
+			}
+		}
+	})
 	up := &proto.RoutingUpdate{
-		Origin:      n.addr,
-		NodeName:    n.name,
-		UpdateEpoch: n.epoch,
-		Connections: conns,
-		Names:       names,
+		Origin:        n.addr,
+		NodeName:      n.name,
+		UpdateEpoch:   n.epoch,
+		Connections:   conns,
+		Names:         names,
+		ConfigVersion: ci.configVersion,
+	}
+	if updating {
+		log.Debugf("%s: sending updated configuration", n.addr.String())
+		up.ConfigData = ci.configData
+		up.ConfigSignature = ci.configSignature
 	}
 	n.sequence.WorkWith(func(_seq *uint64) {
 		seq := *_seq
@@ -828,10 +877,18 @@ func (n *netopus) handleRoutingUpdate(ru *proto.RoutingUpdate) bool {
 		}
 		retval = true
 		knownNodeInfo[ru.Origin] = nodeInfo{
-			name:       ru.NodeName,
-			epoch:      ru.UpdateEpoch,
-			sequence:   ru.UpdateSequence,
-			lastUpdate: time.Now(),
+			name:          ru.NodeName,
+			epoch:         ru.UpdateEpoch,
+			sequence:      ru.UpdateSequence,
+			configVersion: ru.ConfigVersion,
+			lastUpdate:    time.Now(),
+		}
+		if n.newConfigFunc != nil && len(ru.ConfigData) > 0 && len(ru.ConfigSignature) > 0 {
+			ci := n.configInfo.Get()
+			if ru.ConfigVersion.After(ci.configVersion) {
+				log.Debugf("%s: received newer configuration from %s", n.addr.String(), ru.Origin)
+				n.newConfigFunc(ru.ConfigData, ru.ConfigSignature)
+			}
 		}
 	})
 	return retval
@@ -1004,4 +1061,13 @@ func (n *netopus) LookupIP(ip proto.IP) string {
 
 func (n *netopus) Addr() proto.IP {
 	return n.addr
+}
+
+func (n *netopus) UpdateConfig(cfg []byte, sig []byte, version time.Time) {
+	n.configInfo.Set(configInfo{
+		configVersion:   version,
+		configData:      cfg,
+		configSignature: sig,
+	})
+	n.updateSender.RunWithin(100 * time.Millisecond)
 }

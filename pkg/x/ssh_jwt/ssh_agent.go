@@ -89,7 +89,7 @@ func (a *SSHAgent) Close() error {
 }
 
 // GetMatchingKeys retrieves public keys from an agent which contain keyText as a substring.
-func GetMatchingKeys(a agent.Agent, keyText string) ([]string, error) {
+func GetMatchingKeys(a agent.Agent, keyText string) ([]*agent.Key, error) {
 	keys, err := a.List()
 	if err != nil {
 		return nil, fmt.Errorf("error listing SSH keys: %s", err)
@@ -97,10 +97,10 @@ func GetMatchingKeys(a agent.Agent, keyText string) ([]string, error) {
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("no SSH keys found")
 	}
-	var matchingKeys []string
+	var matchingKeys []*agent.Key
 	for _, key := range keys {
 		if keyText == "" || strings.Contains(key.String(), keyText) {
-			matchingKeys = append(matchingKeys, key.String())
+			matchingKeys = append(matchingKeys, key)
 		}
 	}
 	return matchingKeys, nil

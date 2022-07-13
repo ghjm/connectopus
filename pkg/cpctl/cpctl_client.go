@@ -13,10 +13,11 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"path"
 	"time"
 )
 
-func getUsableKey(a agent.Agent, keyText string) (string, error) {
+func GetUsableKey(a agent.Agent, keyText string) (string, error) {
 	keys, err := ssh_jwt.GetMatchingKeys(a, keyText)
 	if err != nil {
 		return "", fmt.Errorf("error listing SSH keys: %s", err)
@@ -27,12 +28,12 @@ func getUsableKey(a agent.Agent, keyText string) (string, error) {
 	if len(keys) > 1 {
 		return "", fmt.Errorf("multiple SSH keys found.  Use --text to select one uniquely.")
 	}
-	return keys[0], nil
+	return keys[0].String(), nil
 }
 
 // GenTokenFromAgent generates a token from an already-open agent using a key matching keyText
 func GenTokenFromAgent(a agent.Agent, keyText string, tokenDuration string) (string, error) {
-	key, err := getUsableKey(a, keyText)
+	key, err := GetUsableKey(a, keyText)
 	if err != nil {
 		return "", fmt.Errorf("error getting SSH key: %s", err)
 	}
@@ -81,12 +82,29 @@ func GenToken(keyFile string, keyText string, tokenDuration string) (string, err
 var ErrNoNode = fmt.Errorf("no running node found")
 var ErrMultipleNode = fmt.Errorf("multiple running nodes found")
 
+func findSockets(socketNode string) ([]string, error) {
+	dataDirs, err := config.FindDataDirs(socketNode)
+	if err != nil {
+		return nil, err
+	}
+	var socketFiles []string
+	for _, dir := range dataDirs {
+		fn := path.Join(dir, "cpctl.sock")
+		var fi os.FileInfo
+		fi, err = os.Stat(fn)
+		if err == nil && !fi.IsDir() {
+			socketFiles = append(socketFiles, fn)
+		}
+	}
+	return socketFiles, nil
+}
+
 func FindSocketFile(socketNode string) (string, error) {
 	envSock := os.Getenv("CPCTL_SOCK")
 	if envSock != "" {
 		return envSock, nil
 	}
-	socketList, err := config.FindSockets(socketNode)
+	socketList, err := findSockets(socketNode)
 	if err != nil {
 		return "", fmt.Errorf("error listing socket files: %w", err)
 	}

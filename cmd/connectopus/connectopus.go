@@ -20,12 +20,14 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/exp/slices"
 	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -40,9 +42,164 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for Connectopus",
 }
 
-// Node Command
-var configFilename string
+// Init Command
 var identity string
+var dataDir string
+var keyFile string
+var keyText string
+var force bool
+var initDomain string
+var initSubnet string
+var initIP string
+var initBackend string
+var configFilename string
+var initRun bool
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialize a new node",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		a, err := ssh_jwt.GetSSHAgent(keyFile)
+		if err != nil {
+			errExitf("error initializing SSH agent: %s", err)
+		}
+		var keys []*agent.Key
+		keys, err = ssh_jwt.GetMatchingKeys(a, keyText)
+		if err != nil {
+			errExitf("error listing SSH keys: %s", err)
+		}
+		if len(keys) == 0 {
+			errExitf("no SSH keys found")
+		}
+		if len(keys) > 1 {
+			errExitf("multiple SSH keys found.  Use --text to select one uniquely.")
+		}
+		key := proto.MarshalablePublicKey{
+			PublicKey: keys[0],
+			Comment:   keys[0].Comment,
+		}
+		fmt.Printf("Using SSH key %s [...] %s\n", key.PublicKey.Type(), key.Comment)
+
+		var newCfg config.Config
+		if configFilename == "" {
+			if initDomain == "" {
+				initDomain = "connectopus.test"
+				fmt.Printf("Using default domain %s\n", initDomain)
+			}
+			if initSubnet == "" {
+				initSubnet = proto.RandomSubnet(proto.ParseIP("fd00::"), 8, 64).String()
+				fmt.Printf("Using new subnet %s\n", initSubnet)
+			}
+			_, parsedSubnet, err := proto.ParseCIDR(initSubnet)
+			var parsedIP proto.IP
+			if err != nil {
+				errExitf("error parsing subnet: %s", err)
+			}
+			if initIP == "" || strings.HasPrefix(initIP, "subnet::") {
+				if initIP == "" {
+					initIP = "subnet::1"
+				}
+				initIP = strings.TrimPrefix(initIP, "subnet::")
+				subnetParts := strings.Split(parsedSubnet.String(), "::")
+				if len(subnetParts) == 0 {
+					errExitf("cannot parse subnet")
+				}
+				parsedIP = proto.ParseIP(subnetParts[0] + "::" + initIP)
+				fmt.Printf("Using generated IP address %s\n", parsedIP.String())
+			} else {
+				parsedIP = proto.ParseIP(initIP)
+			}
+			var backends map[string]config.Params
+			if initBackend != "" {
+				backends = make(map[string]config.Params)
+				be := config.Params{}
+				for _, p := range strings.Split(initBackend, ",") {
+					kv := strings.SplitN(p, "=", 2)
+					if len(kv) != 2 {
+						errExitf("invalid backend parameters")
+					}
+					be[kv[0]] = kv[1]
+				}
+				backends["b1"] = be
+			}
+			newCfg = config.Config{
+				Global: config.Global{
+					Domain:         initDomain,
+					Subnet:         parsedSubnet,
+					AuthorizedKeys: []proto.MarshalablePublicKey{key},
+					LastUpdated:    time.Time{},
+				},
+				Nodes: map[string]config.Node{
+					identity: {
+						Address:  parsedIP,
+						Backends: backends,
+					},
+				},
+			}
+		} else {
+			data, err := ioutil.ReadFile(configFilename)
+			if err != nil {
+				errExitf("error reading config file: %s", err)
+			}
+			newCfg = config.Config{}
+			err = newCfg.Unmarshal(data)
+			if err != nil {
+				errExitf("error parsing config file: %s", err)
+			}
+			found := false
+			for _, ak := range newCfg.Global.AuthorizedKeys {
+				if ak.String() == key.String() {
+					found = true
+					break
+				}
+			}
+			if !found {
+				newCfg.Global.AuthorizedKeys = append(newCfg.Global.AuthorizedKeys, key)
+			}
+		}
+		if dataDir == "" {
+			ucd, err := os.UserConfigDir()
+			if err != nil {
+				errExitf("error finding user config directory: %s", err)
+			}
+			dataDir = path.Join(ucd, "connectopus", identity)
+		}
+		_, err = os.Stat(dataDir)
+		if err == nil {
+			if force {
+				err = os.RemoveAll(dataDir)
+				if err != nil {
+					errExitf("error removing existing data dir: %s", err)
+				}
+			} else {
+				errExitf("data dir already exists.  Use --force to remove it.")
+			}
+		}
+		err = os.MkdirAll(dataDir, 0700)
+		if err != nil {
+			errExitf("error creating data dir: %s", err)
+		}
+		var newCfgData []byte
+		var sig []byte
+		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, newCfg, configFilename != "")
+		if err != nil {
+			errExitf("error signing config data: %s", err)
+		}
+		err = ioutil.WriteFile(path.Join(dataDir, "config.yml"), newCfgData, 0600)
+		if err != nil {
+			errExitf("error writing config file: %s", err)
+		}
+		err = ioutil.WriteFile(path.Join(dataDir, "config.sig"), sig, 0600)
+		if err != nil {
+			errExitf("error writing config signature: %s", err)
+		}
+		if initRun {
+			nodeCmd.Run(cmd, args)
+		}
+	},
+}
+
+// Node Command
 var logLevel string
 var nodeCmd = &cobra.Command{
 	Use:     "node",
@@ -65,15 +222,10 @@ var nodeCmd = &cobra.Command{
 			}
 		}
 
-		cfgData, err := ioutil.ReadFile(configFilename)
-		if err != nil {
-			errExitf("error loading config file: %s", err)
-		}
-
 		ctx, cancel := context.WithCancel(context.Background())
 		exit_handler.AddExitFunc(cancel)
 
-		_, err = connectopus.RunNode(ctx, cfgData, identity)
+		_, err := connectopus.RunNode(ctx, dataDir, identity)
 		if err != nil {
 			errExit(err)
 		}
@@ -84,8 +236,6 @@ var nodeCmd = &cobra.Command{
 }
 
 // Get Token Command
-var keyFile string
-var keyText string
 var tokenDuration string
 var getTokenCmd = &cobra.Command{
 	Use:   "get-token",
@@ -216,9 +366,20 @@ var setConfigCmd = &cobra.Command{
 		if err != nil {
 			errExit(err)
 		}
+		newCfg := config.Config{}
+		err = newCfg.Unmarshal(yaml)
+		if err != nil {
+			errExitf("error parsing yaml data: %s", err)
+		}
+		var newCfgData []byte
+		var sig []byte
+		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, newCfg, false)
+		if err != nil {
+			errExitf("error signing config data: %s", err)
+		}
 		_, err = client.SetConfig(context.Background(), cpctl.ConfigUpdateInput{
-			Yaml:      string(yaml),
-			Signature: "",
+			Yaml:      string(newCfgData),
+			Signature: string(sig),
 		})
 		if err != nil {
 			errExit(err)
@@ -236,8 +397,8 @@ var editConfigCmd = &cobra.Command{
 		if err != nil {
 			errExitf("error opening socket client: %s", err)
 		}
-		var config *cpctl.GetConfig
-		config, err = client.GetConfig(context.Background())
+		var getCfg *cpctl.GetConfig
+		getCfg, err = client.GetConfig(context.Background())
 		if err != nil {
 			errExitf("error getting current config: %s", err)
 		}
@@ -247,7 +408,7 @@ var editConfigCmd = &cobra.Command{
 			errExitf("error creating temp file: %s", err)
 		}
 		file_cleaner.DeleteOnExit(tmpFile.Name())
-		_, err = tmpFile.Write([]byte(config.Config.Yaml))
+		_, err = tmpFile.Write([]byte(getCfg.Config.Yaml))
 		if err != nil {
 			errExitf("error writing temp file: %s", err)
 		}
@@ -275,13 +436,24 @@ var editConfigCmd = &cobra.Command{
 		if err != nil {
 			errExitf("error reading temp file: %s", err)
 		}
-		if string(newYaml) == config.Config.Yaml {
+		if string(newYaml) == getCfg.Config.Yaml {
 			fmt.Printf("Config file unchanged.  Not updating.\n")
 			return
 		}
+		cfg := config.Config{}
+		err = cfg.Unmarshal(newYaml)
+		if err != nil {
+			errExitf("error parsing new config yaml: %s", err)
+		}
+		var newCfgData []byte
+		var sig []byte
+		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, cfg, true)
+		if err != nil {
+			errExitf("error signing new config: %s", err)
+		}
 		_, err = client.SetConfig(context.Background(), cpctl.ConfigUpdateInput{
-			Yaml:      string(newYaml),
-			Signature: "",
+			Yaml:      string(newCfgData),
+			Signature: string(sig),
 		})
 		if err != nil {
 			errExitf("error updating config: %s", err)
@@ -552,7 +724,8 @@ var setupTunnelCmd = &cobra.Command{
 				uid = os.Getgid()
 			}
 		}
-		config, err := config.LoadConfig(configFilename)
+		config := &config.Config{}
+		err := config.Load(configFilename)
 		if err != nil {
 			errExitf("error reading config file: %s", err)
 		}
@@ -659,10 +832,23 @@ func main() {
 
 	configCmd.AddCommand(getConfigCmd, setConfigCmd, editConfigCmd)
 
-	nodeCmd.Flags().StringVar(&configFilename, "config", "", "Config file name (required)")
-	_ = nodeCmd.MarkFlagRequired("config")
+	initCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
+	_ = initCmd.MarkFlagRequired("id")
+	initCmd.Flags().StringVar(&dataDir, "datadir", "", "Data dir override")
+	initCmd.Flags().StringVar(&keyText, "text", "", "Text to search for in SSH keys from agent")
+	initCmd.Flags().StringVar(&keyFile, "key", "", "SSH private key file")
+	initCmd.Flags().BoolVar(&force, "force", false, "Overwrite existing node config")
+	initCmd.Flags().StringVar(&initDomain, "domain", "", "DNS domain name")
+	initCmd.Flags().StringVar(&initSubnet, "subnet", "", "global subnet")
+	initCmd.Flags().StringVar(&initIP, "ip", "", "node IP address")
+	initCmd.Flags().StringVar(&initBackend, "backend", "", "initial backend for bootstrapping")
+	initCmd.Flags().StringVar(&configFilename, "config", "", "config file to load")
+	initCmd.Flags().BoolVar(&initRun, "run", false, "run node after initializing")
+	initCmd.Flags().StringVar(&logLevel, "log-level", "", "Set log level (error/warning/info/debug)")
+
 	nodeCmd.Flags().StringVar(&identity, "id", "", "Node ID (required)")
 	_ = nodeCmd.MarkFlagRequired("id")
+	nodeCmd.Flags().StringVar(&dataDir, "datadir", "", "Data dir override")
 	nodeCmd.Flags().StringVar(&logLevel, "log-level", "", "Set log level (error/warning/info/debug)")
 
 	netnsShimCmd.Flags().IntVar(&netnsFd, "fd", 0, "file descriptor")
@@ -721,7 +907,7 @@ func main() {
 	setupTunnelCmd.Flags().IntVar(&uid, "uid", -1, "User ID who will own the tunnel")
 	setupTunnelCmd.Flags().IntVar(&gid, "gid", -1, "Group ID who will own the tunnel")
 
-	rootCmd.AddCommand(nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd, configCmd)
+	rootCmd.AddCommand(initCmd, nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd, configCmd)
 	if runtime.GOOS == "linux" {
 		rootCmd.AddCommand(nsenterCmd, setupTunnelCmd)
 	}

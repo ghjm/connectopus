@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // Data structures for the Netopus wire protocol
@@ -40,12 +41,15 @@ type RoutingPolicy map[Subnet]IP
 
 // RoutingUpdate is a message type carrying routing information
 type RoutingUpdate struct {
-	Origin         IP
-	NodeName       string
-	UpdateEpoch    uint64
-	UpdateSequence uint64
-	Connections    RoutingConns
-	Names          map[string]IP
+	Origin          IP
+	NodeName        string
+	UpdateEpoch     uint64
+	UpdateSequence  uint64
+	Connections     RoutingConns
+	Names           map[string]IP
+	ConfigVersion   time.Time
+	ConfigData      []byte
+	ConfigSignature []byte
 }
 
 // OOBMessage is an out-of-band message

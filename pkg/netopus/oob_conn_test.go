@@ -82,12 +82,12 @@ func TestOOB(t *testing.T) {
 	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	n1, err := New(ctx, proto.ParseIP("FD00::1"), "test1", 1400)
+	n1, err := New(ctx, proto.ParseIP("FD00::1"), "test1", WithMTU(1400))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var n2 proto.Netopus
-	n2, err = New(ctx, proto.ParseIP("FD00::2"), "test2", 1400)
+	n2, err = New(ctx, proto.ParseIP("FD00::2"), "test2", WithMTU(1400))
 	if err != nil {
 		t.Fatal(err)
 	}

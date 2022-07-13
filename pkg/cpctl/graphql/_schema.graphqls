@@ -56,7 +56,6 @@ type ConfigResult {
 scalar Time
 
 input ConfigUpdateInput {
-  effective: Time
   yaml: String!
   signature: String!
 }

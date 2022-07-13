@@ -91,8 +91,8 @@ func TestConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error closing tempfile: %s", err)
 	}
-	var config *Config
-	config, err = LoadConfig(configFile.Name())
+	config := &Config{}
+	err = config.Load(configFile.Name())
 	if err != nil {
 		t.Fatalf("error loading tempfile: %s", err)
 	}

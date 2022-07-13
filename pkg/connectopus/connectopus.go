@@ -15,37 +15,137 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/reconciler"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh/agent"
+	"io/ioutil"
 	"net"
+	"path"
 	"reflect"
 	"sync"
 	"time"
 )
 
-func RunNode(ctx context.Context, cfgData []byte, identity string) (*reconciler.RunningItem, error) {
-	cfg, err := config.ParseConfig(cfgData)
+func SignConfig(keyFile, keyText string, cfg config.Config, updateTime bool) ([]byte, []byte, error) {
+	a, err := ssh_jwt.GetSSHAgent(keyFile)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing config: %w", err)
+		return nil, nil, fmt.Errorf("error initializing SSH agent: %s", err)
+	}
+	var keys []*agent.Key
+	keys, err = ssh_jwt.GetMatchingKeys(a, keyText)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error listing SSH keys: %s", err)
+	}
+	if len(keys) == 0 {
+		return nil, nil, fmt.Errorf("no SSH keys found")
+	}
+	if len(keys) > 1 {
+		return nil, nil, fmt.Errorf("multiple SSH keys found.  Use --text to select one uniquely.")
+	}
+	key := proto.MarshalablePublicKey{
+		PublicKey: keys[0],
+		Comment:   keys[0].Comment,
+	}
+	if updateTime {
+		cfg.Global.LastUpdated = time.Now()
+	}
+	var cfgData []byte
+	cfgData, err = cfg.Marshal()
+	if err != nil {
+		return nil, nil, fmt.Errorf("error marshaling config: %s", err)
+	}
+	var sig string
+	sig, err = ssh_jwt.SignSSH(string(cfgData), "connectopus", key.String(), a)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error signing config data: %s", err)
+	}
+	return cfgData, []byte(sig), nil
+}
+
+func ParseAndCheckConfig(cfgData, signature []byte, authKeys []proto.MarshalablePublicKey) (*config.Config, error) {
+	cfg := config.Config{}
+	err := cfg.Unmarshal(cfgData)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing config file: %w", err)
+	}
+	if authKeys == nil {
+		authKeys = cfg.Global.AuthorizedKeys
+	}
+	for _, authKey := range authKeys {
+		err = ssh_jwt.VerifySSHSignature(string(cfgData), string(signature), "connectopus", authKey.String())
+		if err == nil {
+			return &cfg, nil
+		}
+	}
+	return nil, fmt.Errorf("configuration signature check failed")
+}
+
+type Node reconciler.RunningItem
+
+func LoadConfig(datadir string) (*config.Config, error) {
+	data, err := ioutil.ReadFile(path.Join(datadir, "config.yml"))
+	if err != nil {
+		return nil, fmt.Errorf("error loading config file: %w", err)
+	}
+
+	var sig []byte
+	sig, err = ioutil.ReadFile(path.Join(datadir, "config.sig"))
+	if err != nil {
+		return nil, fmt.Errorf("error reading signature file: %w", err)
+	}
+
+	return ParseAndCheckConfig(data, sig, nil)
+}
+
+func RunNode(ctx context.Context, datadir string, identity string) (*Node, error) {
+	if identity == "" {
+		return nil, fmt.Errorf("must provide an identity")
+	}
+	if datadir == "" {
+		datadirs, err := config.FindDataDirs(identity)
+		if err != nil {
+			return nil, fmt.Errorf("error finding data dir: %w", err)
+		}
+		if len(datadirs) != 1 {
+			return nil, fmt.Errorf("failed to find data dir for node")
+		}
+		datadir = datadirs[0]
+	}
+	cfg, err := LoadConfig(datadir)
+	if err != nil {
+		return nil, fmt.Errorf("error loading config: %w", err)
 	}
 	ri := reconciler.NewRootRunningItem(ctx, identity)
 	nodeCfg := NodeCfg{
 		Config:   cfg,
 		identity: identity,
+		datadir:  datadir,
 	}
 	ri.Reconcile(nodeCfg, ri)
-	return ri, ri.Status()
+	return (*Node)(ri), ri.Status()
 }
 
-func UpdateNode(ri *reconciler.RunningItem, cfgData []byte) error {
-	cfg, err := config.ParseConfig(cfgData)
-	if err != nil {
-		return fmt.Errorf("error parsing config: %w", err)
+func (n *Node) ParseAndCheckConfig(cfgData []byte, signature []byte) (*config.Config, error) {
+	ri := (*reconciler.RunningItem)(n)
+	nodeCfg, ok := ri.Config().(NodeCfg)
+	if !ok {
+		return nil, fmt.Errorf("running instance config is wrong type")
 	}
+	return ParseAndCheckConfig(cfgData, signature, nodeCfg.Global.AuthorizedKeys)
+}
+
+func (n *Node) UpdateNode(configData []byte, sigData []byte, cfg *config.Config) error {
+	ri := (*reconciler.RunningItem)(n)
 	nodeCfg, ok := ri.Config().(NodeCfg)
 	if !ok {
 		return fmt.Errorf("running instance config is wrong type")
 	}
 	nodeCfg.Config = cfg
 	ri.Reconcile(nodeCfg, ri)
+	var inst *nodeInstance
+	inst, ok = ri.Instance().(*nodeInstance)
+	if ok {
+		inst.n.UpdateConfig(configData, sigData, cfg.Global.LastUpdated)
+	}
 	return ri.Status()
 }
 
@@ -56,11 +156,13 @@ type nodeInstance struct {
 	n        proto.Netopus
 	nsreg    *netns.Registry
 	ri       *reconciler.RunningItem
+	datadir  string
 }
 
 type NodeCfg struct {
 	*config.Config
 	identity string
+	datadir  string
 }
 
 func (nc NodeCfg) ParentEqual(item reconciler.ConfigItem) bool {
@@ -71,7 +173,11 @@ func (nc NodeCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	if ci.identity != nc.identity {
 		return false
 	}
-	if !reflect.DeepEqual(ci.Global, nc.Global) {
+	ciG := ci.Global
+	ncG := nc.Global
+	ciG.LastUpdated = time.Time{}
+	ncG.LastUpdated = time.Time{}
+	if !reflect.DeepEqual(ciG, ncG) {
 		return false
 	}
 	cn, cnOK := ci.Nodes[ci.identity]
@@ -90,7 +196,8 @@ func (nc NodeCfg) Start(ctx context.Context, name string, instance any, done fun
 	if !ok {
 		return nil, fmt.Errorf("error retrieving instance: bad type")
 	}
-	node, ok := nc.Nodes[nc.identity]
+	var node config.Node
+	node, ok = nc.Nodes[nc.identity]
 	if !ok {
 		return nil, fmt.Errorf("invalid identity for config")
 	}
@@ -100,12 +207,35 @@ func (nc NodeCfg) Start(ctx context.Context, name string, instance any, done fun
 		node:     &node,
 		nsreg:    &netns.Registry{},
 		ri:       ri,
+		datadir:  nc.datadir,
 	}
-	var err error
-	inst.n, err = netopus.New(ctx, node.Address, nc.identity, netopus.LeastMTU(node, 1500))
+	cfgData, err := ioutil.ReadFile(path.Join(nc.datadir, "config.yml"))
+	if err != nil {
+		return nil, fmt.Errorf("error loading config.yml: %w", err)
+	}
+	var sigData []byte
+	sigData, err = ioutil.ReadFile(path.Join(nc.datadir, "config.sig"))
+	if err != nil {
+		return nil, fmt.Errorf("error loading config.sig: %w", err)
+	}
+	inst.n, err = netopus.New(ctx, node.Address, nc.identity, netopus.WithMTU(netopus.LeastMTU(node, 1500)),
+		netopus.WithNewConfigFunc(func(configData []byte, sig []byte) {
+			cfg, err := ParseAndCheckConfig(configData, sig, nc.Config.Global.AuthorizedKeys)
+			if err != nil {
+				log.Warnf("received bad configuration: %s", err)
+				return
+			}
+			err = (*Node)(ri).UpdateNode(configData, sig, cfg)
+			if err != nil {
+				log.Warnf("error updating configuration: %s", err)
+				return
+			}
+			inst.n.UpdateConfig(configData, sig, cfg.Global.LastUpdated)
+		}))
 	if err != nil {
 		return nil, err
 	}
+	inst.n.UpdateConfig(cfgData, sigData, nc.Config.Global.LastUpdated)
 	go func() {
 		<-ctx.Done()
 		time.Sleep(time.Second)
@@ -180,7 +310,22 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any, done fun
 			GetNetopus:          func() proto.Netopus { return inst.n },
 			GetNsReg:            func() *netns.Registry { return inst.nsreg },
 			GetReconcilerStatus: func() error { return inst.ri.Status() },
-			UpdateNodeConfig:    func(config []byte) error { return UpdateNode(inst.ri, config) },
+			UpdateNodeConfig: func(config []byte, signature []byte) error {
+				n := (*Node)(inst.ri)
+				cfg, err := n.ParseAndCheckConfig(config, signature)
+				if err != nil {
+					return fmt.Errorf("error parsing config file: %w", err)
+				}
+				err = ioutil.WriteFile(path.Join(inst.datadir, "config.yml"), config, 0600)
+				if err != nil {
+					return fmt.Errorf("error writing config.yml: %w", err)
+				}
+				err = ioutil.WriteFile(path.Join(inst.datadir, "config.sig"), signature, 0600)
+				if err != nil {
+					return fmt.Errorf("error writing config.sig: %w", err)
+				}
+				return n.UpdateNode(config, signature, cfg)
+			},
 		},
 		SigningMethod: sm,
 	}
@@ -299,6 +444,13 @@ func (d DnsCfg) Start(ctx context.Context, name string, instance any, done func(
 		_ = li.Close()
 		return nil, err
 	}
+
+	go func() {
+		<-ctx.Done()
+		_ = pc.Close()
+		_ = li.Close()
+		done()
+	}()
 
 	return inst, nil
 }

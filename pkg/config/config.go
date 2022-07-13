@@ -1,12 +1,14 @@
 package config
 
 import (
+	"fmt"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"gopkg.in/yaml.v3"
 	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 )
 
 type Config struct {
@@ -18,6 +20,7 @@ type Global struct {
 	Domain         string                       `yaml:"domain"`
 	Subnet         proto.Subnet                 `yaml:"subnet"`
 	AuthorizedKeys []proto.MarshalablePublicKey `yaml:"authorized_keys"`
+	LastUpdated    time.Time                    `yaml:"last_updated,omitempty"`
 }
 
 type Node struct {
@@ -33,28 +36,28 @@ type Node struct {
 type Service struct {
 	Port       int    `yaml:"port"`
 	Command    string `yaml:"command"`
-	WinCommand string `yaml:"win_command"`
+	WinCommand string `yaml:"win_command,omitempty"`
 }
 
 type TunDev struct {
 	DeviceName string   `yaml:"device"`
 	Address    proto.IP `yaml:"address"`
-	Cost       float32  `yaml:"cost"`
+	Cost       float32  `yaml:"cost,omitempty"`
 }
 
 type Namespace struct {
 	Address proto.IP `yaml:"address"`
-	Cost    float32  `yaml:"cost"`
+	Cost    float32  `yaml:"cost,omitempty"`
 }
 
 type Cpctl struct {
-	SocketFile string `yaml:"socket_file"`
-	NoSocket   bool   `yaml:"no_socket"`
-	Port       int    `yaml:"port"`
+	SocketFile string `yaml:"socket_file,omitempty"`
+	NoSocket   bool   `yaml:"no_socket,omitempty"`
+	Port       int    `yaml:"port,omitempty"`
 }
 
 type Dns struct {
-	Disable bool `yaml:"disable"`
+	Disable bool `yaml:"disable,omitempty"`
 }
 
 func ExpandFilename(nodeID, filename string) (string, error) {
@@ -71,14 +74,19 @@ func ExpandFilename(nodeID, filename string) (string, error) {
 	return path.Join(ucd, "connectopus", nodeID, filename), nil
 }
 
-func FindSockets(socketNode string) ([]string, error) {
+func FindDataDirs(identity string) ([]string, error) {
 	ucd, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err
 	}
 	basePath := path.Join(ucd, "connectopus")
-	if socketNode != "" {
-		return []string{path.Join(basePath, socketNode, "cpctl.sock")}, nil
+	if identity != "" {
+		dirName := path.Join(basePath, identity)
+		_, err = os.Stat(dirName)
+		if err != nil {
+			return nil, fmt.Errorf("could not open data dir: %w", err)
+		}
+		return []string{dirName}, nil
 	}
 	var files []fs.FileInfo
 	files, err = ioutil.ReadDir(basePath)
@@ -88,30 +96,32 @@ func FindSockets(socketNode string) ([]string, error) {
 	var fileList []string
 	for _, file := range files {
 		if file.IsDir() {
-			fullPath := path.Join(basePath, file.Name(), "cpctl.sock")
-			_, err = os.Stat(fullPath)
-			if err != nil {
-				continue
-			}
-			fileList = append(fileList, fullPath)
+			fileList = append(fileList, path.Join(basePath, file.Name()))
 		}
 	}
 	return fileList, nil
 }
 
-func ParseConfig(data []byte) (*Config, error) {
-	config := &Config{}
-	err := yaml.Unmarshal(data, config)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
+func (c *Config) Unmarshal(data []byte) error {
+	return yaml.Unmarshal(data, c)
 }
 
-func LoadConfig(filename string) (*Config, error) {
+func (c *Config) Marshal() ([]byte, error) {
+	return yaml.Marshal(c)
+}
+
+func (c *Config) Load(filename string) error {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return ParseConfig(data)
+	return c.Unmarshal(data)
+}
+
+func (c *Config) Save(filename string) error {
+	data, err := c.Marshal()
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filename, data, 0600)
 }

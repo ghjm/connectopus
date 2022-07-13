@@ -2,19 +2,14 @@
 
 package cpctl
 
-import (
-	"time"
-)
-
 type ConfigResult struct {
 	Yaml      string `json:"yaml"`
 	Signature string `json:"signature"`
 }
 
 type ConfigUpdateInput struct {
-	Effective *time.Time `json:"effective"`
-	Yaml      string     `json:"yaml"`
-	Signature string     `json:"signature"`
+	Yaml      string `json:"yaml"`
+	Signature string `json:"signature"`
 }
 
 type ConfigUpdateResult struct {
