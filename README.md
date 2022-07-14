@@ -1,6 +1,6 @@
 ![Connectopus](./docs/logo.png)
 
-#### What is this
+#### What is this?
 
 Connectopus is a general-purpose IPv6 overlay network.  The idea is that you run Connectopus nodes, which talk to each other over TCP or UDP connections (including IPv4).  The nodes then form an IPv6 overlay network.  The "above the mesh" network does not necessarily have any outside connectivity.
 
@@ -16,6 +16,8 @@ Key Features:
 * Built-in DNS server so you can refer to nodes by name
 * Service manager that provides inetd-like launching of service processes
 
+For more details on the design ideas behind Connectopus, see [DESIGN.md](./docs/DESIGN.md).
+
 #### License
 
 Copyright © 2022 by Graham Mainwaring.  All rights reserved.
@@ -26,15 +28,15 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#### How to get it
+#### How do I get it?
 
 Download the [latest build](https://github.com/ghjm/connectopus/releases/tag/latest) for your platform.
 
-#### How to contribute to it
+#### How can I contribute to it?
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-#### How to run it
+#### How do I run it?
 
 (Note: these instructions assume you are on Linux.  Most, but not all, of this will also work on Windows and Mac.)
 
