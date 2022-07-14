@@ -184,3 +184,7 @@ func (ri *RunningItem) Children() map[string]*RunningItem {
 	})
 	return ret
 }
+
+func (ri *RunningItem) Context() context.Context {
+	return ri.ctx
+}

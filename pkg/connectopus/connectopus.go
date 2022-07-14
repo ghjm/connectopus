@@ -165,7 +165,7 @@ type nodeInstance struct {
 func (ni *nodeInstance) NewConfig(config []byte, signature []byte) error {
 	cfg, err := ParseAndCheckConfig(config, signature, ni.cfg.Global.AuthorizedKeys)
 	if err != nil {
-		return fmt.Errorf("error parsing config file: %w", err)
+		return err
 	}
 	err = ioutil.WriteFile(path.Join(ni.datadir, "config.yml"), config, 0600)
 	if err != nil {
@@ -175,7 +175,20 @@ func (ni *nodeInstance) NewConfig(config []byte, signature []byte) error {
 	if err != nil {
 		return fmt.Errorf("error writing config.sig: %w", err)
 	}
-	return (*Node)(ni.ri).UpdateNode(config, signature, cfg)
+	go func() {
+		t := time.NewTimer(time.Second)
+		select {
+		case <-ni.ri.Context().Done():
+			t.Stop()
+			return
+		case <-t.C:
+		}
+		err := (*Node)(ni.ri).UpdateNode(config, signature, cfg)
+		if err != nil {
+			log.Errorf("error applying new configuration: %s", err)
+		}
+	}()
+	return nil
 
 }
 

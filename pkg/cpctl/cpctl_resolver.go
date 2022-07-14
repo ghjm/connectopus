@@ -6,7 +6,6 @@ import (
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/proto"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 	"time"
@@ -108,13 +107,10 @@ func (r *Resolver) Config(_ context.Context) (*ConfigResult, error) {
 }
 
 func (r *Resolver) UpdateConfig(_ context.Context, config ConfigUpdateInput) (*ConfigUpdateResult, error) {
-	go func() {
-		time.Sleep(time.Second)
-		err := r.UpdateNodeConfig([]byte(config.Yaml), []byte(config.Signature))
-		if err != nil {
-			log.Errorf("error updating node configuration: %s", err)
-		}
-	}()
+	err := r.UpdateNodeConfig([]byte(config.Yaml), []byte(config.Signature))
+	if err != nil {
+		return nil, err
+	}
 	return &ConfigUpdateResult{
 		MutationID: uuid.NewString(),
 	}, nil
