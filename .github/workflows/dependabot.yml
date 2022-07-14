@@ -5,6 +5,7 @@ on:
 
 jobs:
   dependabot-auto-merge:
+    if: sender.login == 'dependabot[bot]' || sender.login == 'dependabot-preview[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: ahmadnassri/action-dependabot-auto-merge@v2
