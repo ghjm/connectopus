@@ -913,6 +913,8 @@ func main() {
 		rootCmd.AddCommand(nsenterCmd, setupTunnelCmd)
 	}
 
+	fmt.Printf("Kilroy was here!\n")
+
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
