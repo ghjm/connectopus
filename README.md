@@ -1,8 +1,22 @@
 ![Connectopus](./docs/logo.png)
 
-### What is this
+#### What is this
 
-### License
+Connectopus is a general-purpose IPv6 overlay network.  The idea is that you run Connectopus nodes, which talk to each other over TCP or UDP connections (including IPv4).  The nodes then form an IPv6 overlay network.  The "above the mesh" network does not necessarily have any outside connectivity.
+
+Key Features:
+
+* Uses SSH keys to authorize configuration updates and UI access
+* DTLS and TCP (including TLS) backends
+* CLI, GraphQL API and Patternfly UI
+* Distributed configuration
+* Dynamic routing based on link state and Dijkstra's algorithm
+* TUN/TAP interface so you can talk to the Connectopus network from outside (requires root)
+* Linux network namespace ability so you can enter the Connectopus network and run processes (does not require root)
+* Built-in DNS server so you can refer to nodes by name
+* Service manager that provides inetd-like launching of service processes
+
+#### License
 
 Copyright © 2022 by Graham Mainwaring.  All rights reserved.
 
@@ -12,14 +26,15 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-### What can it do
-
-### How to get it
+#### How to get it
 
 Download the [latest build](https://github.com/ghjm/connectopus/releases/tag/latest) for your platform.
 
+#### How to contribute to it
 
-### How to run it
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+#### How to run it
 
 (Note: these instructions assume you are on Linux.  Most, but not all, of this will also work on Windows and Mac.)
 
@@ -81,46 +96,4 @@ Download the [latest build](https://github.com/ghjm/connectopus/releases/tag/lat
   ./connectopus config edit --node foo
   ```
   This downloads the running configuration from foo and opens it.  After you make changes and save, the new configuration is signed and uploaded back to `foo`, and then shared with the rest of the network.  You can add and remove services, namespaces, etc, and they will be restarted and reconfigured on the relevant nodes.  For example, you can copy the service configuration from `baz` to `bar`, after which you can `nc fd00::2:1 7`.  Even though you're talking to `foo`, `bar`'s configuration will be updated.
-
-
-### How to build from source
-
-* Install needed distro packages
-    * Fedora:
-      ```
-      sudo dnf -y install curl make findutils direnv util-linux-core nodejs gcc
-      ```
-    * Ubuntu:
-      ```
-      sudo apt install -y curl make gcc direnv sudo
-      curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-      sudo apt install -y nodejs
-      ```
-
-* Install Go 1.18 or better
-
-  Use `go version` to check your Go version.  If your distro doesn't include at least 1.18, you can install it locally using:
-  ```
-  mkdir $HOME/go-1.18.3 && \
-    curl -L https://go.dev/dl/go1.18.3.linux-amd64.tar.gz | \
-    tar xfvz - --strip-components=1 -C $HOME/go-1.18.3
-  ```
-
-* (Optional) Add direnv hook to the shell and authorize the directory.    
-  ```
-  echo 'eval "$(direnv hook bash)"' >> $HOME/.bashrc
-  . $HOME/.bashrc
-  direnv allow
-  ```
-  For shells other than bash, consult https://direnv.net/docs/hook.html.
-   
-  You can create an `.envrc.local` file with your own settings.  One use of this is if your distro has an older Go version, to make sure that Go 1.18 is added to your path whenever you cd into this directory, like this:
-  ```
-  echo PATH_add $HOME/go-1.18.3/bin > .envrc.local
-  ```
-
-* Build the software
-  ```
-  make all
-  ```
 
