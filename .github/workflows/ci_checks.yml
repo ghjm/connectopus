@@ -12,7 +12,7 @@ on:
       check_platforms:
         type: boolean
         description: Run platform checks
-        default: false
+        default: true
 
   pull_request:
 
@@ -121,7 +121,7 @@ jobs:
   platforms_checks:
     name: platforms_checks
     needs: linux_checks
-    if: ${{ inputs.check_platforms }}
+    if: always() && !(github.event_name == 'workflow_dispatch' && !inputs.check_platforms)
     strategy:
       matrix:
         os:
