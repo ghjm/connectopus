@@ -162,6 +162,23 @@ type nodeInstance struct {
 	datadir  string
 }
 
+func (ni *nodeInstance) NewConfig(config []byte, signature []byte) error {
+	cfg, err := ParseAndCheckConfig(config, signature, ni.cfg.Global.AuthorizedKeys)
+	if err != nil {
+		return fmt.Errorf("error parsing config file: %w", err)
+	}
+	err = ioutil.WriteFile(path.Join(ni.datadir, "config.yml"), config, 0600)
+	if err != nil {
+		return fmt.Errorf("error writing config.yml: %w", err)
+	}
+	err = ioutil.WriteFile(path.Join(ni.datadir, "config.sig"), signature, 0600)
+	if err != nil {
+		return fmt.Errorf("error writing config.sig: %w", err)
+	}
+	return (*Node)(ni.ri).UpdateNode(config, signature, cfg)
+
+}
+
 type NodeCfg struct {
 	*config.Config
 	identity string
@@ -222,18 +239,12 @@ func (nc NodeCfg) Start(ctx context.Context, name string, instance any, done fun
 		return nil, fmt.Errorf("error loading config.sig: %w", err)
 	}
 	inst.n, err = netopus.New(ctx, node.Address, nc.identity, netopus.WithMTU(netopus.LeastMTU(node, 1500)),
-		netopus.WithNewConfigFunc(func(configData []byte, sig []byte) {
-			cfg, err := ParseAndCheckConfig(configData, sig, nc.Config.Global.AuthorizedKeys)
-			if err != nil {
-				log.Warnf("received bad configuration: %s", err)
-				return
-			}
-			err = (*Node)(ri).UpdateNode(configData, sig, cfg)
+		netopus.WithNewConfigFunc(func(config []byte, signature []byte) {
+			err := inst.NewConfig(config, signature)
 			if err != nil {
 				log.Warnf("error updating configuration: %s", err)
 				return
 			}
-			inst.n.UpdateConfig(configData, sig, cfg.Global.LastUpdated)
 		}))
 	if err != nil {
 		return nil, err
@@ -313,22 +324,7 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any, done fun
 			GetNetopus:          func() proto.Netopus { return inst.n },
 			GetNsReg:            func() *netns.Registry { return inst.nsreg },
 			GetReconcilerStatus: func() error { return inst.ri.Status() },
-			UpdateNodeConfig: func(config []byte, signature []byte) error {
-				n := (*Node)(inst.ri)
-				cfg, err := n.ParseAndCheckConfig(config, signature)
-				if err != nil {
-					return fmt.Errorf("error parsing config file: %w", err)
-				}
-				err = ioutil.WriteFile(path.Join(inst.datadir, "config.yml"), config, 0600)
-				if err != nil {
-					return fmt.Errorf("error writing config.yml: %w", err)
-				}
-				err = ioutil.WriteFile(path.Join(inst.datadir, "config.sig"), signature, 0600)
-				if err != nil {
-					return fmt.Errorf("error writing config.sig: %w", err)
-				}
-				return n.UpdateNode(config, signature, cfg)
-			},
+			UpdateNodeConfig:    inst.NewConfig,
 		},
 		SigningMethod: sm,
 	}
