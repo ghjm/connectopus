@@ -136,7 +136,7 @@ func (n *Node) ParseAndCheckConfig(cfgData []byte, signature []byte) (*config.Co
 	return ParseAndCheckConfig(cfgData, signature, nodeCfg.Global.AuthorizedKeys)
 }
 
-func (n *Node) UpdateNode(configData []byte, sigData []byte, cfg *config.Config) error {
+func (n *Node) ReconcileNode(configData []byte, sigData []byte, cfg *config.Config) error {
 	ri := (*reconciler.RunningItem)(n)
 	nodeCfg, ok := ri.Config().(NodeCfg)
 	if !ok {
@@ -144,11 +144,6 @@ func (n *Node) UpdateNode(configData []byte, sigData []byte, cfg *config.Config)
 	}
 	nodeCfg.Config = cfg
 	ri.Reconcile(nodeCfg, ri)
-	var inst *nodeInstance
-	inst, ok = ri.Instance().(*nodeInstance)
-	if ok {
-		inst.n.UpdateConfig(configData, sigData, cfg.Global.LastUpdated)
-	}
 	return ri.Status()
 }
 
@@ -175,15 +170,16 @@ func (ni *nodeInstance) NewConfig(config []byte, signature []byte) error {
 	if err != nil {
 		return fmt.Errorf("error writing config.sig: %w", err)
 	}
+	ni.n.UpdateConfig(config, signature, cfg.Global.LastUpdated)
 	go func() {
-		t := time.NewTimer(time.Second)
-		select {
-		case <-ni.ri.Context().Done():
-			t.Stop()
-			return
-		case <-t.C:
+		ctx, cancel := context.WithTimeout(ni.ri.Context(), 30*time.Second)
+		defer cancel()
+		err := ni.n.WaitForConfigConvergence(ctx)
+		if err != nil {
+			log.Errorf("timeout: configuration did not converge")
+			// no return - we'll try to reconcile anyway since we have a valid command from the user
 		}
-		err := (*Node)(ni.ri).UpdateNode(config, signature, cfg)
+		err = (*Node)(ni.ri).ReconcileNode(config, signature, cfg)
 		if err != nil {
 			log.Errorf("error applying new configuration: %s", err)
 		}

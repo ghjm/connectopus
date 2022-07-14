@@ -16,10 +16,10 @@ type Netopus interface {
 	ExternalRouter
 	OOBConnector
 	NameService
+	ConfigUpdater
 	Status() *Status
 	MTU() uint16
 	Addr() IP
-	UpdateConfig([]byte, []byte, time.Time)
 }
 
 // ExternalRouter is a device that can accept and send packets to external routes
@@ -46,6 +46,12 @@ type NameService interface {
 	AddExternalName(string, IP)
 	// DelExternalName deletes a previous added external name.
 	DelExternalName(string)
+}
+
+// ConfigUpdater is a service that can update configurations
+type ConfigUpdater interface {
+	UpdateConfig([]byte, []byte, time.Time)
+	WaitForConfigConvergence(context.Context) error
 }
 
 type OOBAddr struct {

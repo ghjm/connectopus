@@ -825,15 +825,6 @@ func (n *netopus) generateRoutingUpdate() (*proto.RoutingUpdate, error) {
 		}
 	})
 	ci := n.configInfo.Get()
-	updating := false
-	n.knownNodeInfo.WorkWithReadOnly(func(m map[proto.IP]nodeInfo) {
-		for _, v := range m {
-			if v.configVersion.Before(ci.configVersion) {
-				updating = true
-				return
-			}
-		}
-	})
 	up := &proto.RoutingUpdate{
 		Origin:        n.addr,
 		NodeName:      n.name,
@@ -842,7 +833,7 @@ func (n *netopus) generateRoutingUpdate() (*proto.RoutingUpdate, error) {
 		Names:         names,
 		ConfigVersion: ci.configVersion,
 	}
-	if updating {
+	if !n.checkConfigsConverged(ci.configVersion) {
 		log.Debugf("%s: sending updated configuration", n.addr.String())
 		up.ConfigData = ci.configData
 		up.ConfigSignature = ci.configSignature
@@ -1070,4 +1061,33 @@ func (n *netopus) UpdateConfig(cfg []byte, sig []byte, version time.Time) {
 		configSignature: sig,
 	})
 	n.updateSender.RunWithin(100 * time.Millisecond)
+}
+
+func (n *netopus) checkConfigsConverged(myVersion time.Time) bool {
+	converged := true
+	n.knownNodeInfo.WorkWithReadOnly(func(m map[proto.IP]nodeInfo) {
+		for _, v := range m {
+			if v.configVersion.Before(myVersion) {
+				converged = false
+				return
+			}
+		}
+	})
+	return converged
+}
+
+func (n *netopus) WaitForConfigConvergence(ctx context.Context) error {
+	myVersion := n.configInfo.Get().configVersion
+	for {
+		t := time.NewTimer(time.Second)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return ctx.Err()
+		case <-t.C:
+		}
+		if n.checkConfigsConverged(myVersion) {
+			return nil
+		}
+	}
 }
