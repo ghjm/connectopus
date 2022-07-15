@@ -571,7 +571,6 @@ func (t TunDevCfg) Start(ctx context.Context, name string, instance any, done fu
 		for {
 			select {
 			case <-ctx.Done():
-				tunLink.UnsubscribePackets(tunCh)
 				inst.n.DelExternalName(name)
 				inst.n.DelExternalRoute(name)
 				done()
