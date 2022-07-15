@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: code_changed
     if: |
-      always() &&
+      always() && !cancelled() &&
       (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true')
     permissions:
       actions: read
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: code_changed
     if: |
-      always() &&
+      always() && !cancelled() &&
       (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true')
     steps:
 
@@ -180,7 +180,7 @@ jobs:
     name: platforms_checks
     needs: linux_checks
     if: |
-      always() && 
+      always() && !cancelled() &&
       (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true') &&
       !(github.event_name == 'workflow_dispatch' && !inputs.check_platforms)
     strategy:
@@ -234,7 +234,7 @@ jobs:
       - linux_checks
       - platforms_checks
     if: |
-      always() &&
+      always() && !cancelled() &&
       needs.codeql_analysis.result == 'success' &&
       needs.linux_checks.result == 'success' &&
       (needs.platforms_checks.result == 'success' || needs.platforms_checks.result == 'skipped') &&
@@ -281,7 +281,7 @@ jobs:
       - codeql_analysis
       - linux_checks
       - platforms_checks
-    if: always()
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
 
     steps:
