@@ -1,5 +1,7 @@
 ![Connectopus](./docs/logo.png)
 
+foo
+
 #### What is this?
 
 Connectopus is a general-purpose IPv6 overlay network.  The idea is that you run Connectopus nodes, which talk to each other over TCP or UDP connections (including IPv4).  The nodes then form an IPv6 overlay network.  The "above the mesh" network does not necessarily have any outside connectivity.
