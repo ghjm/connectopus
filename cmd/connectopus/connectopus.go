@@ -372,9 +372,23 @@ var setConfigCmd = &cobra.Command{
 		if err != nil {
 			errExitf("error parsing yaml data: %s", err)
 		}
+		if len(newCfg.Global.AuthorizedKeys) == 0 {
+			fmt.Printf("Warning: Authorized keys list is empty.  Re-using existing keys.\n")
+			var oldGetConfig *cpctl.GetConfig
+			oldGetConfig, err = client.GetConfig(context.Background())
+			if err != nil {
+				errExitf("error retrieving old configuration: %s", err)
+			}
+			oldCfg := config.Config{}
+			err = oldCfg.Unmarshal([]byte(oldGetConfig.Config.Yaml))
+			if err != nil {
+				errExitf("error parsing old configuration: %s", err)
+			}
+			newCfg.Global.AuthorizedKeys = append(newCfg.Global.AuthorizedKeys, oldCfg.Global.AuthorizedKeys...)
+		}
 		var newCfgData []byte
 		var sig []byte
-		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, newCfg, false)
+		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, newCfg, true)
 		if err != nil {
 			errExitf("error signing config data: %s", err)
 		}
