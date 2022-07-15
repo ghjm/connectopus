@@ -60,7 +60,7 @@ jobs:
     name: linux_checks
     runs-on: ubuntu-latest
     needs: code_changed
-    if: always() && needs.code_changed.outputs.any_changed
+    if: always() && needs.code_changed.outputs.any_changed == 'true'
     steps:
 
       - name: Checkout
@@ -141,7 +141,7 @@ jobs:
     needs: linux_checks
     if: |
       always() && 
-      needs.code_changed.outputs.any_changed &&
+      needs.code_changed.outputs.any_changed == 'true' &&
       !(github.event_name == 'workflow_dispatch' && !inputs.check_platforms)
     strategy:
       matrix:
