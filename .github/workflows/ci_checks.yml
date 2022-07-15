@@ -15,6 +15,8 @@ on:
         default: true
 
   pull_request:
+    branches:
+      - main
 
   push:
     branches:
@@ -54,6 +56,34 @@ jobs:
             **/package-lock.json
             **/go.mod
             **/go.sum
+
+  codeql_analysis:
+    name: codeql_analysis
+    if: always() && needs.code_changed.outputs.any_modified == 'true'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'go', 'javascript' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
 
   linux_checks:
     name: linux_checks
