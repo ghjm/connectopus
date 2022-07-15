@@ -34,9 +34,8 @@ type Node struct {
 }
 
 type Service struct {
-	Port       int    `yaml:"port"`
-	Command    string `yaml:"command"`
-	WinCommand string `yaml:"win_command,omitempty"`
+	Port    int    `yaml:"port"`
+	Command string `yaml:"command"`
 }
 
 type TunDev struct {
@@ -46,8 +45,13 @@ type TunDev struct {
 }
 
 type Namespace struct {
-	Address proto.IP `yaml:"address"`
-	Cost    float32  `yaml:"cost,omitempty"`
+	Address  proto.IP                    `yaml:"address"`
+	Cost     float32                     `yaml:"cost,omitempty"`
+	Services map[string]NamespaceService `yaml:"services,omitempty"`
+}
+
+type NamespaceService struct {
+	Command string `yaml:"command"`
 }
 
 type Cpctl struct {

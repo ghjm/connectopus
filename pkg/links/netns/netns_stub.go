@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"net"
+	"os/exec"
 )
 
 type Link struct {
@@ -31,6 +32,10 @@ func (ns *Link) PID() int {
 
 func (ns *Link) MTU() uint16 {
 	return 0
+}
+
+func (ns *Link) RunInNamespace(ctx context.Context, command string, prep func(*exec.Cmd) error) (*exec.Cmd, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func RunShim(fd int, tunif string, mtu uint16, addr string, domain string, dnsServer string) error {

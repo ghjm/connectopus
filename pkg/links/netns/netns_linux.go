@@ -10,6 +10,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/exit_handler"
 	"github.com/ghjm/connectopus/pkg/x/file_cleaner"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/google/shlex"
 	log "github.com/sirupsen/logrus"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
@@ -19,6 +20,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -186,6 +188,27 @@ func (ns *Link) PID() int {
 
 func (ns *Link) MTU() uint16 {
 	return ns.mtu
+}
+
+func (ns *Link) RunInNamespace(ctx context.Context, command string, prep func(*exec.Cmd) error) (*exec.Cmd, error) {
+	args, err := shlex.Split(command)
+	if err != nil {
+		return nil, fmt.Errorf("error splitting command args: %w", err)
+	}
+	args = append([]string{"--preserve-credentials", "--user", "--mount", "--net",
+		"--uts", "-t", strconv.Itoa(ns.pid)}, args...)
+	cmd := exec.CommandContext(ctx, "nsenter", args...)
+	if prep != nil {
+		err = prep(cmd)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = cmd.Start()
+	if err != nil {
+		return nil, fmt.Errorf("error running command: %w", err)
+	}
+	return cmd, nil
 }
 
 func RunShim(fd int, tunif string, mtu uint16, addr string, domain string, dnsServer string) error {

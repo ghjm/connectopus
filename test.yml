@@ -38,6 +38,9 @@ nodes:
     namespaces:
       baz-ns:
         address: FD00::3:3
+        services:
+          echo:
+            command: nc -e /bin/cat -k -l 7
     backends:
       b1:
         type: dtls-dialer
@@ -47,5 +50,3 @@ nodes:
       echo:
         port: 7
         command: /bin/cat
-        win_command: find /v ""
-

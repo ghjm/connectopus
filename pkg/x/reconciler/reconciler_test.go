@@ -24,7 +24,7 @@ func (c Config) ParentEqual(item ConfigItem) bool {
 	return c.MainCfg == ci.MainCfg
 }
 
-func (c Config) Start(ctx context.Context, _ string, _ any, done func()) (any, error) {
+func (c Config) Start(ctx context.Context, ri *RunningItem, done func()) (any, error) {
 	exp.Produce(fmt.Sprintf("started %s", c.MainCfg))
 	go func() {
 		<-ctx.Done()
@@ -84,7 +84,7 @@ func TestComponents(t *testing.T) {
 	exp.Expect("started B1")
 	exp.Expect("started C1")
 	main := NewRootRunningItem(testCtx, "test")
-	main.Reconcile(config1, nil)
+	main.Reconcile(config1)
 	exp.WaitClear()
 	exp.Expect("stopped main 1")
 	exp.Expect("stopped A1")
@@ -94,11 +94,11 @@ func TestComponents(t *testing.T) {
 	exp.Expect("started A1")
 	exp.Expect("started B1")
 	exp.Expect("started C1")
-	main.Reconcile(config2, nil)
+	main.Reconcile(config2)
 	exp.WaitClear()
 	exp.Expect("stopped B1")
 	exp.Expect("started B2")
-	main.Reconcile(config3, nil)
+	main.Reconcile(config3)
 	exp.WaitClear()
 	exp.Expect("stopped main 2")
 	exp.Expect("stopped A1")

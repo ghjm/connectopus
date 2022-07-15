@@ -1,6 +1,7 @@
 package connectopus
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
@@ -17,8 +18,10 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/agent"
+	"io"
 	"io/ioutil"
 	"net"
+	"os/exec"
 	"path"
 	"reflect"
 	"sync"
@@ -123,7 +126,7 @@ func RunNode(ctx context.Context, datadir string, identity string) (*Node, error
 		identity: identity,
 		datadir:  datadir,
 	}
-	ri.Reconcile(nodeCfg, ri)
+	ri.Reconcile(nodeCfg)
 	return (*Node)(ri), ri.Status()
 }
 
@@ -143,7 +146,7 @@ func (n *Node) ReconcileNode(configData []byte, sigData []byte, cfg *config.Conf
 		return fmt.Errorf("running instance config is wrong type")
 	}
 	nodeCfg.Config = cfg
-	ri.Reconcile(nodeCfg, ri)
+	ri.Reconcile(nodeCfg)
 	return ri.Status()
 }
 
@@ -220,13 +223,8 @@ func (nc NodeCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return true
 }
 
-func (nc NodeCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
-	ri, ok := instance.(*reconciler.RunningItem)
-	if !ok {
-		return nil, fmt.Errorf("error retrieving instance: bad type")
-	}
-	var node config.Node
-	node, ok = nc.Nodes[nc.identity]
+func (nc NodeCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	node, ok := nc.Nodes[nc.identity]
 	if !ok {
 		return nil, fmt.Errorf("invalid identity for config")
 	}
@@ -307,11 +305,8 @@ func (c CpctlCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, c)
 }
 
-func (c CpctlCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
-	inst, ok := instance.(*nodeInstance)
-	if !ok {
-		return nil, fmt.Errorf("error retrieving instance: bad type")
-	}
+func (c CpctlCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*nodeInstance)
 	var sm jwt.SigningMethod
 	{
 		var err error
@@ -323,23 +318,23 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any, done fun
 	csrv := cpctl.Server{
 		Resolver: cpctl.Resolver{
 			GetConfig: func() *config.Config {
-				cfg := inst.ri.Config()
+				cfg := parentInst.ri.Config()
 				ncfg, ncOK := cfg.(NodeCfg)
 				if !ncOK {
 					return nil
 				}
 				return ncfg.Config
 			},
-			GetNetopus:          func() proto.Netopus { return inst.n },
-			GetNsReg:            func() *netns.Registry { return inst.nsreg },
-			GetReconcilerStatus: func() error { return inst.ri.Status() },
-			UpdateNodeConfig:    inst.NewConfig,
+			GetNetopus:          func() proto.Netopus { return parentInst.n },
+			GetNsReg:            func() *netns.Registry { return parentInst.nsreg },
+			GetReconcilerStatus: func() error { return parentInst.ri.Status() },
+			UpdateNodeConfig:    parentInst.NewConfig,
 		},
 		SigningMethod: sm,
 	}
 	wg := sync.WaitGroup{}
 	{
-		li, err := inst.n.ListenOOB(ctx, cpctl.ProxyPortNo)
+		li, err := parentInst.n.ListenOOB(ctx, cpctl.ProxyPortNo)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing cpctl proxy listener: %w", err)
 		}
@@ -356,7 +351,7 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any, done fun
 
 	}
 	if !c.NoSocket {
-		socketFile, err := config.ExpandFilename(inst.identity, c.SocketFile)
+		socketFile, err := config.ExpandFilename(parentInst.identity, c.SocketFile)
 		if err != nil {
 			return nil, fmt.Errorf("error expanding socket filename: %w", err)
 		}
@@ -395,7 +390,7 @@ func (c CpctlCfg) Start(ctx context.Context, name string, instance any, done fun
 		wg.Wait()
 		done()
 	}()
-	return inst, nil
+	return nil, nil
 }
 
 func (c CpctlCfg) Children() map[string]reconciler.ConfigItem {
@@ -416,34 +411,30 @@ func (d DnsCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, d)
 }
 
-func (d DnsCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
-	inst, ok := instance.(*nodeInstance)
-	if !ok {
-		return nil, fmt.Errorf("error retrieving instance: bad type")
-	}
-
+func (d DnsCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*nodeInstance)
 	if d.Disable {
-		return inst, nil
+		return nil, nil
 	}
 
-	pc, err := inst.n.DialUDP(53, nil, 0)
+	pc, err := parentInst.n.DialUDP(53, nil, 0)
 	if err != nil {
 		return nil, fmt.Errorf("udp listener error: %s", err)
 	}
 
 	var li net.Listener
-	li, err = inst.n.ListenTCP(53)
+	li, err = parentInst.n.ListenTCP(53)
 	if err != nil {
 		_ = pc.Close()
 		return nil, fmt.Errorf("tcp listener error: %s", err)
 	}
 
 	srv := dns.Server{
-		Domain:     inst.cfg.Global.Domain,
+		Domain:     parentInst.cfg.Global.Domain,
 		PacketConn: pc,
 		Listener:   li,
-		LookupName: inst.n.LookupName,
-		LookupIP:   inst.n.LookupIP,
+		LookupName: parentInst.n.LookupName,
+		LookupIP:   parentInst.n.LookupIP,
 	}
 
 	err = srv.Run(ctx)
@@ -460,7 +451,7 @@ func (d DnsCfg) Start(ctx context.Context, name string, instance any, done func(
 		done()
 	}()
 
-	return inst, nil
+	return nil, nil
 }
 
 func (d DnsCfg) Children() map[string]reconciler.ConfigItem {
@@ -481,18 +472,15 @@ func (b BackendCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, b)
 }
 
-func (b BackendCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
-	inst, ok := instance.(*nodeInstance)
-	if !ok {
-		return nil, fmt.Errorf("error retrieving instance: bad type")
-	}
+func (b BackendCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*nodeInstance)
 	p := config.Params(b)
 	backendType := p.GetString("type", "")
 	backendCost, err := p.GetFloat32("cost", 0)
 	if err != nil {
 		return nil, fmt.Errorf("backend configuration error: %w", err)
 	}
-	err = backend_registry.RunBackend(ctx, inst.n, backendType, defaultCost(backendCost), p)
+	err = backend_registry.RunBackend(ctx, parentInst.n, backendType, defaultCost(backendCost), p)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing backend: %w", err)
 	}
@@ -500,7 +488,7 @@ func (b BackendCfg) Start(ctx context.Context, name string, instance any, done f
 		<-ctx.Done()
 		done()
 	}()
-	return inst, nil
+	return nil, nil
 }
 
 func (b BackendCfg) Children() map[string]reconciler.ConfigItem {
@@ -521,12 +509,9 @@ func (s ServiceCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, s)
 }
 
-func (s ServiceCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
-	inst, ok := instance.(*nodeInstance)
-	if !ok {
-		return nil, fmt.Errorf("error retrieving instance: bad type")
-	}
-	_, err := services.RunService(ctx, inst.n, config.Service(s))
+func (s ServiceCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*nodeInstance)
+	_, err := services.RunService(ctx, parentInst.n, config.Service(s))
 	if err != nil {
 		return nil, fmt.Errorf("error initializing service: %w", err)
 	}
@@ -534,7 +519,7 @@ func (s ServiceCfg) Start(ctx context.Context, name string, instance any, done f
 		<-ctx.Done()
 		done()
 	}()
-	return inst, nil
+	return nil, nil
 }
 
 func (s ServiceCfg) Children() map[string]reconciler.ConfigItem {
@@ -555,32 +540,29 @@ func (t TunDevCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	return reflect.DeepEqual(ci, t)
 }
 
-func (t TunDevCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
-	inst, ok := instance.(*nodeInstance)
-	if !ok {
-		return nil, fmt.Errorf("error retrieving instance: bad type")
-	}
-	tunLink, err := tun.New(ctx, t.DeviceName, net.IP(t.Address), inst.cfg.Global.Subnet.AsIPNet(), inst.n.MTU())
+func (t TunDevCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*nodeInstance)
+	tunLink, err := tun.New(ctx, t.DeviceName, net.IP(t.Address), parentInst.cfg.Global.Subnet.AsIPNet(), parentInst.n.MTU())
 	if err != nil {
 		return nil, fmt.Errorf("error initializing tunnel: %w", err)
 	}
 	tunCh := tunLink.SubscribePackets()
-	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(t.Address), defaultCost(t.Cost), tunLink.SendPacket)
-	inst.n.AddExternalName(name, t.Address)
+	parentInst.n.AddExternalRoute(ri.Name(), proto.NewHostOnlySubnet(t.Address), defaultCost(t.Cost), tunLink.SendPacket)
+	parentInst.n.AddExternalName(ri.Name(), t.Address)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				inst.n.DelExternalName(name)
-				inst.n.DelExternalRoute(name)
+				parentInst.n.DelExternalName(ri.Name())
+				parentInst.n.DelExternalRoute(ri.Name())
 				done()
 				return
 			case packet := <-tunCh:
-				_ = inst.n.SendPacket(packet)
+				_ = parentInst.n.SendPacket(packet)
 			}
 		}
 	}()
-	return inst, nil
+	return nil, nil
 }
 
 func (t TunDevCfg) Children() map[string]reconciler.ConfigItem {
@@ -593,51 +575,117 @@ func (t TunDevCfg) Type() string {
 
 type NamespaceCfg config.Namespace
 
+type namespaceInstance struct {
+	ni *nodeInstance
+	ns *netns.Link
+}
+
 func (nc NamespaceCfg) ParentEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(NamespaceCfg)
 	if !ok {
 		return false
 	}
-	return reflect.DeepEqual(ci, nc)
+	return ci.Address == nc.Address && ci.Cost == nc.Cost
 }
 
-func (nc NamespaceCfg) Start(ctx context.Context, name string, instance any, done func()) (any, error) {
-	inst, ok := instance.(*nodeInstance)
-	if !ok {
-		return nil, fmt.Errorf("error retrieving instance: bad type")
-	}
-	ns, err := netns.New(ctx, net.IP(nc.Address), inst.cfg.Global.Domain, inst.n.Addr().String(), netns.WithMTU(inst.n.MTU()))
+func (nc NamespaceCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*nodeInstance)
+	ns, err := netns.New(ctx, net.IP(nc.Address), parentInst.cfg.Global.Domain, parentInst.n.Addr().String(), netns.WithMTU(parentInst.n.MTU()))
 	if err != nil {
 		return nil, fmt.Errorf("error initializing namespace: %w", err)
 	}
 	nsCh := ns.SubscribePackets()
-	inst.n.AddExternalRoute(name, proto.NewHostOnlySubnet(nc.Address), defaultCost(nc.Cost), ns.SendPacket)
-	inst.n.AddExternalName(name, nc.Address)
-	inst.nsreg.Add(name, ns.PID())
+	parentInst.n.AddExternalRoute(ri.Name(), proto.NewHostOnlySubnet(nc.Address), defaultCost(nc.Cost), ns.SendPacket)
+	parentInst.n.AddExternalName(ri.Name(), nc.Address)
+	parentInst.nsreg.Add(ri.Name(), ns.PID())
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				ns.UnsubscribePackets(nsCh)
-				inst.nsreg.Del(name)
-				inst.n.DelExternalName(name)
-				inst.n.DelExternalRoute(name)
+				parentInst.nsreg.Del(ri.Name())
+				parentInst.n.DelExternalName(ri.Name())
+				parentInst.n.DelExternalRoute(ri.Name())
 				done()
 				return
 			case packet := <-nsCh:
-				_ = inst.n.SendPacket(packet)
+				_ = parentInst.n.SendPacket(packet)
 			}
 		}
 	}()
-	return inst, nil
+	return &namespaceInstance{
+		ni: parentInst,
+		ns: ns,
+	}, nil
 }
 
 func (nc NamespaceCfg) Children() map[string]reconciler.ConfigItem {
-	return nil
+	children := make(map[string]reconciler.ConfigItem)
+	for name, svc := range nc.Services {
+		children[name] = NamespaceServiceCfg{
+			command: svc.Command,
+		}
+	}
+	return children
 }
 
 func (nc NamespaceCfg) Type() string {
 	return "namespace"
+}
+
+type NamespaceServiceCfg struct {
+	command string
+}
+
+func (nsc NamespaceServiceCfg) ParentEqual(item reconciler.ConfigItem) bool {
+	ci, ok := item.(NamespaceServiceCfg)
+	if !ok {
+		return false
+	}
+	return reflect.DeepEqual(ci, nsc)
+}
+
+func (nsc NamespaceServiceCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*namespaceInstance)
+	var stderrPipe io.ReadCloser
+	cmd, err := parentInst.ns.RunInNamespace(ctx, nsc.command, func(c *exec.Cmd) error {
+		var err error
+		stderrPipe, err = c.StderrPipe()
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error running command: %w", err)
+	}
+	go func() {
+		r := bufio.NewReader(stderrPipe)
+		for {
+			s, err := r.ReadString('\n')
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				return
+			}
+			log.Warnf("%s wrote to stderr: %s", ri.QualifiedName(), s)
+		}
+	}()
+	go func() {
+		err := cmd.Wait()
+		if err != nil && ctx.Err() == nil {
+			log.Errorf("%s exited unexpectedly: %s", ri.QualifiedName(), err)
+			ri.SetFailed(err)
+		}
+		done()
+	}()
+	return nil, nil
+}
+
+func (nsc NamespaceServiceCfg) Children() map[string]reconciler.ConfigItem {
+	return nil
+}
+
+func (nsc NamespaceServiceCfg) Type() string {
+	return "namespace_service"
 }
 
 func defaultCost(cost float32) float32 {

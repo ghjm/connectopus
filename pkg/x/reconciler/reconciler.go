@@ -11,7 +11,7 @@ import (
 
 type ConfigItem interface {
 	ParentEqual(ConfigItem) bool
-	Start(context.Context, string, any, func()) (any, error)
+	Start(context.Context, *RunningItem, func()) (any, error)
 	Children() map[string]ConfigItem
 	Type() string
 }
@@ -74,7 +74,7 @@ func (ri *RunningItem) waitForStop() {
 	<-ri.doneChan
 }
 
-func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
+func (ri *RunningItem) Reconcile(ci ConfigItem) {
 	oldConfig := ri.config
 	ri.config = ci
 	if !ci.ParentEqual(oldConfig) {
@@ -90,7 +90,7 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 			myType := ri.config.Type()
 			for {
 				ri.doneChan = make(chan struct{})
-				childInstance, err := ci.Start(ri.ctx, ri.name, instance, func() { close(ri.doneChan) })
+				childInstance, err := ci.Start(ri.ctx, ri, func() { close(ri.doneChan) })
 				ri.instance.Set(childInstance)
 				ri.status.Set(err)
 				once.Do(func() { close(startChan) })
@@ -114,13 +114,12 @@ func (ri *RunningItem) Reconcile(ci ConfigItem, instance any) {
 	ri.children.WorkWith(func(_rc *map[string]*RunningItem) {
 		rc := *_rc
 		ciChildren := ci.Children()
-		parentInstance := ri.instance.Get()
 		for name, cci := range ciChildren {
 			cri, ok := rc[name]
 			if !ok {
 				cri = NewRunningItem(name, ri)
 			}
-			cri.Reconcile(cci, parentInstance)
+			cri.Reconcile(cci)
 			rc[name] = cri
 		}
 		for name, rci := range rc {
@@ -153,6 +152,28 @@ func (ri *RunningItem) Status() error {
 	return err
 }
 
+func (ri *RunningItem) SetFailed(err error) {
+	ri.status.Set(err)
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		pctx := ri.parent.ctx
+		if ri.ctx != nil {
+			ri.cancel()
+			ri.waitForStop()
+		}
+		t := time.NewTimer(5 * time.Second)
+		select {
+		case <-pctx.Done():
+			t.Stop()
+			return
+		case <-t.C:
+		}
+		config := ri.config
+		ri.config = nil // force restart
+		ri.Reconcile(config)
+	}()
+}
+
 func (ri *RunningItem) Instance() any {
 	return ri.instance.Get()
 }
@@ -173,6 +194,14 @@ func (ri *RunningItem) QualifiedName() string {
 		rp = rp.parent
 	}
 	return name
+}
+
+func (ri *RunningItem) Parent() *RunningItem {
+	p := ri.parent
+	if p == nil || p.isFake {
+		return nil
+	}
+	return p
 }
 
 func (ri *RunningItem) Children() map[string]*RunningItem {
