@@ -913,8 +913,6 @@ func main() {
 		rootCmd.AddCommand(nsenterCmd, setupTunnelCmd)
 	}
 
-	fmt.Printf("Hello, world!\n")
-
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
