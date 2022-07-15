@@ -8,6 +8,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/netstack"
 	"go.uber.org/goleak"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +23,9 @@ func TestService(t *testing.T) {
 	svc := config.Service{
 		Port:    0,
 		Command: "/bin/cat",
+	}
+	if runtime.GOOS == "windows" {
+		svc.Command = "find /v \"\""
 	}
 	addr, err := RunService(ctx, &netstack.NetUserStack{}, svc)
 	if err != nil {
