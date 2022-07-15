@@ -57,6 +57,7 @@ jobs:
             **/*.html
             **/*.css
             **/Makefile
+            **/Dockerfile
             **/package.json
             **/package-lock.json
             **/go.mod
