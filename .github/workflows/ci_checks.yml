@@ -40,21 +40,21 @@ jobs:
         uses: tj-actions/changed-files@v23.1
         with:
           since-last-remote-commit: true
-          files:
-            - '**/*.go'
-            - '**/*.js'
-            - '**/*.ts'
-            - '**/*.tsx'
-            - '**/*.graphqls'
-            - '**/*.graphql'
-            - '**/*.sh'
-            - '**/*.html'
-            - '**/*.css'
-            - '**/Makefile'
-            - '**/package.json'
-            - '**/package-lock.json'
-            - '**/go.mod'
-            - '**/go.sum'
+          files: |
+            '**/*.go'
+            '**/*.js'
+            '**/*.ts'
+            '**/*.tsx'
+            '**/*.graphqls'
+            '**/*.graphql'
+            '**/*.sh'
+            '**/*.html'
+            '**/*.css'
+            '**/Makefile'
+            '**/package.json'
+            '**/package-lock.json'
+            '**/go.mod'
+            '**/go.sum'
 
   linux_checks:
     name: linux_checks
