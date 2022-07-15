@@ -12,7 +12,7 @@ import (
 )
 
 func TestBackendDtlsPSK(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"), goleak.IgnoreTopFunction("sync.runtime_Semacquire"))
+	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
