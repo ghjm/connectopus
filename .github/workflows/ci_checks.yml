@@ -25,6 +25,10 @@ on:
 env:
   GO_VERSION: 1.18
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   code_changed:
