@@ -41,20 +41,20 @@ jobs:
         with:
           since_last_remote_commit: true
           files: |
-            '**/*.go'
-            '**/*.js'
-            '**/*.ts'
-            '**/*.tsx'
-            '**/*.graphqls'
-            '**/*.graphql'
-            '**/*.sh'
-            '**/*.html'
-            '**/*.css'
-            '**/Makefile'
-            '**/package.json'
-            '**/package-lock.json'
-            '**/go.mod'
-            '**/go.sum'
+            **/*.go
+            **/*.js
+            **/*.ts
+            **/*.tsx
+            **/*.graphqls
+            **/*.graphql
+            **/*.sh
+            **/*.html
+            **/*.css
+            **/Makefile
+            **/package.json
+            **/package-lock.json
+            **/go.mod
+            **/go.sum
 
   linux_checks:
     name: linux_checks
