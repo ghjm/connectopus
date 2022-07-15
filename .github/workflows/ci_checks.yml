@@ -275,6 +275,48 @@ jobs:
           body: "This is an automatically generated build of the latest commit that passed CI checks.  Warning: may contain bugs."
           prerelease: true
 
+  docker_build:
+    name: docker_build
+    needs:
+      - codeql_analysis
+      - linux_checks
+      - platforms_checks
+    if: |
+      always() && !cancelled() &&
+      needs.codeql_analysis.result == 'success' &&
+      needs.linux_checks.result == 'success' &&
+      (needs.platforms_checks.result == 'success' || needs.platforms_checks.result == 'skipped') &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish)
+    runs-on: ubuntu-latest
+    concurrency:
+      group: docker_build
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: bin
+          path: bin
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Dockerhub
+        uses: docker/login-action@v2
+        with:
+          username: ghjm
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push container
+        run: |
+          docker buildx build . --platform linux/arm64,linux/amd64 --tag ghjm/connectopus:latest --push
+
   success_check:
     name: success_check
     needs:
