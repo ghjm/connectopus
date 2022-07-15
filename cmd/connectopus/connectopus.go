@@ -912,6 +912,8 @@ func main() {
 	if runtime.GOOS == "linux" {
 		rootCmd.AddCommand(nsenterCmd, setupTunnelCmd)
 	}
+	
+	fmt.Printf("Kilroy was here\n")
 
 	err := rootCmd.Execute()
 	if err != nil {
