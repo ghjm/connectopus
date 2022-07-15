@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"os/exec"
-	"runtime"
 	"time"
 )
 
@@ -92,9 +91,6 @@ func acceptLoop(ctx context.Context, li net.Listener, args []string) error {
 
 func RunService(ctx context.Context, n netstack.UserStack, service config.Service) (net.Addr, error) {
 	cmd := service.Command
-	if service.WinCommand != "" && runtime.GOOS == "windows" {
-		cmd = service.WinCommand
-	}
 	args, err := shlex.Split(cmd)
 	if err != nil {
 		return nil, err

@@ -20,9 +20,8 @@ func TestService(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	svc := config.Service{
-		Port:       0,
-		Command:    "/bin/cat",
-		WinCommand: "find /v \"\"",
+		Port:    0,
+		Command: "/bin/cat",
 	}
 	addr, err := RunService(ctx, &netstack.NetUserStack{}, svc)
 	if err != nil {
