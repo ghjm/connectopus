@@ -29,6 +29,7 @@ jobs:
 
   code_changed:
     name: code_changed
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       any_modified: ${{ steps.changed-files.outputs.any_modified }}
@@ -59,7 +60,9 @@ jobs:
 
   codeql_analysis:
     name: codeql_analysis
-    if: always() && needs.code_changed.outputs.any_modified == 'true'
+    if: |
+      always() &&
+      (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true')
     permissions:
       actions: read
       contents: read
@@ -89,7 +92,9 @@ jobs:
     name: linux_checks
     runs-on: ubuntu-latest
     needs: code_changed
-    if: always() && needs.code_changed.outputs.any_modified == 'true'
+    if: |
+      always() &&
+      (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true')
     steps:
 
       - name: Checkout
@@ -170,7 +175,7 @@ jobs:
     needs: linux_checks
     if: |
       always() && 
-      needs.code_changed.outputs.any_modified == 'true' &&
+      (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true') &&
       !(github.event_name == 'workflow_dispatch' && !inputs.check_platforms)
     strategy:
       matrix:
@@ -219,10 +224,12 @@ jobs:
   update_latest:
     name: update_latest
     needs:
+      - codeql_analysis
       - linux_checks
       - platforms_checks
     if: |
       always() &&
+      needs.codeql_analysis.result == 'success' &&
       needs.linux_checks.result == 'success' &&
       (needs.platforms_checks.result == 'success' || needs.platforms_checks.result == 'skipped') &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish)
@@ -265,6 +272,7 @@ jobs:
   success_check:
     name: success_check
     needs:
+      - codeql_analysis
       - linux_checks
       - platforms_checks
     if: always()
@@ -274,6 +282,7 @@ jobs:
 
       - name: Check if required checks succeeded
         if: |
+          (needs.codeql_analysis.result != 'success' && needs.codeql_analysis.result != 'skipped') ||
           (needs.linux_checks.result != 'success' && needs.linux_checks.result != 'skipped') ||
           (needs.platforms_checks.result != 'success' && needs.platforms_checks.result != 'skipped')
         run: |
