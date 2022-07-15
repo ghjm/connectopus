@@ -233,3 +233,21 @@ jobs:
           body: "This is an automatically generated build of the latest commit that passed CI checks.  Warning: may contain bugs."
           prerelease: true
 
+  success_check:
+    name: success_check
+    needs:
+      - linux_checks
+      - platforms_checks
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Check if required checks succeeded
+        if: |
+          (needs.linux_checks.result != 'success' && needs.linux_checks.result != 'skipped') ||
+          (needs.platforms_checks.result != 'success' && needs.platforms_checks.result != 'skipped')
+        run: |
+          echo Required tests failed
+          exit 1
+
