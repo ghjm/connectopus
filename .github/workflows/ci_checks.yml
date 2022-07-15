@@ -60,6 +60,7 @@ jobs:
 
   codeql_analysis:
     name: codeql_analysis
+    runs-on: ubuntu-latest
     if: |
       always() &&
       (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true')
