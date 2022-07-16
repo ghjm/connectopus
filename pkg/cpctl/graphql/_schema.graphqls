@@ -1,3 +1,5 @@
+scalar Time
+
 type Query {
   netns(filter: NetnsFilter): [NetnsResult!]!
   status: Status!
@@ -29,6 +31,7 @@ type StatusGlobal {
   domain: String!
   subnet: String!
   authorized_keys: [String!]!
+  config_last_updated: Time!
 }
 
 type StatusNode {
@@ -52,8 +55,6 @@ type ConfigResult {
   yaml: String!
   signature: String!
 }
-
-scalar Time
 
 input ConfigUpdateInput {
   yaml: String!

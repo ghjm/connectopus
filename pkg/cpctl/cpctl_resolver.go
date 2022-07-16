@@ -50,8 +50,9 @@ func (r *Resolver) Status(_ context.Context) (*Status, error) {
 		Name: ns.Name,
 		Addr: ns.Addr.String(),
 		Global: &StatusGlobal{
-			Domain: c.Global.Domain,
-			Subnet: c.Global.Subnet.String(),
+			Domain:            c.Global.Domain,
+			Subnet:            c.Global.Subnet.String(),
+			ConfigLastUpdated: c.Global.LastUpdated,
 		},
 	}
 	for _, key := range c.Global.AuthorizedKeys {

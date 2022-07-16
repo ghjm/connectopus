@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
@@ -77,9 +78,10 @@ type ComplexityRoot struct {
 	}
 
 	StatusGlobal struct {
-		AuthorizedKeys func(childComplexity int) int
-		Domain         func(childComplexity int) int
-		Subnet         func(childComplexity int) int
+		AuthorizedKeys    func(childComplexity int) int
+		ConfigLastUpdated func(childComplexity int) int
+		Domain            func(childComplexity int) int
+		Subnet            func(childComplexity int) int
 	}
 
 	StatusNode struct {
@@ -238,6 +240,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.StatusGlobal.AuthorizedKeys(childComplexity), true
+
+	case "StatusGlobal.config_last_updated":
+		if e.complexity.StatusGlobal.ConfigLastUpdated == nil {
+			break
+		}
+
+		return e.complexity.StatusGlobal.ConfigLastUpdated(childComplexity), true
 
 	case "StatusGlobal.domain":
 		if e.complexity.StatusGlobal.Domain == nil {
@@ -1189,6 +1198,8 @@ func (ec *executionContext) fieldContext_Status_global(ctx context.Context, fiel
 				return ec.fieldContext_StatusGlobal_subnet(ctx, field)
 			case "authorized_keys":
 				return ec.fieldContext_StatusGlobal_authorized_keys(ctx, field)
+			case "config_last_updated":
+				return ec.fieldContext_StatusGlobal_config_last_updated(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type StatusGlobal", field.Name)
 		},
@@ -1427,6 +1438,50 @@ func (ec *executionContext) fieldContext_StatusGlobal_authorized_keys(ctx contex
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StatusGlobal_config_last_updated(ctx context.Context, field graphql.CollectedField, obj *StatusGlobal) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_StatusGlobal_config_last_updated(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ConfigLastUpdated, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_StatusGlobal_config_last_updated(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StatusGlobal",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3970,6 +4025,13 @@ func (ec *executionContext) _StatusGlobal(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "config_last_updated":
+
+			out.Values[i] = ec._StatusGlobal_config_last_updated(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -4796,6 +4858,21 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 	}
 
 	return ret
+}
+
+func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v interface{}) (time.Time, error) {
+	res, err := graphql.UnmarshalTime(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel ast.SelectionSet, v time.Time) graphql.Marshaler {
+	res := graphql.MarshalTime(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

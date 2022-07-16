@@ -2,6 +2,10 @@
 
 package cpctl
 
+import (
+	"time"
+)
+
 type ConfigResult struct {
 	Yaml      string `json:"yaml"`
 	Signature string `json:"signature"`
@@ -34,9 +38,10 @@ type Status struct {
 }
 
 type StatusGlobal struct {
-	Domain         string   `json:"domain"`
-	Subnet         string   `json:"subnet"`
-	AuthorizedKeys []string `json:"authorized_keys"`
+	Domain            string    `json:"domain"`
+	Subnet            string    `json:"subnet"`
+	AuthorizedKeys    []string  `json:"authorized_keys"`
+	ConfigLastUpdated time.Time `json:"config_last_updated"`
 }
 
 type StatusNode struct {

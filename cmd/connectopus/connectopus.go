@@ -553,6 +553,7 @@ var statusCmd = &cobra.Command{
 		fmt.Printf("  Global Settings:\n")
 		fmt.Printf("    Domain: %s\n", status.Status.Global.Domain)
 		fmt.Printf("    Subnet: %s\n", status.Status.Global.Subnet)
+		fmt.Printf("    Config Last Updated: %s\n", status.Status.Global.ConfigLastUpdated)
 		fmt.Printf("    Authorized Keys:\n")
 		for _, keyStr := range status.Status.Global.AuthorizedKeys {
 			if !verbose {

@@ -5,6 +5,7 @@ package cpctl
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/Yamashou/gqlgenc/clientv2"
 )
@@ -37,9 +38,10 @@ type GetNetns_Netns struct {
 	Pid  int    "json:\"pid\" graphql:\"pid\""
 }
 type GetStatus_Status_Global struct {
-	Domain         string   "json:\"domain\" graphql:\"domain\""
-	Subnet         string   "json:\"subnet\" graphql:\"subnet\""
-	AuthorizedKeys []string "json:\"authorized_keys\" graphql:\"authorized_keys\""
+	Domain            string    "json:\"domain\" graphql:\"domain\""
+	Subnet            string    "json:\"subnet\" graphql:\"subnet\""
+	AuthorizedKeys    []string  "json:\"authorized_keys\" graphql:\"authorized_keys\""
+	ConfigLastUpdated time.Time "json:\"config_last_updated\" graphql:\"config_last_updated\""
 }
 type GetStatus_Status_Nodes_Conns struct {
 	Subnet string  "json:\"subnet\" graphql:\"subnet\""
@@ -143,6 +145,7 @@ const GetStatusDocument = `query GetStatus {
 			domain
 			subnet
 			authorized_keys
+			config_last_updated
 		}
 		nodes {
 			name
