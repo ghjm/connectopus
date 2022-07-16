@@ -974,11 +974,13 @@ func (n *netopus) AddExternalRoute(name string, dest proto.Subnet, cost float32,
 		cost:               cost,
 		outgoingPacketFunc: outgoingPacketFunc,
 	})
+	n.updateSender.RunWithin(500 * time.Millisecond)
 }
 
 // DelExternalRoute implements ExternalRouter
 func (n *netopus) DelExternalRoute(name string) {
 	n.externalRoutes.Delete(name)
+	n.updateSender.RunWithin(500 * time.Millisecond)
 }
 
 // SubscribeUpdates implements ExternalRouter
@@ -997,11 +999,13 @@ func (n *netopus) AddExternalName(name string, ip proto.IP) {
 		ip:       ip,
 		fromNode: "",
 	})
+	n.updateSender.RunWithin(500 * time.Millisecond)
 }
 
 // DelExternalName implements NameService
 func (n *netopus) DelExternalName(name string) {
 	n.externalNames.Delete(name)
+	n.updateSender.RunWithin(500 * time.Millisecond)
 }
 
 // LookupName implements NameService
