@@ -9,11 +9,7 @@ UI_DEP := internal/ui_embed/embed/dist/main.bundle.js
 EXTRA_DEPS_connectopus := $(UI_DEP)
 
 .PHONY: all
-all: update-version $(PROGRAMS) $(UI_DEP)
-
-.PHONY: update-version
-update-version:
-	@if [ "$$(cat ui/package.json | jq .version)" != "\"$(VERSION)\"" ]; then cd ui && npm version $(VERSION) --allow-same-version; fi
+all: $(PROGRAMS) $(UI_DEP)
 
 # go_deps finds all of the non-test/non-generated .go files under the
 # current directory, which are in directories reported as being dependencies
@@ -84,8 +80,12 @@ ctun: connectopus
 version:
 	@echo "$(VERSION)"
 
+.PHONY: update-ui-version
+update-ui-version:
+	@if [ "$$(cat ui/package.json | jq .version)" != "\"$(VERSION)\"" ]; then cd ui && npm version $(VERSION) --allow-same-version; fi
+
 .PHONY: ui
-ui: $(UI_DEP)
+ui: update-ui-version $(UI_DEP)
 
 $(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(shell find ui/src -type f)
 	@cd ui && make ui
