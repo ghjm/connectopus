@@ -9,7 +9,11 @@ UI_DEP := internal/ui_embed/embed/dist/main.bundle.js
 EXTRA_DEPS_connectopus := $(UI_DEP)
 
 .PHONY: all
-all: $(PROGRAMS) $(UI_DEP)
+all: update-version $(PROGRAMS) $(UI_DEP)
+
+.PHONY: update-version
+update-version:
+	@if [ "$$(cat ui/package.json | jq .version)" != "\"$(VERSION)\"" ]; then cd ui && npm version $(VERSION) --allow-same-version; fi
 
 # go_deps finds all of the non-test/non-generated .go files under the
 # current directory, which are in directories reported as being dependencies
