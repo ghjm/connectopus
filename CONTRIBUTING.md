@@ -22,11 +22,11 @@ The first time you open a pull request, the CLA Assistant at https://cla-assista
 * Install needed distro packages
     * Fedora:
       ```
-      sudo dnf -y install curl make findutils direnv util-linux-core nodejs gcc
+      sudo dnf -y install curl make findutils direnv util-linux-core nodejs gcc jq
       ```
     * Ubuntu:
       ```
-      sudo apt install -y curl make gcc direnv sudo
+      sudo apt install -y curl make gcc direnv sudo jq
       curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
       sudo apt install -y nodejs
       ```
