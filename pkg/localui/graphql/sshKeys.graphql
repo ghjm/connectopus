@@ -1,0 +1,5 @@
+query GetSSHKeys {
+    sshKeys {
+        authorizedKeys
+    }
+}

@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
-	fmt.Printf("Generating cpctl...\n")
-	packageName := "cpctl"
+	fmt.Printf("Generating localui...\n")
+	packageName := "localui"
 	clientOutputFilePath := "./gql_client_gen.go"
 	queryFilePaths := []string{"./graphql/*.graphql"}
 

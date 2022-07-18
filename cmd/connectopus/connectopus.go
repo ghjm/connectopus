@@ -11,9 +11,9 @@ import (
 	"github.com/ghjm/connectopus/pkg/cpctl"
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/links/tun"
+	"github.com/ghjm/connectopus/pkg/localui"
 	"github.com/ghjm/connectopus/pkg/netopus"
 	"github.com/ghjm/connectopus/pkg/proto"
-	"github.com/ghjm/connectopus/pkg/x/bridge"
 	"github.com/ghjm/connectopus/pkg/x/exit_handler"
 	"github.com/ghjm/connectopus/pkg/x/file_cleaner"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
@@ -496,8 +496,7 @@ var uiCmd = &cobra.Command{
 		if err != nil {
 			errExitf("error generating token: %s", err)
 		}
-		var li net.Listener
-		li, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", localUIPort))
+		li, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", localUIPort))
 		if err != nil {
 			errExitf("tcp listen error: %s", err)
 		}
@@ -511,21 +510,9 @@ var uiCmd = &cobra.Command{
 				errExitf("error opening browser: %s", err)
 			}
 		}
-		for {
-			c, err := li.Accept()
-			if err != nil {
-				errExitf("tcp accept error: %s", err)
-			}
-			go func() {
-				uc, err := net.Dial("unix", socketFile)
-				if err != nil {
-					errExitf("unix socket connection error: %s", err)
-				}
-				err = bridge.RunBridge(c, uc)
-				if err != nil {
-					fmt.Printf("Bridge error: %s", err)
-				}
-			}()
+		err = localui.Serve(context.Background(), li, socketFile)
+		if err != nil {
+			errExitf("server error: %s", err)
 		}
 	},
 }

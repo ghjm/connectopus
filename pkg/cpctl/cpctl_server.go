@@ -2,9 +2,7 @@ package cpctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/ghjm/connectopus/internal/ui_embed"
 	"github.com/ghjm/connectopus/pkg/x/file_cleaner"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
@@ -91,26 +89,14 @@ func (s *Server) ServeUnix(ctx context.Context, socketFile string) (net.Listener
 	return li, nil
 }
 
-func (s *Server) HandlePlayground(w http.ResponseWriter, req *http.Request) {
-	p := req.URL.Query().Get("proxyTo")
-	endpoint := "/query"
-	title := "GraphQL Playground"
-	if p != "" {
-		endpoint = fmt.Sprintf("/proxy/%s/query", p)
-		title = fmt.Sprintf("GraphQL Playground (%s)", p)
-	}
-	playground.Handler(title, endpoint)(w, req)
-}
-
 func (s *Server) ServeHTTP(ctx context.Context, li net.Listener) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", ui_embed.GetUIHandler())
-	mux.HandleFunc("/api", s.HandlePlayground)
+	mux.HandleFunc("/api", ui_embed.PlaygroundHandler)
 	mux.Handle("/query", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: s})))
-
-	p := NewProxy(s.GetNetopus())
+	p := ui_embed.NewProxy(ui_embed.OOBDialer(s.GetNetopus()), ui_embed.OOBDirector)
 	mux.Handle("/proxy/", p)
-
-	s.runServer(ctx, li, mux, true)
+	sanitizedMux := ui_embed.GetUISanitizer(mux.ServeHTTP)
+	s.runServer(ctx, li, sanitizedMux, true)
 	return nil
 }

@@ -1,0 +1,19 @@
+type Query {
+  sshKeys: [SSHKeyResult!]!
+}
+
+type Mutation {
+  authenticate(sshKey: SSHKeyInput!): AuthenticateResult!
+}
+
+type SSHKeyResult {
+  authorizedKeys: [String!]!
+}
+
+input SSHKeyInput {
+  authorizedKey: String!
+}
+
+type AuthenticateResult {
+  mutationId: ID!
+}

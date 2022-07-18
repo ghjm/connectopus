@@ -32,6 +32,7 @@ interface IAppLayout {
 }
 
 interface IAppContext {
+  myNodeState: [string, React.Dispatch<React.SetStateAction<string>>];
   activeNodeState: [string, React.Dispatch<React.SetStateAction<string>>];
 }
 
@@ -43,6 +44,7 @@ const AppContext = createContext<IAppContext | null>(null);
 
 const statusQuery = `{
   status {
+    name
     nodes {
       name
       addr
@@ -50,7 +52,13 @@ const statusQuery = `{
   }
 }`;
 
-const AppLayoutContent: React.FunctionComponent<IAppContent> = ({ activeNodeState, mainClient, children }) => {
+const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
+  myNodeState,
+  activeNodeState,
+  mainClient,
+  children,
+}) => {
+  const [myNode, setMyNode] = myNodeState;
   const [activeNode, setActiveNode] = activeNodeState;
   const [isNavOpen, setIsNavOpen] = React.useState(true);
   const [isMobileView, setIsMobileView] = React.useState(true);
@@ -64,11 +72,20 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({ activeNodeStat
   });
   useEffect(() => {
     if (result.fetching) return;
+    if ('status' in result.data) {
+      if ('name' in result.data['status']) {
+        const sn = result.data['status']['name'];
+        if (sn !== myNode) {
+          setMyNode(sn);
+          sessionStorage.setItem('myNode', sn);
+        }
+      }
+    }
     const timerId = setTimeout(() => {
       reexecuteQuery({ requestPolicy: 'network-only' });
     }, 1000);
     return () => clearTimeout(timerId);
-  }, [result.fetching, reexecuteQuery]);
+  }, [result.fetching, reexecuteQuery, result.data, myNode, setMyNode]);
 
   const onNavToggleMobile = () => {
     setIsNavOpenMobile(!isNavOpenMobile);
@@ -280,8 +297,8 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({ activeNodeStat
   );
 };
 
-const urlFromActiveNode = (activeNode: string): string => {
-  if (activeNode === '') {
+const urlFromActiveNode = (myNode, activeNode: string): string => {
+  if (activeNode === '' || activeNode === myNode) {
     return '/query';
   } else {
     return `/proxy/${activeNode}/query`;
@@ -292,21 +309,32 @@ const getInitialActiveNode = (): string => {
   return sessionStorage.getItem('activeNode') || '';
 };
 
+const getInitialMyNode = (): string => {
+  return sessionStorage.getItem('myNode') || '';
+};
+
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   const [activeNode, setActiveNode] = React.useState(getInitialActiveNode());
-  const [client, setClient] = React.useState<Client>(createClient({ url: urlFromActiveNode(activeNode) }));
+  const [myNode, setMyNode] = React.useState(getInitialMyNode());
+  const [client, setClient] = React.useState<Client>(createClient({ url: urlFromActiveNode(myNode, activeNode) }));
   React.useEffect(() => {
-    setClient(createClient({ url: urlFromActiveNode(activeNode) }));
-  }, [activeNode]);
-  const [topClient, setTopClient] = React.useState<Client>(createClient({ url: urlFromActiveNode(activeNode) }));
+    setClient(createClient({ url: urlFromActiveNode(myNode, activeNode) }));
+  }, [myNode, activeNode]);
+  const [topClient, setTopClient] = React.useState<Client>(
+    createClient({ url: urlFromActiveNode(myNode, activeNode) })
+  );
   React.useEffect(() => {
     setTopClient(createClient({ url: '/query' }));
   }, []);
 
   return (
-    <AppContext.Provider value={{ activeNodeState: [activeNode, setActiveNode] }}>
+    <AppContext.Provider value={{ myNodeState: [myNode, setMyNode], activeNodeState: [activeNode, setActiveNode] }}>
       <Provider value={topClient}>
-        <AppLayoutContent activeNodeState={[activeNode, setActiveNode]} mainClient={client}>
+        <AppLayoutContent
+          myNodeState={[myNode, setMyNode]}
+          activeNodeState={[activeNode, setActiveNode]}
+          mainClient={client}
+        >
           {children}
         </AppLayoutContent>
       </Provider>

@@ -8,8 +8,8 @@ import { Unauthorized } from '@app/Unauthorized/Unauthorized';
 
 const App: React.FunctionComponent = () => {
   const serverData = window['__SERVER_DATA__'];
-  const unauthorized = serverData['unauthorized'];
-  if (unauthorized === true) {
+  const pageSel = serverData['page_select'];
+  if (pageSel === 'unauthorized') {
     return <Unauthorized />;
   }
   return (

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/ghjm/connectopus/internal/ui_embed"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/cpctl"
@@ -334,7 +335,7 @@ func (c CpctlCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done fu
 	}
 	wg := sync.WaitGroup{}
 	{
-		li, err := parentInst.n.ListenOOB(ctx, cpctl.ProxyPortNo)
+		li, err := parentInst.n.ListenOOB(ctx, ui_embed.ProxyPortNo)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing cpctl proxy listener: %w", err)
 		}
