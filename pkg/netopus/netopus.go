@@ -87,7 +87,6 @@ type protoSession struct {
 	oobRoutePacketConn syncro.Var[*OOBPacketConn]
 	oobRouteListener   syncro.Var[net.Listener]
 	oobRouteConn       syncro.Var[net.Conn]
-	lastWrite          syncro.Var[time.Time]
 }
 
 // nodeInfo represents known information about a node
@@ -299,7 +298,6 @@ func (p *protoSession) sendInit() {
 		log.Warnf("error sending init message: %s", err)
 		return
 	}
-	p.lastWrite.Set(time.Now())
 	p.lastInit = time.Now()
 }
 
@@ -455,6 +453,11 @@ func (p *protoSession) initSelect() bool {
 			}
 			return true
 		case *proto.KeepaliveMsg:
+			kr := &proto.KeepaliveReplyMsg{}
+			ka, _ := kr.Marshal()
+			_ = p.conn.WriteMessage(ka)
+			return true
+		case *proto.KeepaliveReplyMsg:
 			return true
 		default:
 			log.Debugf("%s: received non-init message while in init mode", p.n.addr.String())
@@ -494,7 +497,7 @@ func (p *protoSession) mainSelect() bool {
 				log.Warnf("OOB error from %s:%d to %s:%d: %s",
 					msg.SourceAddr, msg.SourcePort, msg.DestAddr, msg.DestPort, err)
 			}
-			return false
+			return true
 		case *proto.RouteOOBMessage:
 			opc := p.oobRoutePacketConn.Get()
 			if opc != nil {
@@ -507,6 +510,11 @@ func (p *protoSession) mainSelect() bool {
 			}
 			return true
 		case *proto.KeepaliveMsg:
+			kr := &proto.KeepaliveReplyMsg{}
+			ka, _ := kr.Marshal()
+			_ = p.conn.WriteMessage(ka)
+			return true
+		case *proto.KeepaliveReplyMsg:
 			return true
 		}
 	}
@@ -529,16 +537,15 @@ func (p *protoSession) protoLoop() {
 				timer.Stop()
 				return
 			case <-timer.C:
-				if p.lastWrite.Get().Before(time.Now().Add(-3 * time.Second)) {
+				lA := time.Since(lastActivity.Get())
+				if lA > 7*time.Second {
+					log.Warnf("%s: closing connection to %s due to inactivity", p.n.addr.String(), p.remoteAddr.Get().String())
+					p.cancel()
+				} else if lA > 3*time.Second {
 					err := p.conn.WriteMessage(ka)
 					if err != nil && p.ctx.Err() == nil {
 						log.Warnf("keepalive write error: %s", err)
 					}
-					p.lastWrite.Set(time.Now())
-				}
-				if lastActivity.Get().Before(time.Now().Add(-7 * time.Second)) {
-					log.Warnf("%s: closing connection to %s due to inactivity", p.n.addr.String(), p.remoteAddr.Get().String())
-					p.cancel()
 				}
 			}
 		}
@@ -699,7 +706,6 @@ func (n *netopus) SendPacket(packet []byte) error {
 		if err != nil && n.ctx.Err() == nil {
 			log.Warnf("packet write error: %s", err)
 		}
-		nextHopSess.lastWrite.Set(time.Now())
 	}()
 	return nil
 }
@@ -747,7 +753,6 @@ func (n *netopus) SendOOB(msg *proto.OOBMessage) error {
 		if err != nil && n.ctx.Err() == nil {
 			log.Warnf("packet write error: %s", err)
 		}
-		nextHopSess.lastWrite.Set(time.Now())
 	}()
 	return nil
 }
@@ -772,7 +777,6 @@ func (n *netopus) sendRoutingOOB(msg *proto.OOBMessage) error {
 		if err != nil && n.ctx.Err() == nil {
 			log.Warnf("packet write error: %s", err)
 		}
-		peerSess.lastWrite.Set(time.Now())
 	}()
 	return nil
 }

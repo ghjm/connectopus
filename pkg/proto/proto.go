@@ -16,13 +16,14 @@ type Msg []byte
 type MsgType int
 
 const (
-	MsgTypeError     MsgType = -1
-	MsgTypeData      MsgType = 0
-	MsgTypeInit      MsgType = 1
-	MsgTypeRouteOOB  MsgType = 2
-	MsgTypeOOB       MsgType = 3
-	MsgTypeKeepalive MsgType = 4
-	MaxMsgType       MsgType = 4
+	MsgTypeError          MsgType = -1
+	MsgTypeData           MsgType = 0
+	MsgTypeInit           MsgType = 1
+	MsgTypeRouteOOB       MsgType = 2
+	MsgTypeOOB            MsgType = 3
+	MsgTypeKeepalive      MsgType = 4
+	MsgTypeKeepaliveReply MsgType = 5
+	MaxMsgType            MsgType = 5
 )
 
 // InitMsg is a message type sent at connection initialization time
@@ -66,6 +67,8 @@ type RouteOOBMessage OOBMessage
 
 type KeepaliveMsg struct{}
 
+type KeepaliveReplyMsg struct{}
+
 var ErrUnknownMessageType = fmt.Errorf("unknown message type")
 
 // Type returns the MsgType of a Msg
@@ -104,6 +107,8 @@ func (m Msg) Unmarshal() (any, error) {
 		return m.unmarshalOOB()
 	case MsgTypeKeepalive:
 		return unmarshalMsg(&KeepaliveMsg{})
+	case MsgTypeKeepaliveReply:
+		return unmarshalMsg(&KeepaliveReplyMsg{})
 	}
 	return nil, ErrUnknownMessageType
 }
@@ -130,6 +135,15 @@ func (m *InitMsg) Marshal() ([]byte, error) {
 // Marshal marshals a KeepaliveMsg to a []byte
 func (m *KeepaliveMsg) Marshal() ([]byte, error) {
 	d, err := marshalMsg(m, MsgTypeKeepalive)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// Marshal marshals a KeepaliveReplyMsg to a []byte
+func (m *KeepaliveReplyMsg) Marshal() ([]byte, error) {
+	d, err := marshalMsg(m, MsgTypeKeepaliveReply)
 	if err != nil {
 		return nil, err
 	}
