@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121
-	github.com/99designs/gqlgen v0.17.12
+	github.com/99designs/gqlgen v0.17.13
 	github.com/Yamashou/gqlgenc v0.0.8
 	github.com/chzyer/readline v1.5.1
 	github.com/golang-jwt/jwt/v4 v4.4.2
@@ -39,7 +39,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.14 // indirect
 	github.com/klauspost/reedsolomon v1.10.0 // indirect
-	github.com/matryer/moq v0.2.7 // indirect
 	github.com/mitchellh/mapstructure v1.3.1 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/transport v0.13.0 // indirect
