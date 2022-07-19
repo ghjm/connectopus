@@ -12,8 +12,6 @@ import {
   PageHeaderTools,
   ContextSelector,
   ContextSelectorItem,
-  Stack,
-  StackItem,
   Flex,
   Label,
   FlexItem,
@@ -23,8 +21,6 @@ import logo from '@app/images/connectopus.png';
 import nodeLogo from '@app/images/node.png';
 import { Client, createClient, Provider, useQuery } from 'urql';
 import { createContext, useEffect } from 'react';
-import styles from '@patternfly/react-styles/css/components/Page/page';
-import { css } from '@patternfly/react-styles';
 import GitHubButton from 'react-github-btn';
 
 interface IAppLayout {
@@ -72,20 +68,20 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
   });
   useEffect(() => {
     if (result.fetching) return;
-    if ('status' in result.data) {
-      if ('name' in result.data['status']) {
-        const sn = result.data['status']['name'];
-        if (sn !== myNode) {
-          setMyNode(sn);
-          sessionStorage.setItem('myNode', sn);
-        }
-      }
+    if (!('data' in result)) return;
+    if (result.data === undefined) return;
+    if (!('status' in result.data)) return;
+    if (!('name' in result.data.status)) return;
+    const sn = result['data']['status']['name'];
+    if (sn !== myNode) {
+      setMyNode(sn);
+      sessionStorage.setItem('myNode', sn);
     }
     const timerId = setTimeout(() => {
       reexecuteQuery({ requestPolicy: 'network-only' });
     }, 1000);
     return () => clearTimeout(timerId);
-  }, [result.fetching, reexecuteQuery, result.data, myNode, setMyNode]);
+  }, [result, reexecuteQuery, myNode, setMyNode]);
 
   const onNavToggleMobile = () => {
     setIsNavOpenMobile(!isNavOpenMobile);
@@ -194,81 +190,68 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
     </NavExpandable>
   );
 
-  const Navigation = (
-    <Nav id="nav-primary-simple" theme="dark">
-      <NavList id="nav-list-simple">
-        {routes.map(
-          (route, idx) => route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx))
-        )}
-      </NavList>
-    </Nav>
+  const NavFooter = (
+    <Flex direction={{ default: 'column' }} cellSpacing={20}>
+      <FlexItem alignSelf={{ default: 'alignSelfCenter' }}>
+        <Label
+          color="grey"
+          icon={<img src={nodeLogo} alt={'logo'} width={20} />}
+          isCompact={true}
+          href={'https://github.com/ghjm/connectopus'}
+          style={{ backgroundColor: '#8A8D90' }}
+        >
+          View on GitHub
+        </Label>
+      </FlexItem>
+      <FlexItem alignSelf={{ default: 'alignSelfCenter' }}>
+        <Flex>
+          <FlexItem>
+            <GitHubButton
+              href="https://github.com/ghjm/connectopus/discussions"
+              aria-label="Discuss ghjm/connectopus on GitHub"
+            >
+              Discuss
+            </GitHubButton>
+          </FlexItem>
+          <FlexItem>
+            <GitHubButton
+              href="https://github.com/ghjm/connectopus"
+              data-icon="octicon-star"
+              aria-label="Star ghjm/connectopus on GitHub"
+            >
+              Star
+            </GitHubButton>
+          </FlexItem>
+          <FlexItem>
+            <GitHubButton
+              href="https://github.com/ghjm/connectopus/issues"
+              data-icon="octicon-issue-opened"
+              aria-label="Issue ghjm/connectopus on GitHub"
+            >
+              Issue
+            </GitHubButton>
+          </FlexItem>
+        </Flex>
+      </FlexItem>
+    </Flex>
   );
 
-  const Sidebar = () => {
-    const navIsOpen = isMobileView ? isNavOpenMobile : isNavOpen;
-    return (
-      <div
-        id={'outer-sidebar'}
-        className={css(
-          styles.pageSidebar,
-          navIsOpen && styles.modifiers.expanded,
-          !navIsOpen && styles.modifiers.collapsed
-        )}
-        aria-hidden={!navIsOpen}
-      >
-        <Stack>
-          <StackItem isFilled={true}>
-            <PageSidebar theme="dark" nav={Navigation} isNavOpen={navIsOpen} />
-          </StackItem>
-          <StackItem>
-            <Flex direction={{ default: 'column' }} cellSpacing={20}>
-              <FlexItem alignSelf={{ default: 'alignSelfCenter' }}>
-                <Label
-                  color="grey"
-                  icon={<img src={nodeLogo} alt={'logo'} width={20} />}
-                  isCompact={true}
-                  href={'https://github.com/ghjm/connectopus'}
-                  style={{ backgroundColor: '#8A8D90' }}
-                >
-                  View on GitHub
-                </Label>
-              </FlexItem>
-              <FlexItem alignSelf={{ default: 'alignSelfCenter' }}>
-                <Flex>
-                  <FlexItem>
-                    <GitHubButton
-                      href="https://github.com/ghjm/connectopus/discussions"
-                      aria-label="Discuss ghjm/connectopus on GitHub"
-                    >
-                      Discuss
-                    </GitHubButton>
-                  </FlexItem>
-                  <FlexItem>
-                    <GitHubButton
-                      href="https://github.com/ghjm/connectopus"
-                      data-icon="octicon-star"
-                      aria-label="Star ghjm/connectopus on GitHub"
-                    >
-                      Star
-                    </GitHubButton>
-                  </FlexItem>
-                  <FlexItem>
-                    <GitHubButton
-                      href="https://github.com/ghjm/connectopus/issues"
-                      data-icon="octicon-issue-opened"
-                      aria-label="Issue ghjm/connectopus on GitHub"
-                    >
-                      Issue
-                    </GitHubButton>
-                  </FlexItem>
-                </Flex>
-              </FlexItem>
-            </Flex>
-          </StackItem>
-        </Stack>
-      </div>
-    );
-  };
+  const Navigation = (
+    <Flex direction={{ default: 'column' }} flexWrap={{ default: 'nowrap' }}>
+      <FlexItem grow={{ default: 'grow' }}>
+        <Nav id="nav-primary-simple" theme="dark">
+          <NavList id="nav-list-simple">
+            {routes.map(
+              (route, idx) => route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx))
+            )}
+          </NavList>
+        </Nav>
+      </FlexItem>
+      <FlexItem className="pf-u-px-md pf-u-px-lg-on-xl pf-u-color-light-200 pf-u-font-size-sm">{NavFooter}</FlexItem>
+    </Flex>
+  );
+
+  const Sidebar = <PageSidebar theme="dark" nav={Navigation} isNavOpen={isMobileView ? isNavOpenMobile : isNavOpen} />;
 
   const pageId = 'primary-app-container';
 
@@ -288,7 +271,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
     <Page
       mainContainerId={pageId}
       header={Header}
-      sidebar={Sidebar()}
+      sidebar={Sidebar}
       onPageResize={onPageResize}
       skipToContent={PageSkipToContent}
     >

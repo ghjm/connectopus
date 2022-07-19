@@ -7,3 +7,11 @@ html, body, #root {
   --pf-c-content--blockquote--BorderLeftColor: purple; /* changes all <blockquote> left border color to purple */
   --pf-c-content--hr--BackgroundColor: lemonchiffon; /* changes a <hr> color to lemonchiffon */
 }
+
+.pf-c-page__sidebar-body {
+  min-height: 100%;
+  display: flex;
+}
+.pf-c-page__sidebar-body > .pf-l-flex {
+  flex-grow: 1;
+}
