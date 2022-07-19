@@ -160,10 +160,10 @@ jobs:
       - name: Run tests
         run: go test ./... -count=1 -race
 
-      - name: Run root tests
-        run: |
-          make connectopus
-          sudo GOPATH=$HOME/go $(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
+#       - name: Run root tests
+#         run: |
+#           make connectopus
+#           sudo GOPATH=$HOME/go $(which go) test ./... -test.run 'TestAsRoot*' -count=1 -race
 
       - name: Build release binaries
         if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish }}
