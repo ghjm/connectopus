@@ -14,7 +14,7 @@ require (
 	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
 	github.com/miekg/dns v1.1.50
 	github.com/pion/dtls/v2 v2.1.5
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.5.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
@@ -24,7 +24,7 @@ require (
 	go.uber.org/goleak v1.1.12
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
-	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20220430045309-0ada71a2f9ec
 	lukechampine.com/uint128 v1.2.0
