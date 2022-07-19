@@ -129,7 +129,7 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 		}
 		err = netlink.RouteAdd(&route)
 		if err != nil {
-			return nil, fmt.Errorf("error adding route to tun device: %s", err)
+			return nil, fmt.Errorf("error adding route %s to tun device: %s", subnet.String(), err)
 		}
 	}
 
