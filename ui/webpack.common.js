@@ -13,10 +13,10 @@ module.exports = (env) => {
           test: /\.(tsx|ts|jsx)?$/,
           use: [
             {
-              loader: 'ts-loader',
+              loader: 'esbuild-loader',
               options: {
-                transpileOnly: false,
-                experimentalWatchApi: true,
+                loader: 'tsx',
+                target: 'es2015'
               },
             },
           ],
