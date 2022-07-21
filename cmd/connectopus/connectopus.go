@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/internal/version"
 	"github.com/ghjm/connectopus/pkg/config"
@@ -18,6 +17,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/file_cleaner"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/agent"
@@ -40,6 +40,12 @@ var socketNode string
 var rootCmd = &cobra.Command{
 	Use:   "connectopus",
 	Short: "CLI for Connectopus",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if !(isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())) {
+			return uiCmd.RunE(cmd, args)
+		}
+		return cmd.Usage()
+	},
 }
 
 // Init Command
@@ -58,22 +64,22 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a new node",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		a, err := ssh_jwt.GetSSHAgent(keyFile)
 		if err != nil {
-			errExitf("error initializing SSH agent: %s", err)
+			return fmt.Errorf("error initializing SSH agent: %s", err)
 		}
 		var keys []*agent.Key
 		keys, err = ssh_jwt.GetMatchingKeys(a, keyText)
 		_ = a.Close()
 		if err != nil {
-			errExitf("error listing SSH keys: %s", err)
+			return fmt.Errorf("error listing SSH keys: %s", err)
 		}
 		if len(keys) == 0 {
-			errExitf("no SSH keys found")
+			return fmt.Errorf("no SSH keys found")
 		}
 		if len(keys) > 1 {
-			errExitf("multiple SSH keys found.  Use --text to select one uniquely.")
+			return fmt.Errorf("multiple SSH keys found.  Use --text to select one uniquely.")
 		}
 		key := proto.MarshalablePublicKey{
 			PublicKey: keys[0],
@@ -94,7 +100,7 @@ var initCmd = &cobra.Command{
 			_, parsedSubnet, err := proto.ParseCIDR(initSubnet)
 			var parsedIP proto.IP
 			if err != nil {
-				errExitf("error parsing subnet: %s", err)
+				return fmt.Errorf("error parsing subnet: %s", err)
 			}
 			if initIP == "" || strings.HasPrefix(initIP, "subnet::") {
 				if initIP == "" {
@@ -103,7 +109,7 @@ var initCmd = &cobra.Command{
 				initIP = strings.TrimPrefix(initIP, "subnet::")
 				subnetParts := strings.Split(parsedSubnet.String(), "::")
 				if len(subnetParts) == 0 {
-					errExitf("cannot parse subnet")
+					return fmt.Errorf("cannot parse subnet")
 				}
 				parsedIP = proto.ParseIP(subnetParts[0] + "::" + initIP)
 				fmt.Printf("Using generated IP address %s\n", parsedIP.String())
@@ -117,7 +123,7 @@ var initCmd = &cobra.Command{
 				for _, p := range strings.Split(initBackend, ",") {
 					kv := strings.SplitN(p, "=", 2)
 					if len(kv) != 2 {
-						errExitf("invalid backend parameters")
+						return fmt.Errorf("invalid backend parameters")
 					}
 					be[kv[0]] = kv[1]
 				}
@@ -140,12 +146,12 @@ var initCmd = &cobra.Command{
 		} else {
 			data, err := ioutil.ReadFile(configFilename)
 			if err != nil {
-				errExitf("error reading config file: %s", err)
+				return fmt.Errorf("error reading config file: %s", err)
 			}
 			newCfg = config.Config{}
 			err = newCfg.Unmarshal(data)
 			if err != nil {
-				errExitf("error parsing config file: %s", err)
+				return fmt.Errorf("error parsing config file: %s", err)
 			}
 			found := false
 			for _, ak := range newCfg.Global.AuthorizedKeys {
@@ -161,7 +167,7 @@ var initCmd = &cobra.Command{
 		if dataDir == "" {
 			ucd, err := os.UserConfigDir()
 			if err != nil {
-				errExitf("error finding user config directory: %s", err)
+				return fmt.Errorf("error finding user config directory: %s", err)
 			}
 			dataDir = path.Join(ucd, "connectopus", identity)
 		}
@@ -170,33 +176,34 @@ var initCmd = &cobra.Command{
 			if force {
 				err = os.RemoveAll(dataDir)
 				if err != nil {
-					errExitf("error removing existing data dir: %s", err)
+					return fmt.Errorf("error removing existing data dir: %s", err)
 				}
 			} else {
-				errExitf("data dir already exists.  Use --force to remove it.")
+				return fmt.Errorf("data dir already exists.  Use --force to remove it.")
 			}
 		}
 		err = os.MkdirAll(dataDir, 0700)
 		if err != nil {
-			errExitf("error creating data dir: %s", err)
+			return fmt.Errorf("error creating data dir: %s", err)
 		}
 		var newCfgData []byte
 		var sig []byte
 		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, newCfg, configFilename != "")
 		if err != nil {
-			errExitf("error signing config data: %s", err)
+			return fmt.Errorf("error signing config data: %s", err)
 		}
 		err = ioutil.WriteFile(path.Join(dataDir, "config.yml"), newCfgData, 0600)
 		if err != nil {
-			errExitf("error writing config file: %s", err)
+			return fmt.Errorf("error writing config file: %s", err)
 		}
 		err = ioutil.WriteFile(path.Join(dataDir, "config.sig"), sig, 0600)
 		if err != nil {
-			errExitf("error writing config signature: %s", err)
+			return fmt.Errorf("error writing config signature: %s", err)
 		}
 		if initRun {
 			nodeCmd.Run(cmd, args)
 		}
+		return nil
 	},
 }
 
@@ -207,7 +214,7 @@ var nodeCmd = &cobra.Command{
 	Short:   "Run a Connectopus node",
 	Args:    cobra.NoArgs,
 	Version: version.Version(),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if logLevel != "" {
 			switch logLevel {
 			case "error":
@@ -219,7 +226,7 @@ var nodeCmd = &cobra.Command{
 			case "debug":
 				log.SetLevel(log.DebugLevel)
 			default:
-				errExitf("invalid log level")
+				return fmt.Errorf("invalid log level")
 			}
 		}
 
@@ -228,11 +235,12 @@ var nodeCmd = &cobra.Command{
 
 		_, err := connectopus.RunNode(ctx, dataDir, identity)
 		if err != nil {
-			errExit(err)
+			return err
 		}
 
 		log.Infof("node %s started", identity)
 		<-ctx.Done()
+		return nil
 	},
 }
 
@@ -242,12 +250,13 @@ var getTokenCmd = &cobra.Command{
 	Use:   "get-token",
 	Short: "Generate an authentication token from an SSH key",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := cpctl.GenToken(keyFile, keyText, tokenDuration)
 		if err != nil {
-			errExitf("error generating token: %s", err)
+			return fmt.Errorf("error generating token: %s", err)
 		}
 		fmt.Printf("%s\n", s)
+		return nil
 	},
 }
 
@@ -258,10 +267,10 @@ var verifyTokenCmd = &cobra.Command{
 	Use:   "verify-token",
 	Short: "Verify a previously generated authentication token",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		sm, err := ssh_jwt.SetupSigningMethod("connectopus", nil)
 		if err != nil {
-			errExitf("error initializing JWT signing method: %s", err)
+			return fmt.Errorf("error initializing JWT signing method: %s", err)
 		}
 		var parsedToken *jwt.Token
 		parsedToken, err = jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
@@ -272,7 +281,7 @@ var verifyTokenCmd = &cobra.Command{
 			return pubkey, nil
 		}, jwt.WithValidMethods([]string{sm.Alg()}))
 		if err != nil {
-			errExitf("error parsing JWT token: %s", err)
+			return fmt.Errorf("error parsing JWT token: %s", err)
 		}
 		var signingKey *string
 		switch kid := parsedToken.Header["kid"].(type) {
@@ -306,6 +315,7 @@ var verifyTokenCmd = &cobra.Command{
 		if expirationDate != nil {
 			fmt.Printf("  Expiration: %s\n", expirationDate.String())
 		}
+		return nil
 	},
 }
 
@@ -320,25 +330,26 @@ var getConfigCmd = &cobra.Command{
 	Aliases: []string{"read", "save", "download", "dump"},
 	Short:   "Retrieve the running configuration and save it as YAML",
 	Args:    cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		var config *cpctl.GetConfig
 		config, err = client.GetConfig(context.Background())
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		if configFilename == "" {
 			fmt.Printf(config.Config.Yaml)
 		} else {
 			err = ioutil.WriteFile(configFilename, []byte(config.Config.Yaml), 0600)
 			if err != nil {
-				errExit(err)
+				return err
 			}
 			fmt.Printf("Config saved to %s\n", configFilename)
 		}
+		return nil
 	},
 }
 
@@ -348,10 +359,10 @@ var setConfigCmd = &cobra.Command{
 	Aliases: []string{"write", "load", "upload"},
 	Short:   "Update the running configuration from a file or stdin",
 	Args:    cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		var configFile *os.File
 		if configFilename == "-" {
@@ -359,30 +370,30 @@ var setConfigCmd = &cobra.Command{
 		} else {
 			configFile, err = os.Open(configFilename)
 			if err != nil {
-				errExit(err)
+				return err
 			}
 		}
 		var yaml []byte
 		yaml, err = io.ReadAll(configFile)
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		newCfg := config.Config{}
 		err = newCfg.Unmarshal(yaml)
 		if err != nil {
-			errExitf("error parsing yaml data: %s", err)
+			return fmt.Errorf("error parsing yaml data: %s", err)
 		}
 		if len(newCfg.Global.AuthorizedKeys) == 0 {
 			fmt.Printf("Warning: Authorized keys list is empty.  Re-using existing keys.\n")
 			var oldGetConfig *cpctl.GetConfig
 			oldGetConfig, err = client.GetConfig(context.Background())
 			if err != nil {
-				errExitf("error retrieving old configuration: %s", err)
+				return fmt.Errorf("error retrieving old configuration: %s", err)
 			}
 			oldCfg := config.Config{}
 			err = oldCfg.Unmarshal([]byte(oldGetConfig.Config.Yaml))
 			if err != nil {
-				errExitf("error parsing old configuration: %s", err)
+				return fmt.Errorf("error parsing old configuration: %s", err)
 			}
 			newCfg.Global.AuthorizedKeys = append(newCfg.Global.AuthorizedKeys, oldCfg.Global.AuthorizedKeys...)
 		}
@@ -390,15 +401,16 @@ var setConfigCmd = &cobra.Command{
 		var sig []byte
 		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, newCfg, true)
 		if err != nil {
-			errExitf("error signing config data: %s", err)
+			return fmt.Errorf("error signing config data: %s", err)
 		}
 		_, err = client.SetConfig(context.Background(), cpctl.ConfigUpdateInput{
 			Yaml:      string(newCfgData),
 			Signature: string(sig),
 		})
 		if err != nil {
-			errExit(err)
+			return err
 		}
+		return nil
 	},
 }
 
@@ -407,36 +419,36 @@ var editConfigCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit the running configuration",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
 		if err != nil {
-			errExitf("error opening socket client: %s", err)
+			return fmt.Errorf("error opening socket client: %s", err)
 		}
 		var getCfg *cpctl.GetConfig
 		getCfg, err = client.GetConfig(context.Background())
 		if err != nil {
-			errExitf("error getting current config: %s", err)
+			return fmt.Errorf("error getting current config: %s", err)
 		}
 		var tmpFile *os.File
 		tmpFile, err = ioutil.TempFile("", "connectopus-config-*.yml")
 		if err != nil {
-			errExitf("error creating temp file: %s", err)
+			return fmt.Errorf("error creating temp file: %s", err)
 		}
 		file_cleaner.DeleteOnExit(tmpFile.Name())
 		_, err = tmpFile.Write([]byte(getCfg.Config.Yaml))
 		if err != nil {
-			errExitf("error writing temp file: %s", err)
+			return fmt.Errorf("error writing temp file: %s", err)
 		}
 		err = tmpFile.Close()
 		if err != nil {
-			errExitf("error closing temp file: %s", err)
+			return fmt.Errorf("error closing temp file: %s", err)
 		}
 		editor := os.Getenv("EDITOR")
 		if editor == "" {
 			editor = os.Getenv("VISUAL")
 		}
 		if editor == "" {
-			errExitf("unable to find an editor.  Please set EDITOR or VISUAL.")
+			return fmt.Errorf("unable to find an editor.  Please set EDITOR or VISUAL.")
 		}
 		c := exec.Command(editor, tmpFile.Name())
 		c.Stdin = os.Stdin
@@ -444,36 +456,37 @@ var editConfigCmd = &cobra.Command{
 		c.Stderr = os.Stderr
 		err = c.Run()
 		if err != nil {
-			errExitf("error running editor: %s", err)
+			return fmt.Errorf("error running editor: %s", err)
 		}
 		var newYaml []byte
 		newYaml, err = ioutil.ReadFile(tmpFile.Name())
 		if err != nil {
-			errExitf("error reading temp file: %s", err)
+			return fmt.Errorf("error reading temp file: %s", err)
 		}
 		if string(newYaml) == getCfg.Config.Yaml {
 			fmt.Printf("Config file unchanged.  Not updating.\n")
-			return
+			return nil
 		}
 		cfg := config.Config{}
 		err = cfg.Unmarshal(newYaml)
 		if err != nil {
-			errExitf("error parsing new config yaml: %s", err)
+			return fmt.Errorf("error parsing new config yaml: %s", err)
 		}
 		var newCfgData []byte
 		var sig []byte
 		newCfgData, sig, err = connectopus.SignConfig(keyFile, keyText, cfg, true)
 		if err != nil {
-			errExitf("error signing new config: %s", err)
+			return fmt.Errorf("error signing new config: %s", err)
 		}
 		_, err = client.SetConfig(context.Background(), cpctl.ConfigUpdateInput{
 			Yaml:      string(newCfgData),
 			Signature: string(sig),
 		})
 		if err != nil {
-			errExitf("error updating config: %s", err)
+			return fmt.Errorf("error updating config: %s", err)
 		}
 		fmt.Printf("Configuration updated.\n")
+		return nil
 	},
 }
 
@@ -484,36 +497,15 @@ var uiCmd = &cobra.Command{
 	Use:   "ui",
 	Short: "Run the Connectopus UI",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
-		if socketFile == "" {
-			var err error
-			socketFile, err = cpctl.FindSocketFile(socketNode)
-			if err != nil {
-				errExit(err)
-			}
-		}
-		tokStr, err := cpctl.GenToken(keyFile, keyText, tokenDuration)
-		if err != nil {
-			errExitf("error generating token: %s", err)
-		}
-		li, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", localUIPort))
-		if err != nil {
-			errExitf("tcp listen error: %s", err)
-		}
-		url := fmt.Sprintf("http://localhost:%d/?AuthToken=%s", localUIPort, tokStr)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		opts := make([]localui.Opt, 0)
 		if noBrowser {
-			fmt.Printf("Server started on URL: %s\n", url)
-		} else {
-			fmt.Printf("Server started.  Launching browser.\n")
-			err = openWebBrowser(url)
-			if err != nil {
-				errExitf("error opening browser: %s", err)
-			}
+			opts = append(opts, localui.WithBrowser(false))
 		}
-		err = localui.Serve(context.Background(), li, socketFile)
-		if err != nil {
-			errExitf("server error: %s", err)
+		if localUIPort != 0 {
+			opts = append(opts, localui.WithLocalPort(uint16(localUIPort)))
 		}
+		return localui.Serve(opts...)
 	},
 }
 
@@ -523,18 +515,18 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Get status",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", proxyTo)
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		var status *cpctl.GetStatus
 		status, err = client.GetStatus(context.Background())
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		if status == nil {
-			errExit(fmt.Errorf("no status returned"))
+			return fmt.Errorf("no status returned")
 		}
 		fmt.Printf("Node: %s [%s]\n", status.Status.Name, status.Status.Addr)
 		fmt.Printf("  Global Settings:\n")
@@ -614,6 +606,7 @@ var statusCmd = &cobra.Command{
 				}
 			}
 		}
+		return nil
 	},
 }
 
@@ -623,10 +616,10 @@ var nsenterCmd = &cobra.Command{
 	Use:   "nsenter",
 	Short: "Run a command within a network namespace",
 	Args:  cobra.ArbitraryArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := cpctl.NewTokenAndSocketClient(socketFile, socketNode, keyFile, keyText, "", "")
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		nsName := &namespaceName
 		if namespaceName == "" {
@@ -635,21 +628,21 @@ var nsenterCmd = &cobra.Command{
 		var list *cpctl.GetNetns
 		list, err = client.GetNetns(context.Background(), nsName)
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		pid := 0
 		if list != nil {
 			for _, netns := range list.Netns {
 				if netns != nil {
 					if pid != 0 {
-						errExit(fmt.Errorf("multiple network namespaces found - please specify one"))
+						return fmt.Errorf("multiple network namespaces found - please specify one")
 					}
 					pid = netns.Pid
 				}
 			}
 		}
 		if pid == 0 {
-			errExit(fmt.Errorf("no matching network namespaces found"))
+			return fmt.Errorf("no matching network namespaces found")
 		}
 		if len(args) == 0 {
 			shell := os.Getenv("SHELL")
@@ -666,12 +659,13 @@ var nsenterCmd = &cobra.Command{
 		command.Stderr = os.Stderr
 		err = command.Start()
 		if err != nil {
-			errExit(err)
+			return err
 		}
 		err = command.Wait()
 		if err != nil {
-			errExit(err)
+			return err
 		}
+		return nil
 	},
 }
 
@@ -687,11 +681,12 @@ var netnsShimCmd = &cobra.Command{
 	Args:    cobra.NoArgs,
 	Version: version.Version(),
 	Hidden:  true,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		err := netns.RunShim(netnsFd, netnsTunIf, uint16(netnsMTU), netnsAddr, netnsDomain, netnsDNSServer)
 		if err != nil {
-			errExitf("error running netns shim: %s", err)
+			return fmt.Errorf("error running netns shim: %s", err)
 		}
+		return nil
 	},
 }
 
@@ -702,14 +697,14 @@ var setupTunnelCmd = &cobra.Command{
 	Use:   "setup-tunnel",
 	Short: "Pre-create tunnel interface(s) for a node - usually run with sudo",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if uid == -1 {
 			uidStr := os.Getenv("SUDO_UID")
 			if uidStr != "" {
 				var err error
 				uid, err = strconv.Atoi(uidStr)
 				if err != nil {
-					errExitf("error parsing SUDO_UID: %s", err)
+					return fmt.Errorf("error parsing SUDO_UID: %s", err)
 				}
 			} else {
 				uid = os.Getuid()
@@ -721,7 +716,7 @@ var setupTunnelCmd = &cobra.Command{
 				var err error
 				gid, err = strconv.Atoi(gidStr)
 				if err != nil {
-					errExitf("error parsing SUDO_GID: %s", err)
+					return fmt.Errorf("error parsing SUDO_GID: %s", err)
 				}
 			} else {
 				uid = os.Getgid()
@@ -730,38 +725,22 @@ var setupTunnelCmd = &cobra.Command{
 		config := &config.Config{}
 		err := config.Load(configFilename)
 		if err != nil {
-			errExitf("error reading config file: %s", err)
+			return fmt.Errorf("error reading config file: %s", err)
 		}
 		node, ok := config.Nodes[identity]
 		if !ok {
-			errExitf("no such node in config file")
+			return fmt.Errorf("no such node in config file")
 		}
 		mtu := netopus.LeastMTU(node, 1500)
 		for name, tunDev := range node.TunDevs {
 			_, err := tun.SetupLink(tunDev.DeviceName, net.IP(tunDev.Address), config.Global.Subnet.AsIPNet(),
 				mtu, tun.WithUidGid(uint(uid), uint(gid)), tun.WithPersist())
 			if err != nil {
-				errExitf("error setting up %s: %s", name, err)
+				return fmt.Errorf("error setting up %s: %s", name, err)
 			}
 		}
+		return nil
 	},
-}
-
-// errExit halts the program on error
-func errExit(err error) {
-	if errors.Is(err, cpctl.ErrMultipleNode) {
-		errExitf("%s\nSelect a unique node using --node or --socketfile, or set CPCTL_SOCK.", err)
-	}
-	fmt.Printf("Error: %s\n", err)
-	exit_handler.RunExitFuncs()
-	os.Exit(1)
-}
-
-// errExit halts the program on error with a formatted message
-func errExitf(format string, args ...any) {
-	fmt.Printf(fmt.Sprintf("Error: %s\n", format), args...)
-	exit_handler.RunExitFuncs()
-	os.Exit(1)
 }
 
 // abbreviateKey returns a shorter, human-readable version of an SSH public key
@@ -771,23 +750,6 @@ func abbreviateKey(keyStr string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s [...] %s", key.PublicKey.Type(), key.Comment), nil
-}
-
-// openWebBrowser opens the default web browser to a given URL
-func openWebBrowser(url string) error {
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		//nolint:goerr113
-		err = fmt.Errorf("unsupported platform")
-	}
-	return err
 }
 
 func formatNode(addr string, nodeNames map[string]string) string {
@@ -916,10 +878,11 @@ func main() {
 	}
 
 	err := rootCmd.Execute()
+	exitCode := 0
 	if err != nil {
-		fmt.Println(err)
-		exit_handler.RunExitFuncs()
-		os.Exit(1)
+		fmt.Printf("Error: %s\n", err)
+		exitCode = 1
 	}
 	exit_handler.RunExitFuncs()
+	os.Exit(exitCode)
 }

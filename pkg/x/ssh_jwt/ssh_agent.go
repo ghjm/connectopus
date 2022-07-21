@@ -74,6 +74,9 @@ func GetSSHAgent(keyFile string) (*SSHAgent, error) {
 			return nil, fmt.Errorf("error connecting to Pageant: %s", err)
 		}
 	}
+	if conn == nil {
+		return nil, fmt.Errorf("no SSH agent found")
+	}
 	return &SSHAgent{
 		ExtendedAgent: agent.NewClient(conn),
 		conn:          conn,

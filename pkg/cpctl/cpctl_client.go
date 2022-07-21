@@ -82,7 +82,7 @@ func GenToken(keyFile string, keyText string, tokenDuration string) (string, err
 var ErrNoNode = fmt.Errorf("no running node found")
 var ErrMultipleNode = fmt.Errorf("multiple running nodes found")
 
-func findSockets(socketNode string) ([]string, error) {
+func FindSockets(socketNode string) ([]string, error) {
 	dataDirs, err := config.FindDataDirs(socketNode)
 	if err != nil {
 		return nil, err
@@ -99,12 +99,12 @@ func findSockets(socketNode string) ([]string, error) {
 	return socketFiles, nil
 }
 
-func FindSocketFile(socketNode string) (string, error) {
+func FindSocket(socketNode string) (string, error) {
 	envSock := os.Getenv("CPCTL_SOCK")
 	if envSock != "" {
 		return envSock, nil
 	}
-	socketList, err := findSockets(socketNode)
+	socketList, err := FindSockets(socketNode)
 	if err != nil {
 		return "", fmt.Errorf("error listing socket files: %w", err)
 	}
@@ -121,7 +121,7 @@ func FindSocketFile(socketNode string) (string, error) {
 func NewSocketClient(socketFile string, socketNode string, authToken string, proxyTo string) (*Client, error) {
 	if socketFile == "" {
 		var err error
-		socketFile, err = FindSocketFile(socketNode)
+		socketFile, err = FindSocket(socketNode)
 		if err != nil {
 			return nil, err
 		}

@@ -10,7 +10,7 @@ import { Status } from '@app/Status/Status';
 
 let routeFocusTimer: number;
 export interface IAppRoute {
-  label?: string; // Excluding the label will exclude the route from the nav sidebar in AppLayout
+  label?: string; // Excluding the label will exclude the route from the nav sidebar in NoAgent
   /* eslint-disable @typescript-eslint/no-explicit-any */
   component: React.ComponentType<RouteComponentProps<any>> | React.ComponentType<any>;
   /* eslint-enable @typescript-eslint/no-explicit-any */
