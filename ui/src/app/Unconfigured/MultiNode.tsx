@@ -1,40 +1,76 @@
 import * as React from 'react';
-import { PageHeader, Page, Flex, FlexItem, Grid, GridItem, Alert, Button } from '@patternfly/react-core';
-import logo from '@app/images/connectopus.png';
+import { FlexItem, Skeleton, Menu, MenuContent, MenuList, MenuItem } from '@patternfly/react-core';
+import { gql, useMutation, useQuery } from 'urql';
+import { useState } from 'react';
+import { Layout } from '@app/Unconfigured/Layout';
 
-const onRefresh = () => {
-  window.location.reload();
-};
+const nodesQuery = gql`
+  {
+    availableNodes {
+      node
+    }
+  }
+`;
+
+const selectNodeMutation = gql`
+  mutation SelectNodeMutation($node: String!) {
+    selectNode(node: $node) {
+      mutationID
+    }
+  }
+`;
 
 const MultiNode: React.FunctionComponent = () => {
+  const [result] = useQuery({ query: nodesQuery });
+  const [, executeMutation] = useMutation(selectNodeMutation);
+  const [activeItem, setActiveItem] = useState('');
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  if (!result.fetching && isPageLoading) {
+    setIsPageLoading(false);
+  }
+  const onClick = (itemID) => {
+    setActiveItem(itemID);
+    executeMutation({ node: itemID }).then(() => {
+      window.location.reload();
+    });
+  };
+  if (isPageLoading) {
+    return (
+      <React.Fragment>
+        <br />
+        <Skeleton />
+        <br />
+        <Skeleton />
+        <br />
+        <Skeleton />
+      </React.Fragment>
+    );
+  }
   return (
-    <Page header={<PageHeader logo={<img src={logo} alt="Connectopus Logo" />} />}>
-      <Grid>
-        <GridItem span={1} />
-        <GridItem span={6}>
-          <Flex direction={{ default: 'column' }} alignSelf={{ default: 'alignSelfCenter' }}>
-            <FlexItem style={{ ['paddingTop' as string]: '4rem' }}>
-              <Alert
-                variant="info"
-                isInline
-                isPlain
-                style={{
-                  ['--pf-c-alert__FontSize' as string]: '2rem',
-                  ['--pf-c-alert__icon--FontSize' as string]: '2rem',
-                }}
-                title="Multiple Connectopus Nodes Found"
-              />
-            </FlexItem>
-            <FlexItem style={{ ['paddingTop' as string]: '3rem' }}>
-              <p>Multiple running Connectopus nodes were found.</p>
-              <br />
-              <Button onClick={onRefresh}>Refresh</Button>
-            </FlexItem>
-          </Flex>
-        </GridItem>
-        <GridItem span={5} />
-      </Grid>
-    </Page>
+    <Layout title={'Multiple Nodes Found'}>
+      <FlexItem style={{ ['paddingTop' as string]: '1rem' }}>
+        <p>Please select the node you would like to connect to:</p>
+        <FlexItem style={{ ['paddingTop' as string]: '2rem', ['paddingBottom' as string]: '2rem' }}>
+          <Menu activeItemId={activeItem}>
+            <MenuContent>
+              <MenuList>
+                {result.data['availableNodes']['node'].map((node) => (
+                  <MenuItem
+                    key={node}
+                    itemID={node}
+                    onClick={() => {
+                      onClick(node);
+                    }}
+                  >
+                    {node}
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </MenuContent>
+          </Menu>
+        </FlexItem>
+      </FlexItem>
+    </Layout>
   );
 };
 

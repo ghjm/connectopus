@@ -1,19 +1,15 @@
 type Query {
-  sshKeys: [SSHKeyResult!]!
+  availableNodes: AvailableNodesResult!
 }
 
 type Mutation {
-  authenticate(sshKey: SSHKeyInput!): AuthenticateResult!
+  selectNode(node: String!): SelectNodeResult!
 }
 
-type SSHKeyResult {
-  authorizedKeys: [String!]!
+type AvailableNodesResult {
+  node: [String!]!
 }
 
-input SSHKeyInput {
-  authorizedKey: String!
-}
-
-type AuthenticateResult {
-  mutationId: ID!
+type SelectNodeResult {
+  mutationID: ID!
 }

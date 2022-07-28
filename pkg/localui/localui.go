@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"path"
 	"runtime"
 	"strings"
 	"time"
@@ -75,8 +76,20 @@ func Serve(opts ...Opt) error {
 
 	preferredSocketNode := syncro.NewVar[string](so.socketNode)
 	r := Resolver{
-		PreferredSocketFunc: func(ps string) {
+		AvailableNodesFunc: func() ([]string, error) {
+			socketFiles, err := cpctl.FindSockets(preferredSocketNode.Get())
+			if err != nil {
+				return nil, err
+			}
+			nodes := make([]string, 0, len(socketFiles))
+			for _, sf := range socketFiles {
+				nodes = append(nodes, path.Base(path.Dir(sf)))
+			}
+			return nodes, nil
+		},
+		PreferredSocketFunc: func(ps string) error {
 			preferredSocketNode.Set(ps)
+			return nil
 		},
 	}
 
@@ -107,7 +120,7 @@ func Serve(opts ...Opt) error {
 		}
 
 		// Check if we have a node socket
-		if pageSel == "" && !haveSocketFile {
+		if !haveSocketFile {
 			socketFiles, err := cpctl.FindSockets(preferredSocketNode.Get())
 			if err != nil || len(socketFiles) == 0 {
 				pageSel = "no-node"

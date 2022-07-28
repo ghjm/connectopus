@@ -504,13 +504,14 @@ var editConfigCmd = &cobra.Command{
 // UI Command
 var noBrowser bool
 var localUIPort int
+var localUIToken string
 var uiCmd = &cobra.Command{
 	Use:   "ui",
 	Short: "Run the Connectopus UI",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		opts := []localui.Opt{
-			localui.WithToken(""),
+			localui.WithToken(localUIToken),
 		}
 		if noBrowser {
 			opts = append(opts, localui.WithBrowser(false))
@@ -879,6 +880,8 @@ func main() {
 		"Select which node's socket file to open, if there are multiple")
 	uiCmd.Flags().IntVar(&localUIPort, "local-ui-port", 26663,
 		"UI port on localhost")
+	uiCmd.Flags().StringVar(&localUIToken, "local-ui-token", "", "")
+	_ = uiCmd.Flags().MarkHidden("local-ui-token")
 
 	setupTunnelCmd.Flags().StringVar(&configFilename, "config", "", "Config file name (required)")
 	_ = setupTunnelCmd.MarkFlagRequired("config")

@@ -2,14 +2,10 @@
 
 package localui
 
-type AuthenticateResult struct {
-	MutationID string `json:"mutationId"`
+type AvailableNodesResult struct {
+	Node []string `json:"node"`
 }
 
-type SSHKeyInput struct {
-	AuthorizedKey string `json:"authorizedKey"`
-}
-
-type SSHKeyResult struct {
-	AuthorizedKeys []string `json:"authorizedKeys"`
+type SelectNodeResult struct {
+	MutationID string `json:"mutationID"`
 }

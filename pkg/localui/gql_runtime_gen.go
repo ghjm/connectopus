@@ -44,28 +44,28 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
-	AuthenticateResult struct {
-		MutationID func(childComplexity int) int
+	AvailableNodesResult struct {
+		Node func(childComplexity int) int
 	}
 
 	Mutation struct {
-		Authenticate func(childComplexity int, sshKey SSHKeyInput) int
+		SelectNode func(childComplexity int, node string) int
 	}
 
 	Query struct {
-		SSHKeys func(childComplexity int) int
+		AvailableNodes func(childComplexity int) int
 	}
 
-	SSHKeyResult struct {
-		AuthorizedKeys func(childComplexity int) int
+	SelectNodeResult struct {
+		MutationID func(childComplexity int) int
 	}
 }
 
 type MutationResolver interface {
-	Authenticate(ctx context.Context, sshKey SSHKeyInput) (*AuthenticateResult, error)
+	SelectNode(ctx context.Context, node string) (*SelectNodeResult, error)
 }
 type QueryResolver interface {
-	SSHKeys(ctx context.Context) ([]*SSHKeyResult, error)
+	AvailableNodes(ctx context.Context) (*AvailableNodesResult, error)
 }
 
 type executableSchema struct {
@@ -83,38 +83,38 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	_ = ec
 	switch typeName + "." + field {
 
-	case "AuthenticateResult.mutationId":
-		if e.complexity.AuthenticateResult.MutationID == nil {
+	case "AvailableNodesResult.node":
+		if e.complexity.AvailableNodesResult.Node == nil {
 			break
 		}
 
-		return e.complexity.AuthenticateResult.MutationID(childComplexity), true
+		return e.complexity.AvailableNodesResult.Node(childComplexity), true
 
-	case "Mutation.authenticate":
-		if e.complexity.Mutation.Authenticate == nil {
+	case "Mutation.selectNode":
+		if e.complexity.Mutation.SelectNode == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_authenticate_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_selectNode_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.Authenticate(childComplexity, args["sshKey"].(SSHKeyInput)), true
+		return e.complexity.Mutation.SelectNode(childComplexity, args["node"].(string)), true
 
-	case "Query.sshKeys":
-		if e.complexity.Query.SSHKeys == nil {
+	case "Query.availableNodes":
+		if e.complexity.Query.AvailableNodes == nil {
 			break
 		}
 
-		return e.complexity.Query.SSHKeys(childComplexity), true
+		return e.complexity.Query.AvailableNodes(childComplexity), true
 
-	case "SSHKeyResult.authorizedKeys":
-		if e.complexity.SSHKeyResult.AuthorizedKeys == nil {
+	case "SelectNodeResult.mutationID":
+		if e.complexity.SelectNodeResult.MutationID == nil {
 			break
 		}
 
-		return e.complexity.SSHKeyResult.AuthorizedKeys(childComplexity), true
+		return e.complexity.SelectNodeResult.MutationID(childComplexity), true
 
 	}
 	return 0, false
@@ -123,9 +123,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	rc := graphql.GetOperationContext(ctx)
 	ec := executionContext{rc, e}
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputSSHKeyInput,
-	)
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
 	first := true
 
 	switch rc.Operation.Operation {
@@ -204,18 +202,18 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Mutation_authenticate_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Mutation_selectNode_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 SSHKeyInput
-	if tmp, ok := rawArgs["sshKey"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sshKey"))
-		arg0, err = ec.unmarshalNSSHKeyInput2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSSHKeyInput(ctx, tmp)
+	var arg0 string
+	if tmp, ok := rawArgs["node"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("node"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["sshKey"] = arg0
+	args["node"] = arg0
 	return args, nil
 }
 
@@ -272,8 +270,8 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _AuthenticateResult_mutationId(ctx context.Context, field graphql.CollectedField, obj *AuthenticateResult) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_AuthenticateResult_mutationId(ctx, field)
+func (ec *executionContext) _AvailableNodesResult_node(ctx context.Context, field graphql.CollectedField, obj *AvailableNodesResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_AvailableNodesResult_node(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -286,7 +284,7 @@ func (ec *executionContext) _AuthenticateResult_mutationId(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.MutationID, nil
+		return obj.Node, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -298,26 +296,26 @@ func (ec *executionContext) _AuthenticateResult_mutationId(ctx context.Context, 
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.([]string)
 	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_AuthenticateResult_mutationId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_AvailableNodesResult_node(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "AuthenticateResult",
+		Object:     "AvailableNodesResult",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_authenticate(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_authenticate(ctx, field)
+func (ec *executionContext) _Mutation_selectNode(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_selectNode(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -330,7 +328,7 @@ func (ec *executionContext) _Mutation_authenticate(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().Authenticate(rctx, fc.Args["sshKey"].(SSHKeyInput))
+		return ec.resolvers.Mutation().SelectNode(rctx, fc.Args["node"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -342,12 +340,12 @@ func (ec *executionContext) _Mutation_authenticate(ctx context.Context, field gr
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*AuthenticateResult)
+	res := resTmp.(*SelectNodeResult)
 	fc.Result = res
-	return ec.marshalNAuthenticateResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐAuthenticateResult(ctx, field.Selections, res)
+	return ec.marshalNSelectNodeResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSelectNodeResult(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_authenticate(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_selectNode(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -355,10 +353,10 @@ func (ec *executionContext) fieldContext_Mutation_authenticate(ctx context.Conte
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "mutationId":
-				return ec.fieldContext_AuthenticateResult_mutationId(ctx, field)
+			case "mutationID":
+				return ec.fieldContext_SelectNodeResult_mutationID(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type AuthenticateResult", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type SelectNodeResult", field.Name)
 		},
 	}
 	defer func() {
@@ -368,15 +366,15 @@ func (ec *executionContext) fieldContext_Mutation_authenticate(ctx context.Conte
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_authenticate_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_selectNode_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_sshKeys(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_sshKeys(ctx, field)
+func (ec *executionContext) _Query_availableNodes(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_availableNodes(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -389,7 +387,7 @@ func (ec *executionContext) _Query_sshKeys(ctx context.Context, field graphql.Co
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().SSHKeys(rctx)
+		return ec.resolvers.Query().AvailableNodes(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -401,12 +399,12 @@ func (ec *executionContext) _Query_sshKeys(ctx context.Context, field graphql.Co
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*SSHKeyResult)
+	res := resTmp.(*AvailableNodesResult)
 	fc.Result = res
-	return ec.marshalNSSHKeyResult2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSSHKeyResultᚄ(ctx, field.Selections, res)
+	return ec.marshalNAvailableNodesResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐAvailableNodesResult(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_sshKeys(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_availableNodes(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -414,10 +412,10 @@ func (ec *executionContext) fieldContext_Query_sshKeys(ctx context.Context, fiel
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "authorizedKeys":
-				return ec.fieldContext_SSHKeyResult_authorizedKeys(ctx, field)
+			case "node":
+				return ec.fieldContext_AvailableNodesResult_node(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type SSHKeyResult", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type AvailableNodesResult", field.Name)
 		},
 	}
 	return fc, nil
@@ -552,8 +550,8 @@ func (ec *executionContext) fieldContext_Query___schema(ctx context.Context, fie
 	return fc, nil
 }
 
-func (ec *executionContext) _SSHKeyResult_authorizedKeys(ctx context.Context, field graphql.CollectedField, obj *SSHKeyResult) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SSHKeyResult_authorizedKeys(ctx, field)
+func (ec *executionContext) _SelectNodeResult_mutationID(ctx context.Context, field graphql.CollectedField, obj *SelectNodeResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_SelectNodeResult_mutationID(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -566,7 +564,7 @@ func (ec *executionContext) _SSHKeyResult_authorizedKeys(ctx context.Context, fi
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.AuthorizedKeys, nil
+		return obj.MutationID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -578,19 +576,19 @@ func (ec *executionContext) _SSHKeyResult_authorizedKeys(ctx context.Context, fi
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]string)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_SSHKeyResult_authorizedKeys(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_SelectNodeResult_mutationID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "SSHKeyResult",
+		Object:     "SelectNodeResult",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2369,34 +2367,6 @@ func (ec *executionContext) fieldContext___Type_specifiedByURL(ctx context.Conte
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputSSHKeyInput(ctx context.Context, obj interface{}) (SSHKeyInput, error) {
-	var it SSHKeyInput
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"authorizedKey"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "authorizedKey":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("authorizedKey"))
-			it.AuthorizedKey, err = ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		}
-	}
-
-	return it, nil
-}
-
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -2405,19 +2375,19 @@ func (ec *executionContext) unmarshalInputSSHKeyInput(ctx context.Context, obj i
 
 // region    **************************** object.gotpl ****************************
 
-var authenticateResultImplementors = []string{"AuthenticateResult"}
+var availableNodesResultImplementors = []string{"AvailableNodesResult"}
 
-func (ec *executionContext) _AuthenticateResult(ctx context.Context, sel ast.SelectionSet, obj *AuthenticateResult) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, authenticateResultImplementors)
+func (ec *executionContext) _AvailableNodesResult(ctx context.Context, sel ast.SelectionSet, obj *AvailableNodesResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, availableNodesResultImplementors)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("AuthenticateResult")
-		case "mutationId":
+			out.Values[i] = graphql.MarshalString("AvailableNodesResult")
+		case "node":
 
-			out.Values[i] = ec._AuthenticateResult_mutationId(ctx, field, obj)
+			out.Values[i] = ec._AvailableNodesResult_node(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -2452,10 +2422,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "authenticate":
+		case "selectNode":
 
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_authenticate(ctx, field)
+				return ec._Mutation_selectNode(ctx, field)
 			})
 
 			if out.Values[i] == graphql.Null {
@@ -2491,7 +2461,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
-		case "sshKeys":
+		case "availableNodes":
 			field := field
 
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
@@ -2500,7 +2470,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_sshKeys(ctx, field)
+				res = ec._Query_availableNodes(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
@@ -2537,19 +2507,19 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
-var sSHKeyResultImplementors = []string{"SSHKeyResult"}
+var selectNodeResultImplementors = []string{"SelectNodeResult"}
 
-func (ec *executionContext) _SSHKeyResult(ctx context.Context, sel ast.SelectionSet, obj *SSHKeyResult) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, sSHKeyResultImplementors)
+func (ec *executionContext) _SelectNodeResult(ctx context.Context, sel ast.SelectionSet, obj *SelectNodeResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, selectNodeResultImplementors)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("SSHKeyResult")
-		case "authorizedKeys":
+			out.Values[i] = graphql.MarshalString("SelectNodeResult")
+		case "mutationID":
 
-			out.Values[i] = ec._SSHKeyResult_authorizedKeys(ctx, field, obj)
+			out.Values[i] = ec._SelectNodeResult_mutationID(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -2883,18 +2853,18 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) marshalNAuthenticateResult2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐAuthenticateResult(ctx context.Context, sel ast.SelectionSet, v AuthenticateResult) graphql.Marshaler {
-	return ec._AuthenticateResult(ctx, sel, &v)
+func (ec *executionContext) marshalNAvailableNodesResult2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐAvailableNodesResult(ctx context.Context, sel ast.SelectionSet, v AvailableNodesResult) graphql.Marshaler {
+	return ec._AvailableNodesResult(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNAuthenticateResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐAuthenticateResult(ctx context.Context, sel ast.SelectionSet, v *AuthenticateResult) graphql.Marshaler {
+func (ec *executionContext) marshalNAvailableNodesResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐAvailableNodesResult(ctx context.Context, sel ast.SelectionSet, v *AvailableNodesResult) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._AuthenticateResult(ctx, sel, v)
+	return ec._AvailableNodesResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v interface{}) (bool, error) {
@@ -2927,63 +2897,18 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) unmarshalNSSHKeyInput2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSSHKeyInput(ctx context.Context, v interface{}) (SSHKeyInput, error) {
-	res, err := ec.unmarshalInputSSHKeyInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
+func (ec *executionContext) marshalNSelectNodeResult2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSelectNodeResult(ctx context.Context, sel ast.SelectionSet, v SelectNodeResult) graphql.Marshaler {
+	return ec._SelectNodeResult(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNSSHKeyResult2ᚕᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSSHKeyResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*SSHKeyResult) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNSSHKeyResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSSHKeyResult(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNSSHKeyResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSSHKeyResult(ctx context.Context, sel ast.SelectionSet, v *SSHKeyResult) graphql.Marshaler {
+func (ec *executionContext) marshalNSelectNodeResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSelectNodeResult(ctx context.Context, sel ast.SelectionSet, v *SelectNodeResult) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._SSHKeyResult(ctx, sel, v)
+	return ec._SelectNodeResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {

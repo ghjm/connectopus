@@ -16,6 +16,7 @@ module.exports = merge(common('development'), {
     open: true,
     proxy: {
       '/query': 'http://localhost:8123',
+      '/localquery': 'http://localhost:26663',
       '/proxy': 'http://localhost:8123',
       '/api': 'http://localhost:8123',
     },
