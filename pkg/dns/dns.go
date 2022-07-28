@@ -27,8 +27,7 @@ func (s *Server) Run(ctx context.Context) error {
 		m.Compress = false
 		if r.Opcode == dns.OpcodeQuery {
 			for _, q := range m.Question {
-				switch q.Qtype {
-				case dns.TypeAAAA:
+				if q.Qtype == dns.TypeAAAA {
 					qs := strings.TrimSuffix(q.Name, ".")
 					qs = strings.TrimSuffix(qs, s.Domain)
 					qs = strings.TrimSuffix(qs, ".")
@@ -53,8 +52,7 @@ func (s *Server) Run(ctx context.Context) error {
 		m.Compress = false
 		if r.Opcode == dns.OpcodeQuery {
 			for _, q := range m.Question {
-				switch q.Qtype {
-				case dns.TypePTR:
+				if q.Qtype == dns.TypePTR {
 					qs := strings.TrimSuffix(q.Name, ".")
 					qs = strings.TrimSuffix(qs, ".ip6.arpa")
 					parts := strings.Split(qs, ".")
@@ -67,9 +65,9 @@ func (s *Server) Run(ctx context.Context) error {
 								good = false
 								break
 							}
-							forwardAddr = forwardAddr + p
+							forwardAddr += p
 							if i%4 == 0 && i != 0 {
-								forwardAddr = forwardAddr + ":"
+								forwardAddr += ":"
 							}
 						}
 					}

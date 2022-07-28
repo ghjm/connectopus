@@ -48,8 +48,13 @@ type ComplexityRoot struct {
 		MutationID func(childComplexity int) int
 	}
 
+	KeepaliveResult struct {
+		MutationID func(childComplexity int) int
+	}
+
 	Mutation struct {
 		Authenticate func(childComplexity int, sshKey SSHKeyInput) int
+		Keepalive    func(childComplexity int) int
 	}
 
 	Query struct {
@@ -62,6 +67,7 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
+	Keepalive(ctx context.Context) (*KeepaliveResult, error)
 	Authenticate(ctx context.Context, sshKey SSHKeyInput) (*AuthenticateResult, error)
 }
 type QueryResolver interface {
@@ -90,6 +96,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.AuthenticateResult.MutationID(childComplexity), true
 
+	case "KeepaliveResult.mutationID":
+		if e.complexity.KeepaliveResult.MutationID == nil {
+			break
+		}
+
+		return e.complexity.KeepaliveResult.MutationID(childComplexity), true
+
 	case "Mutation.authenticate":
 		if e.complexity.Mutation.Authenticate == nil {
 			break
@@ -101,6 +114,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.Authenticate(childComplexity, args["sshKey"].(SSHKeyInput)), true
+
+	case "Mutation.keepalive":
+		if e.complexity.Mutation.Keepalive == nil {
+			break
+		}
+
+		return e.complexity.Mutation.Keepalive(childComplexity), true
 
 	case "Query.sshKeys":
 		if e.complexity.Query.SSHKeys == nil {
@@ -311,6 +331,98 @@ func (ec *executionContext) fieldContext_AuthenticateResult_mutationId(ctx conte
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _KeepaliveResult_mutationID(ctx context.Context, field graphql.CollectedField, obj *KeepaliveResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_KeepaliveResult_mutationID(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.MutationID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_KeepaliveResult_mutationID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "KeepaliveResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_keepalive(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_keepalive(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().Keepalive(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*KeepaliveResult)
+	fc.Result = res
+	return ec.marshalNKeepaliveResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐKeepaliveResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_keepalive(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "mutationID":
+				return ec.fieldContext_KeepaliveResult_mutationID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type KeepaliveResult", field.Name)
 		},
 	}
 	return fc, nil
@@ -2433,6 +2545,34 @@ func (ec *executionContext) _AuthenticateResult(ctx context.Context, sel ast.Sel
 	return out
 }
 
+var keepaliveResultImplementors = []string{"KeepaliveResult"}
+
+func (ec *executionContext) _KeepaliveResult(ctx context.Context, sel ast.SelectionSet, obj *KeepaliveResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, keepaliveResultImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("KeepaliveResult")
+		case "mutationID":
+
+			out.Values[i] = ec._KeepaliveResult_mutationID(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -2452,6 +2592,15 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "keepalive":
+
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_keepalive(ctx, field)
+			})
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "authenticate":
 
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
@@ -2925,6 +3074,20 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNKeepaliveResult2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐKeepaliveResult(ctx context.Context, sel ast.SelectionSet, v KeepaliveResult) graphql.Marshaler {
+	return ec._KeepaliveResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNKeepaliveResult2ᚖgithubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐKeepaliveResult(ctx context.Context, sel ast.SelectionSet, v *KeepaliveResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._KeepaliveResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNSSHKeyInput2githubᚗcomᚋghjmᚋconnectopusᚋpkgᚋlocaluiᚐSSHKeyInput(ctx context.Context, v interface{}) (SSHKeyInput, error) {

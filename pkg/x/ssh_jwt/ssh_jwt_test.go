@@ -78,5 +78,4 @@ func TestSSHJWT(t *testing.T) {
 	if err == nil && token.Valid {
 		t.Fatal("token succeeded without key")
 	}
-
 }

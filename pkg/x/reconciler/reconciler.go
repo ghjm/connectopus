@@ -97,9 +97,8 @@ func (ri *RunningItem) Reconcile(ci ConfigItem) {
 				if err == nil {
 					log.Infof("Starting %s %s", myType, ri.QualifiedName())
 					return
-				} else {
-					log.Warnf("Failed to start %s %s: %s", myType, ri.QualifiedName(), err)
 				}
+				log.Warnf("Failed to start %s %s: %s", myType, ri.QualifiedName(), err)
 				timer := time.NewTimer(5 * time.Second)
 				select {
 				case <-ri.ctx.Done():

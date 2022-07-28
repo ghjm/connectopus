@@ -11,13 +11,10 @@ import (
 func makeTestRunner() (func(), func() []time.Time) {
 	times := syncro.Var[[]time.Time]{}
 	return func() {
-			times.WorkWith(func(tp *[]time.Time) {
-				*tp = append(*tp, time.Now())
-			})
-		},
-		func() []time.Time {
-			return times.Get()
-		}
+		times.WorkWith(func(tp *[]time.Time) {
+			*tp = append(*tp, time.Now())
+		})
+	}, times.Get
 }
 
 func TestTimeRunner(t *testing.T) {

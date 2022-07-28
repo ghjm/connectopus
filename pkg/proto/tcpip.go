@@ -127,9 +127,8 @@ func (a *IP) UnmarshalJSON(data []byte) error {
 func (a IP) MarshalYAML() (interface{}, error) {
 	if a == "" {
 		return nil, nil
-	} else {
-		return a.String(), nil
 	}
+	return a.String(), nil
 }
 
 // UnmarshalYAML unmarshals an IP address from YAML.
@@ -277,9 +276,8 @@ func (s *Subnet) UnmarshalJSON(data []byte) error {
 func (s Subnet) MarshalYAML() (interface{}, error) {
 	if s == "" {
 		return nil, nil
-	} else {
-		return s.String(), nil
 	}
+	return s.String(), nil
 }
 
 // UnmarshalYAML unmarshals a subnet from YAML.

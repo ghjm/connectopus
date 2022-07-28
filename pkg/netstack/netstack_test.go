@@ -2,6 +2,7 @@ package netstack
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
@@ -109,7 +110,7 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 		for {
 			n, addr, err := udpConn.ReadFrom(buf)
 			if err != nil {
-				if err != io.EOF {
+				if !errors.Is(err, io.EOF) {
 					t.Errorf("UDP read error: %s\n", err)
 				}
 				return

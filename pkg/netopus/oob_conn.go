@@ -49,6 +49,7 @@ func (n *netopus) NewOOBPacketConn(ctx context.Context, port uint16) (net.Packet
 		m := *_m
 		if port == 0 {
 			for {
+				//nolint:gosec // math/rand is ok here
 				port = uint16(32768 + (rand.Int() % 32768))
 				_, ok := m[port]
 				if !ok {

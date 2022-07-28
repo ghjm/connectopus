@@ -4,6 +4,7 @@ package netns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/checkroot"
 	"github.com/ghjm/connectopus/pkg/x/syncro"
@@ -56,6 +57,7 @@ func TestAsRootNetns(t *testing.T) {
 		}
 	}()
 
+	//nolint:gosec // subprocess launched with tainted cmd arguments
 	command := exec.CommandContext(ctx, "nsenter", "--preserve-credentials", "--user", "--mount", "--net", "--uts",
 		"-t", strconv.Itoa(ns.PID()), "ping6", "-c", "1", remote.String())
 	command.Stdin = nil
@@ -76,11 +78,10 @@ func TestAsRootNetns(t *testing.T) {
 	}()
 
 	<-ctx.Done()
-	if ctx.Err() != context.Canceled {
+	if errors.Is(ctx.Err(), context.Canceled) {
 		t.Fatal(ctx.Err())
 	}
 	if !success.Get() {
 		t.Fatal("packet not received")
 	}
-
 }

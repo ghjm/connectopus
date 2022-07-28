@@ -2,6 +2,7 @@ package channel_runner
 
 import (
 	"context"
+	"errors"
 	"github.com/ghjm/connectopus/pkg/backends"
 	"os"
 	"time"
@@ -32,7 +33,7 @@ func (p *channelRunner) WriteChan() chan<- []byte {
 	return p.writeChan
 }
 
-func (p *channelRunner) RunProtocol(ctx context.Context, cost float32, conn backends.BackendConnection) {
+func (p *channelRunner) RunProtocol(ctx context.Context, _ float32, conn backends.BackendConnection) {
 	protoCtx, protoCancel := context.WithCancel(ctx)
 
 	// Goroutine that reads from conn and writes to readChan
@@ -44,7 +45,7 @@ func (p *channelRunner) RunProtocol(ctx context.Context, cost float32, conn back
 			if protoCtx.Err() != nil {
 				return
 			}
-			if err == os.ErrDeadlineExceeded {
+			if errors.Is(err, os.ErrDeadlineExceeded) {
 				continue
 			} else if err != nil {
 				return
@@ -71,7 +72,7 @@ func (p *channelRunner) RunProtocol(ctx context.Context, cost float32, conn back
 					if protoCtx.Err() != nil {
 						return
 					}
-					if err == os.ErrDeadlineExceeded {
+					if errors.Is(err, os.ErrDeadlineExceeded) {
 						continue
 					} else if err != nil {
 						return

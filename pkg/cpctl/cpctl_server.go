@@ -38,10 +38,11 @@ func (s *Server) runServer(ctx context.Context, li net.Listener, mux http.Handle
 		}
 	}
 	srv := &http.Server{
-		Handler:        serverMux,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
+		Handler:           serverMux,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {

@@ -49,6 +49,7 @@ func TestAsRootTun(t *testing.T) {
 		IP:   net.ParseIP("FD01:d9d9:12eb:7465::"),
 		Mask: net.CIDRMask(64, 8*net.IPv6len),
 	}
+	//nolint: gosec // math.rand is okay here
 	devName := fmt.Sprintf("tuntest%d", rand.Intn(1000))
 	tt, err := New(ctx, devName, local, subnet, 1500)
 	if err != nil {

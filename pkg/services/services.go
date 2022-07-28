@@ -17,6 +17,7 @@ func runCommand(ctx context.Context, conn net.Conn, args []string) error {
 	defer func() {
 		_ = conn.Close()
 	}()
+	//nolint: gosec // potential tainted cmd arguments
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

@@ -23,9 +23,8 @@ func TestFSM(t *testing.T) {
 		"bad": func(e int) string {
 			if e == 1 {
 				return "evil"
-			} else {
-				return "foo"
 			}
+			return "foo"
 		},
 	})
 	if err != nil {

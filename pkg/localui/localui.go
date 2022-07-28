@@ -3,14 +3,18 @@ package localui
 import (
 	"context"
 	"fmt"
+	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/ghjm/connectopus/internal/ui_embed"
 	"github.com/ghjm/connectopus/pkg/cpctl"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
+	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh/agent"
 	"net"
 	"net/http"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -22,6 +26,8 @@ type serveOpts struct {
 	ctx         context.Context
 	openBrowser bool
 	localUIPort uint16
+	socketNode  string
+	token       string
 }
 
 func WithContext(ctx context.Context) Opt {
@@ -42,6 +48,21 @@ func WithLocalPort(port uint16) Opt {
 	}
 }
 
+func WithNode(node string) Opt {
+	return func(so *serveOpts) {
+		so.socketNode = node
+	}
+}
+
+func WithToken(tok string) Opt {
+	return func(so *serveOpts) {
+		if tok == "" {
+			tok = strings.ReplaceAll(uuid.New().String(), "-", "")
+		}
+		so.token = tok
+	}
+}
+
 func Serve(opts ...Opt) error {
 	so := &serveOpts{
 		ctx:         context.Background(),
@@ -52,9 +73,17 @@ func Serve(opts ...Opt) error {
 		opt(so)
 	}
 
+	preferredSocketNode := syncro.NewVar[string](so.socketNode)
+	r := Resolver{
+		PreferredSocketFunc: func(ps string) {
+			preferredSocketNode.Set(ps)
+		},
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/", ui_embed.GetUIHandler())
 	mux.HandleFunc("/api", ui_embed.PlaygroundHandler)
+	mux.Handle("/localquery", handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: &r})))
 
 	var haveAgent bool
 	var haveSocketFile bool
@@ -79,9 +108,11 @@ func Serve(opts ...Opt) error {
 
 		// Check if we have a node socket
 		if pageSel == "" && !haveSocketFile {
-			socketFiles, err := cpctl.FindSockets("")
-			if err != nil || len(socketFiles) != 1 {
+			socketFiles, err := cpctl.FindSockets(preferredSocketNode.Get())
+			if err != nil || len(socketFiles) == 0 {
 				pageSel = "no-node"
+			} else if len(socketFiles) > 1 {
+				pageSel = "multi-node"
 			} else {
 				var tokStr string
 				tokStr, err = cpctl.GenToken("", "", "")
@@ -105,6 +136,7 @@ func Serve(opts ...Opt) error {
 		} else {
 			r.Header.Set("page_select", pageSel)
 		}
+		r.Header.Set("page_extra", "localui=true")
 		mux.ServeHTTP(w, r)
 	})
 
@@ -129,41 +161,79 @@ func Serve(opts ...Opt) error {
 
 	sanitizedMux := ui_embed.GetUISanitizer(cookieSetterMux)
 
+	var localAuthMux http.Handler
+	if so.token == "" {
+		localAuthMux = sanitizedMux
+	} else {
+		localAuthMux = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			tokReq := q.Get("LocalToken")
+			if tokReq != "" {
+				http.SetCookie(w, &http.Cookie{
+					Name:     "LocalToken",
+					Value:    tokReq,
+					Secure:   r.TLS != nil,
+					SameSite: http.SameSiteStrictMode,
+				})
+				u := r.URL
+				q.Del("LocalToken")
+				u.RawQuery = q.Encode()
+				http.Redirect(w, r, u.String(), http.StatusFound)
+				return
+			}
+			c, err := r.Cookie("LocalToken")
+			if err == nil && c != nil && c.Value == so.token {
+				sanitizedMux.ServeHTTP(w, r)
+			} else {
+				w.WriteHeader(401)
+				_, _ = w.Write([]byte("Unauthorized"))
+				return
+			}
+		})
+	}
+
 	srv := &http.Server{
-		Handler:        sanitizedMux,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
+		Handler:           localAuthMux,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	li, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", so.localUIPort))
 	if err != nil {
-		return fmt.Errorf("tcp listen error: %s", err)
+		return fmt.Errorf("tcp listen error: %w", err)
 	}
 
+	srvCtx, srvCancel := context.WithCancel(so.ctx)
+	defer srvCancel()
+
 	go func() {
-		<-so.ctx.Done()
+		<-srvCtx.Done()
 		_ = srv.Close()
 		_ = li.Close()
 	}()
 
-	//url := fmt.Sprintf("http://localhost:%d/?AuthToken=%s", so.localUIPort, tokStr)
-	url := fmt.Sprintf("http://localhost:%d", so.localUIPort)
+	var urlTok string
+	if so.token != "" {
+		urlTok = fmt.Sprintf("/?LocalToken=%s", so.token)
+	}
+	url := fmt.Sprintf("http://localhost:%d%s", so.localUIPort, urlTok)
 	if so.openBrowser {
 		fmt.Printf("Server started.  Launching browser.\n")
-		err = openWebBrowser(url)
+		err = OpenWebBrowser(url)
 		if err != nil {
-			return fmt.Errorf("error opening browser: %s", err)
+			return fmt.Errorf("error opening browser: %w", err)
 		}
 	} else {
-		fmt.Printf("Server started on URL: %s\n", url)
+		fmt.Printf("Server started.  URL: %s\n", url)
 	}
 
 	return srv.Serve(li)
 }
 
-// openWebBrowser opens the default web browser to a given URL
-func openWebBrowser(url string) error {
+// OpenWebBrowser opens the default web browser to a given URL
+func OpenWebBrowser(url string) error {
 	var err error
 	switch runtime.GOOS {
 	case "linux":

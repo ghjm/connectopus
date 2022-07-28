@@ -49,6 +49,5 @@ func TestSSHKeyMarshaling(t *testing.T) {
 		if yk.String() != keyStr {
 			t.Fatal("keys did not match")
 		}
-
 	}
 }

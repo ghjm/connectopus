@@ -79,8 +79,7 @@ func TestDirect(t *testing.T) {
 
 func TestOOB(t *testing.T) {
 	goleak.VerifyNone(t)
-	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	n1, err := New(ctx, proto.ParseIP("FD00::1"), "test1", WithMTU(1400))
 	if err != nil {
@@ -185,7 +184,7 @@ func TestOOB(t *testing.T) {
 			t.Errorf(ctx.Err().Error())
 			return
 		case <-recvChan:
-			completed += 1
+			completed++
 		}
 	}
 
@@ -260,7 +259,6 @@ func TestOOB(t *testing.T) {
 				return
 			}
 		}()
-
 	}
 
 	completed = 0
@@ -270,8 +268,7 @@ func TestOOB(t *testing.T) {
 			t.Errorf(ctx.Err().Error())
 			return
 		case <-recvChan:
-			completed += 1
+			completed++
 		}
 	}
-
 }

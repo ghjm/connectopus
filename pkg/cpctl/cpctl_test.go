@@ -34,7 +34,7 @@ func TestCpctl(t *testing.T) {
 		_ = os.Remove(fn)
 	}()
 	var privateKey *rsa.PrivateKey
-	privateKey, err = rsa.GenerateKey(rand.Reader, 1024)
+	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}

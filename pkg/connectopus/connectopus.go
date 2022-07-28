@@ -32,7 +32,7 @@ import (
 func SignConfig(keyFile, keyText string, cfg config.Config, updateTime bool) ([]byte, []byte, error) {
 	a, err := ssh_jwt.GetSSHAgent(keyFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error initializing SSH agent: %s", err)
+		return nil, nil, fmt.Errorf("error initializing SSH agent: %w", err)
 	}
 	defer func() {
 		_ = a.Close()
@@ -40,13 +40,13 @@ func SignConfig(keyFile, keyText string, cfg config.Config, updateTime bool) ([]
 	var keys []*agent.Key
 	keys, err = ssh_jwt.GetMatchingKeys(a, keyText)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error listing SSH keys: %s", err)
+		return nil, nil, fmt.Errorf("error listing SSH keys: %w", err)
 	}
 	if len(keys) == 0 {
-		return nil, nil, fmt.Errorf("no SSH keys found")
+		return nil, nil, cpctl.ErrNoSSHKeys
 	}
 	if len(keys) > 1 {
-		return nil, nil, fmt.Errorf("multiple SSH keys found.  Use --text to select one uniquely.")
+		return nil, nil, cpctl.ErrMultipleSSHKeys
 	}
 	key := proto.MarshalablePublicKey{
 		PublicKey: keys[0],
@@ -58,12 +58,12 @@ func SignConfig(keyFile, keyText string, cfg config.Config, updateTime bool) ([]
 	var cfgData []byte
 	cfgData, err = cfg.Marshal()
 	if err != nil {
-		return nil, nil, fmt.Errorf("error marshaling config: %s", err)
+		return nil, nil, fmt.Errorf("error marshaling config: %w", err)
 	}
 	var sig string
 	sig, err = ssh_jwt.SignSSH(string(cfgData), "connectopus", key.String(), a)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error signing config data: %s", err)
+		return nil, nil, fmt.Errorf("error signing config data: %w", err)
 	}
 	return cfgData, []byte(sig), nil
 }
@@ -140,7 +140,7 @@ func (n *Node) ParseAndCheckConfig(cfgData []byte, signature []byte) (*config.Co
 	return ParseAndCheckConfig(cfgData, signature, nodeCfg.Global.AuthorizedKeys)
 }
 
-func (n *Node) ReconcileNode(configData []byte, sigData []byte, cfg *config.Config) error {
+func (n *Node) ReconcileNode(_ []byte, _ []byte, cfg *config.Config) error {
 	ri := (*reconciler.RunningItem)(n)
 	nodeCfg, ok := ri.Config().(NodeCfg)
 	if !ok {
@@ -189,7 +189,6 @@ func (ni *nodeInstance) NewConfig(config []byte, signature []byte) error {
 		}
 	}()
 	return nil
-
 }
 
 type NodeCfg struct {
@@ -349,7 +348,6 @@ func (c CpctlCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done fu
 		if err != nil {
 			return nil, fmt.Errorf("error running cpctl proxy server: %w", err)
 		}
-
 	}
 	if !c.NoSocket {
 		socketFile, err := config.ExpandFilename(parentInst.identity, c.SocketFile)
@@ -420,14 +418,14 @@ func (d DnsCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func
 
 	pc, err := parentInst.n.DialUDP(53, nil, 0)
 	if err != nil {
-		return nil, fmt.Errorf("udp listener error: %s", err)
+		return nil, fmt.Errorf("udp listener error: %w", err)
 	}
 
 	var li net.Listener
 	li, err = parentInst.n.ListenTCP(53)
 	if err != nil {
 		_ = pc.Close()
-		return nil, fmt.Errorf("tcp listener error: %s", err)
+		return nil, fmt.Errorf("tcp listener error: %w", err)
 	}
 
 	srv := dns.Server{

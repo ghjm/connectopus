@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/backends"
 	"github.com/ghjm/connectopus/pkg/backends/backend_registry"
@@ -480,7 +481,7 @@ func (p *protoSession) mainSelect() bool {
 		switch msg := msgAny.(type) {
 		case []byte:
 			err = p.n.SendPacket(data)
-			if err != nil && err != context.Canceled {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				log.Warnf("packet sending error: %s", err)
 			}
 			return true
@@ -725,7 +726,7 @@ func (n *netopus) SendOOB(msg *proto.OOBMessage) error {
 	}
 
 	// Packet is being forwarded, so check the hop count
-	msg.Hops += 1
+	msg.Hops++
 	if msg.Hops >= 30 {
 		return fmt.Errorf("OOB message expired in transit")
 	}
@@ -746,7 +747,7 @@ func (n *netopus) SendOOB(msg *proto.OOBMessage) error {
 	var msgBytes []byte
 	msgBytes, err = msg.Marshal()
 	if err != nil {
-		return fmt.Errorf("OOB marshal error: %s", err)
+		return fmt.Errorf("OOB marshal error: %w", err)
 	}
 	go func() {
 		err := nextHopSess.conn.WriteMessage(msgBytes)
@@ -770,7 +771,7 @@ func (n *netopus) sendRoutingOOB(msg *proto.OOBMessage) error {
 	}
 	msgBytes, err := (*proto.RouteOOBMessage)(msg).Marshal()
 	if err != nil {
-		return fmt.Errorf("RouteOOB marshal error: %s", err)
+		return fmt.Errorf("RouteOOB marshal error: %w", err)
 	}
 	go func() {
 		err := peerSess.conn.WriteMessage(msgBytes)
@@ -844,7 +845,7 @@ func (n *netopus) generateRoutingUpdate() (*proto.RoutingUpdate, error) {
 	}
 	n.sequence.WorkWith(func(_seq *uint64) {
 		seq := *_seq
-		seq += 1
+		seq++
 		up.UpdateSequence = seq
 		*_seq = seq
 	})

@@ -2,6 +2,7 @@ package netstack
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/broker"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -121,13 +122,13 @@ func (ns *netStackChannel) packetPublisher(ctx context.Context) {
 			if err == nil && n != v.Size() {
 				err = fmt.Errorf("expected %d bytes but read %d", v.Size(), n)
 			}
-			if err != nil && err != io.EOF {
+			if err != nil && !errors.Is(err, io.EOF) {
 				break
 			}
 			curPos += v.Size()
 		}
 		op.DecRef()
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			continue
 		}
 		ns.packetBroker.Publish(packet)

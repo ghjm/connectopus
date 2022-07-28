@@ -4,6 +4,7 @@ package tun
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/chanreader"
 	"github.com/songgao/water"
@@ -33,10 +34,11 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 	}
 	persistTun := true
 	nl, err := netlink.LinkByName(deviceName)
-	if _, ok := err.(netlink.LinkNotFoundError); ok {
+	nle := netlink.LinkNotFoundError{}
+	if errors.As(err, &nle) {
 		persistTun = linkOpts.persist
 	} else if err != nil {
-		return nil, fmt.Errorf("error accessing tun device: %s", err)
+		return nil, fmt.Errorf("error accessing tun device: %w", err)
 	}
 	waterCfg := water.Config{
 		DeviceType: water.TUN,
@@ -54,7 +56,7 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 	var tunIf *water.Interface
 	tunIf, err = water.New(waterCfg)
 	if err != nil {
-		return nil, fmt.Errorf("error opening tunnel interface: %s", err)
+		return nil, fmt.Errorf("error opening tunnel interface: %w", err)
 	}
 	success := false
 	defer func() {
@@ -65,13 +67,13 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 	if nl == nil {
 		nl, err = netlink.LinkByName(deviceName)
 		if err != nil {
-			return nil, fmt.Errorf("error accessing tun device: %s", err)
+			return nil, fmt.Errorf("error accessing tun device: %w", err)
 		}
 	}
 	var addrs []netlink.Addr
 	addrs, err = netlink.AddrList(nl, netlink.FAMILY_V6)
 	if err != nil {
-		return nil, fmt.Errorf("error listing addresses of tun device: %s", err)
+		return nil, fmt.Errorf("error listing addresses of tun device: %w", err)
 	}
 	tunMask := net.CIDRMask(8*net.IPv6len, 8*net.IPv6len)
 	found := false
@@ -89,27 +91,27 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 			},
 		})
 		if err != nil {
-			return nil, fmt.Errorf("error setting tun device address: %s", err)
+			return nil, fmt.Errorf("error setting tun device address: %w", err)
 		}
 	}
 
 	if nl.Attrs().MTU != int(mtu) {
 		err = netlink.LinkSetMTU(nl, int(mtu))
 		if err != nil {
-			return nil, fmt.Errorf("error setting tun interface MTU to %d: %v", mtu, err)
+			return nil, fmt.Errorf("error setting tun interface MTU to %d: %w", mtu, err)
 		}
 	}
 
 	if nl.Attrs().Flags&net.FlagUp == 0 {
 		err = netlink.LinkSetUp(nl)
 		if err != nil {
-			return nil, fmt.Errorf("error activating tun device: %s", err)
+			return nil, fmt.Errorf("error activating tun device: %w", err)
 		}
 	}
 	var routes []netlink.Route
 	routes, err = netlink.RouteList(nl, netlink.FAMILY_V6)
 	if err != nil {
-		return nil, fmt.Errorf("error listing routes: %s", err)
+		return nil, fmt.Errorf("error listing routes: %w", err)
 	}
 	found = false
 	for _, route := range routes {
@@ -129,7 +131,7 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 		}
 		err = netlink.RouteAdd(&route)
 		if err != nil {
-			return nil, fmt.Errorf("error adding route %s to tun device: %s", subnet.String(), err)
+			return nil, fmt.Errorf("error adding route %s to tun device: %w", subnet.String(), err)
 		}
 	}
 

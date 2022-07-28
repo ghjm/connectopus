@@ -17,16 +17,19 @@ import (
 	"time"
 )
 
+var ErrNoSSHKeys = fmt.Errorf("no SSH keys found")
+var ErrMultipleSSHKeys = fmt.Errorf("multiple SSH keys found; use --text to select one uniquely")
+
 func GetUsableKey(a agent.Agent, keyText string) (string, error) {
 	keys, err := ssh_jwt.GetMatchingKeys(a, keyText)
 	if err != nil {
-		return "", fmt.Errorf("error listing SSH keys: %s", err)
+		return "", fmt.Errorf("error listing SSH keys: %w", err)
 	}
 	if len(keys) == 0 {
-		return "", fmt.Errorf("no SSH keys found")
+		return "", ErrNoSSHKeys
 	}
 	if len(keys) > 1 {
-		return "", fmt.Errorf("multiple SSH keys found.  Use --text to select one uniquely.")
+		return "", ErrMultipleSSHKeys
 	}
 	return keys[0].String(), nil
 }
@@ -35,12 +38,12 @@ func GetUsableKey(a agent.Agent, keyText string) (string, error) {
 func GenTokenFromAgent(a agent.Agent, keyText string, tokenDuration string) (string, error) {
 	key, err := GetUsableKey(a, keyText)
 	if err != nil {
-		return "", fmt.Errorf("error getting SSH key: %s", err)
+		return "", fmt.Errorf("error getting SSH key: %w", err)
 	}
 	var sm jwt.SigningMethod
 	sm, err = ssh_jwt.SetupSigningMethod("connectopus", a)
 	if err != nil {
-		return "", fmt.Errorf("error initializing JWT signing method: %s", err)
+		return "", fmt.Errorf("error initializing JWT signing method: %w", err)
 	}
 	claims := &jwt.RegisteredClaims{
 		Subject: "connectopus-cpctl auth",
@@ -52,7 +55,7 @@ func GenTokenFromAgent(a agent.Agent, keyText string, tokenDuration string) (str
 		} else {
 			expireDuration, err = time.ParseDuration(tokenDuration)
 			if err != nil {
-				return "", fmt.Errorf("error parsing token duration: %s", err)
+				return "", fmt.Errorf("error parsing token duration: %w", err)
 			}
 		}
 		claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(expireDuration))
@@ -62,7 +65,7 @@ func GenTokenFromAgent(a agent.Agent, keyText string, tokenDuration string) (str
 	var tokstr string
 	tokstr, err = tok.SignedString(key)
 	if err != nil {
-		return "", fmt.Errorf("error signing token: %s", err)
+		return "", fmt.Errorf("error signing token: %w", err)
 	}
 	return tokstr, nil
 }
@@ -71,7 +74,7 @@ func GenTokenFromAgent(a agent.Agent, keyText string, tokenDuration string) (str
 func GenToken(keyFile string, keyText string, tokenDuration string) (string, error) {
 	a, err := ssh_jwt.GetSSHAgent(keyFile)
 	if err != nil {
-		return "", fmt.Errorf("error initializing SSH agent: %s", err)
+		return "", fmt.Errorf("error initializing SSH agent: %w", err)
 	}
 	defer func() {
 		_ = a.Close()

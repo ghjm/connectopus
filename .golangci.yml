@@ -3,3 +3,41 @@ run:
 linters:
   disable:
     - structcheck # not Go 1.18 compatible
+  enable:
+    - errorlint
+    - exportloopref
+    - gocritic
+    - gosec
+    - nosprintfhostport
+    - predeclared
+    - revive
+    - stylecheck
+    - whitespace
+
+linters-settings:
+  gocritic:
+    disabled-checks:
+      - ifElseChain
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: indent-error-flow
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+  stylecheck:
+    checks: ["all", "-ST1003"]
+

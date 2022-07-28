@@ -39,14 +39,14 @@ func bridgeHalf(c1 io.Reader, c2 io.WriteCloser) error {
 		n, err := c1.Read(buf)
 		if err != nil {
 			if err.Error() != "EOF" && !strings.Contains(err.Error(), "use of closed network connection") {
-				return fmt.Errorf("connection read error: %s\n", err)
+				return fmt.Errorf("connection read error: %w", err)
 			}
 			return nil
 		}
 		if n > 0 {
 			wn, err := c2.Write(buf[:n])
 			if err != nil {
-				return fmt.Errorf("connection write error: %s\n", err)
+				return fmt.Errorf("connection write error: %w", err)
 			}
 			if wn != n {
 				return fmt.Errorf("not all bytes written")

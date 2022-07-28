@@ -24,7 +24,7 @@ func (c Config) ParentEqual(item ConfigItem) bool {
 	return c.MainCfg == ci.MainCfg
 }
 
-func (c Config) Start(ctx context.Context, ri *RunningItem, done func()) (any, error) {
+func (c Config) Start(ctx context.Context, _ *RunningItem, done func()) (any, error) {
 	exp.Produce(fmt.Sprintf("started %s", c.MainCfg))
 	go func() {
 		<-ctx.Done()

@@ -1,6 +1,7 @@
 package ssh_jwt
 
 import (
+	"errors"
 	"fmt"
 	"github.com/chzyer/readline"
 	"golang.org/x/crypto/ssh"
@@ -24,8 +25,8 @@ func getSSHAgentFromFile(keyFile string) (*SSHAgent, error) {
 		return nil, fmt.Errorf("error reading key file: %w", err)
 	}
 	var key interface{}
-	key, err = ssh.ParseRawPrivateKey(keyPEM)
-	if _, ok := err.(*ssh.PassphraseMissingError); ok {
+	sshErr := &ssh.PassphraseMissingError{}
+	if errors.As(err, &sshErr) {
 		var rl *readline.Instance
 		rl, err = readline.New("")
 		if err != nil {
@@ -66,12 +67,12 @@ func GetSSHAgent(keyFile string) (*SSHAgent, error) {
 	if socket != "" {
 		conn, err = net.Dial("unix", socket)
 		if err != nil {
-			return nil, fmt.Errorf("error connecting to SSH_AUTH_SOCK: %s", err)
+			return nil, fmt.Errorf("error connecting to SSH_AUTH_SOCK: %w", err)
 		}
 	} else if runtime.GOOS == "windows" {
 		conn, err = pageantNewConn()
 		if err != nil {
-			return nil, fmt.Errorf("error connecting to Pageant: %s", err)
+			return nil, fmt.Errorf("error connecting to Pageant: %w", err)
 		}
 	}
 	if conn == nil {
@@ -95,7 +96,7 @@ func (a *SSHAgent) Close() error {
 func GetMatchingKeys(a agent.Agent, keyText string) ([]*agent.Key, error) {
 	keys, err := a.List()
 	if err != nil {
-		return nil, fmt.Errorf("error listing SSH keys: %s", err)
+		return nil, fmt.Errorf("error listing SSH keys: %w", err)
 	}
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("no SSH keys found")

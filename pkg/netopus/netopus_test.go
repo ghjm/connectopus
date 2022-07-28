@@ -149,7 +149,6 @@ func stackTest(ctx context.Context, t *testing.T, spec map[string]NodeSpec, mesh
 			}
 			go func() {
 				_, _ = sc.Write([]byte(testStr))
-				//_ = sc.(*gonet.TCPConn).CloseWrite()
 				_ = sc.Close()
 			}()
 		}

@@ -7,18 +7,38 @@ import '@app/app.css';
 import { Unauthorized } from '@app/Unauthorized/Unauthorized';
 import { NoAgent } from '@app/Unconfigured/NoAgent';
 import { NoNode } from '@app/Unconfigured/NoNode';
+import { MultiNode } from '@app/Unconfigured/MultiNode';
+import { Client, createClient, Provider } from 'urql';
 
 const App: React.FunctionComponent = () => {
+  const [client] = React.useState<Client>(createClient({ url: '/localquery' }));
   const serverData = window['__SERVER_DATA__'];
-  const pageSel = serverData['page_select'];
-  if (pageSel === 'unauthorized') {
-    return <Unauthorized />;
-  }
-  if (pageSel === 'no-agent') {
-    return <NoAgent />;
-  }
-  if (pageSel === 'no-node') {
-    return <NoNode />;
+  if (serverData !== undefined) {
+    const pageSel = serverData['page_select'];
+    if (pageSel === 'unauthorized') {
+      return <Unauthorized />;
+    }
+    if (pageSel === 'no-agent') {
+      return (
+        <Provider value={client}>
+          <NoAgent />
+        </Provider>
+      );
+    }
+    if (pageSel === 'no-node') {
+      return (
+        <Provider value={client}>
+          <NoNode />
+        </Provider>
+      );
+    }
+    if (pageSel === 'multi-node') {
+      return (
+        <Provider value={client}>
+          <MultiNode />
+        </Provider>
+      );
+    }
   }
   return (
     <Router>
