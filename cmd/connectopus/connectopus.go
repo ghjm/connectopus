@@ -212,7 +212,7 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("error writing config signature: %w", err)
 		}
 		if initRun {
-			nodeCmd.Run(cmd, args)
+			return nodeCmd.RunE(cmd, args)
 		}
 		return nil
 	},
