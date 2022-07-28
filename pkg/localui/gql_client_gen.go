@@ -21,7 +21,6 @@ type Query struct {
 	SSHKeys []*SSHKeyResult "json:\"sshKeys\" graphql:\"sshKeys\""
 }
 type Mutation struct {
-	Keepalive    KeepaliveResult    "json:\"keepalive\" graphql:\"keepalive\""
 	Authenticate AuthenticateResult "json:\"authenticate\" graphql:\"authenticate\""
 }
 type GetSSHKeys_SSHKeys struct {

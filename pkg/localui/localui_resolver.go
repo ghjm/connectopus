@@ -3,7 +3,6 @@ package localui
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 )
 
 type Resolver struct {
@@ -21,11 +20,6 @@ func (r *Resolver) Mutation() MutationResolver {
 
 func (r *Resolver) SSHKeys(_ context.Context) ([]*SSHKeyResult, error) {
 	return nil, fmt.Errorf("not implemented")
-}
-
-func (r *Resolver) Keepalive(_ context.Context) (*KeepaliveResult, error) {
-	r.KeepaliveFunc()
-	return &KeepaliveResult{MutationID: uuid.New().String()}, nil
 }
 
 func (r *Resolver) Authenticate(_ context.Context, _ SSHKeyInput) (*AuthenticateResult, error) {

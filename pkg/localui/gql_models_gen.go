@@ -6,10 +6,6 @@ type AuthenticateResult struct {
 	MutationID string `json:"mutationId"`
 }
 
-type KeepaliveResult struct {
-	MutationID string `json:"mutationID"`
-}
-
 type SSHKeyInput struct {
 	AuthorizedKey string `json:"authorizedKey"`
 }
