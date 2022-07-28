@@ -1,5 +1,8 @@
 html, body, #root {
   height: 100%;
+  width: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 .pf-c-content {
@@ -14,4 +17,8 @@ html, body, #root {
 }
 .pf-c-page__sidebar-body > .pf-l-flex {
   flex-grow: 1;
+}
+
+.pf-c-code-editor, .pf-c-code-editor__main, .pf-c-code-editor__code {
+  height: 100%;
 }

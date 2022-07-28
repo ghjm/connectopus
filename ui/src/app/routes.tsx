@@ -7,6 +7,7 @@ import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
 import { Status } from '@app/Status/Status';
+import { Config } from '@app/Config/Config';
 
 let routeFocusTimer: number;
 export interface IAppRoute {
@@ -43,6 +44,14 @@ const routes: AppRouteConfig[] = [
     label: 'Status',
     path: '/Status',
     title: 'Connectopus | Status',
+  },
+  {
+    component: Config,
+    exact: true,
+    isAsync: true,
+    label: 'Config',
+    path: '/Config',
+    title: 'Connectopus | Config',
   },
   {
     component: GraphQL,

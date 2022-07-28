@@ -237,8 +237,8 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
   );
 
   const Navigation = (
-    <Flex direction={{ default: 'column' }} flexWrap={{ default: 'nowrap' }}>
-      <FlexItem grow={{ default: 'grow' }}>
+    <Flex direction={{ default: 'column' }} flexWrap={{ default: 'nowrap' }} height="100%">
+      <FlexItem grow={{ default: 'grow' }} height="100%">
         <Nav id="nav-primary-simple" theme="dark">
           <NavList id="nav-list-simple">
             {routes.map(
@@ -274,6 +274,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
       sidebar={Sidebar}
       onPageResize={onPageResize}
       skipToContent={PageSkipToContent}
+      style={{ height: '100%', width: '100%' }}
     >
       <Provider value={mainClient}>{children}</Provider>
     </Page>

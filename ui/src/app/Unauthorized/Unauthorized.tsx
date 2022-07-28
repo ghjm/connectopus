@@ -10,6 +10,8 @@ import {
   TextContent,
   TextVariants,
   Button,
+  Grid,
+  GridItem,
 } from '@patternfly/react-core';
 import logo from '@app/images/connectopus.png';
 import { useState } from 'react';
@@ -24,40 +26,52 @@ const Unauthorized: React.FunctionComponent = () => {
   };
   return (
     <Page header={<PageHeader logo={<img src={logo} alt="Connectopus Logo" />} />}>
-      <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }}>
-        <FlexItem grow={{ default: 'grow' }}></FlexItem>
-        <FlexItem grow={{ default: 'grow' }}>
-          <Flex direction={{ default: 'column' }} alignSelf={{ default: 'alignSelfCenter' }}>
-            <FlexItem style={{ ['paddingTop' as string]: '4rem' }}>
-              <Alert
-                variant="danger"
-                isInline
-                isPlain
-                style={{
-                  ['--pf-c-alert__FontSize' as string]: '2rem',
-                  ['--pf-c-alert__icon--FontSize' as string]: '2rem',
-                }}
-                title="Unauthorized"
-              />
+      <Grid>
+        <GridItem span={3}></GridItem>
+        <GridItem span={6}>
+          <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }}>
+            <FlexItem grow={{ default: 'grow' }}></FlexItem>
+            <FlexItem grow={{ default: 'grow' }}>
+              <Flex direction={{ default: 'column' }} alignSelf={{ default: 'alignSelfCenter' }}>
+                <FlexItem style={{ ['paddingTop' as string]: '4rem' }}>
+                  <Alert
+                    variant="danger"
+                    isInline
+                    isPlain
+                    style={{
+                      ['--pf-c-alert__FontSize' as string]: '2rem',
+                      ['--pf-c-alert__icon--FontSize' as string]: '2rem',
+                    }}
+                    title="Unauthorized"
+                  />
+                </FlexItem>
+                <FlexItem style={{ ['paddingTop' as string]: '3rem' }}>
+                  <TextContent>
+                    <Text component={TextVariants.h2}>Please enter an authorization token.</Text>
+                  </TextContent>
+                </FlexItem>
+                <FlexItem style={{ ['paddingTop' as string]: '0.5rem' }}>
+                  <TextContent>
+                    <Text component={TextVariants.h4}>
+                      You can generate an authorization token using <i>connectopus get-token</i> from the command line.
+                    </Text>
+                  </TextContent>
+                </FlexItem>
+                <FlexItem style={{ ['paddingTop' as string]: '0.5rem' }}>
+                  <TextArea value={value} type="text" onChange={setValue} aria-label="token input field" />
+                </FlexItem>
+                <FlexItem
+                  style={{ ['paddingTop' as string]: '0.5rem', ['paddingBottom' as string]: '2rem' }}
+                  alignSelf={{ default: 'alignSelfFlexEnd' }}
+                >
+                  <Button onClick={onSubmit}>Submit</Button>
+                </FlexItem>
+              </Flex>
             </FlexItem>
-            <FlexItem style={{ ['paddingTop' as string]: '3rem' }}>
-              <TextContent>
-                <Text component={TextVariants.h2}>Please enter an authorization token.</Text>
-              </TextContent>
-            </FlexItem>
-            <FlexItem style={{ ['paddingTop' as string]: '0.5rem' }}>
-              <TextArea value={value} type="text" onChange={setValue} aria-label="token input field" />
-            </FlexItem>
-            <FlexItem
-              style={{ ['paddingTop' as string]: '0.5rem', ['paddingBottom' as string]: '2rem' }}
-              alignSelf={{ default: 'alignSelfFlexEnd' }}
-            >
-              <Button onClick={onSubmit}>Submit</Button>
-            </FlexItem>
+            <FlexItem grow={{ default: 'grow' }}></FlexItem>
           </Flex>
-        </FlexItem>
-        <FlexItem grow={{ default: 'grow' }}></FlexItem>
-      </Flex>
+        </GridItem>
+      </Grid>
     </Page>
   );
 };

@@ -51,14 +51,17 @@
     "webpack-merge": "^5.8.0"
   },
   "dependencies": {
+    "@patternfly/react-code-editor": "^4.65.1",
     "@patternfly/react-core": "^4.221.3",
     "@patternfly/react-icons": "^4.72.3",
     "@patternfly/react-styles": "^4.74.1",
     "@patternfly/react-table": "^4.93.1",
+    "buffer": "^6.0.3",
     "cytoscape": "^3.22.1",
     "cytoscape-cola": "^2.5.1",
     "fast-deep-equal": "^3.1.3",
     "graphql": "^16.5.0",
+    "monaco-editor-webpack-plugin": "^2.1.0",
     "react": "^17.0.2",
     "react-cytoscapejs": "^1.2.1",
     "react-dom": "^17.0.2",
