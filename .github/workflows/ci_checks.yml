@@ -182,6 +182,7 @@ jobs:
     needs: linux_checks
     if: |
       always() && !cancelled() &&
+      needs.linux_checks.result == 'success' &&
       (needs.code_changed.result == 'skipped' || needs.code_changed.outputs.any_modified == 'true') &&
       !(github.event_name == 'workflow_dispatch' && !inputs.check_platforms)
     strategy:
