@@ -170,16 +170,14 @@ func New(ctx context.Context, addr proto.IP, name string, opts ...func(*npOpts))
 	go n.netStackReadLoop()
 	n.updateSender = timerunner.New(ctx,
 		func() {
-			go func() {
-				log.Debugf("%s: sending routing update", n.addr.String())
-				ru, uerr := n.generateRoutingUpdate()
-				if uerr != nil {
-					log.Errorf("error generating routing update: %s", uerr)
-					return
-				}
-				n.router.UpdateNode(n.addr, ru.Connections)
-				n.floodRoutingUpdate(ru, nil)
-			}()
+			log.Debugf("%s: sending routing update", n.addr.String())
+			ru, uerr := n.generateRoutingUpdate()
+			if uerr != nil {
+				log.Errorf("error generating routing update: %s", uerr)
+				return
+			}
+			n.router.UpdateNode(n.addr, ru.Connections)
+			n.floodRoutingUpdate(ru, nil)
 		},
 		timerunner.Periodic(10*time.Second))
 	go n.monitorDeadNodes()
