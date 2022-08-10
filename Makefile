@@ -1,4 +1,29 @@
-VERSION_TAG ?= $(shell if VER=`git describe --match "v[0-9]*" --tags 2>/dev/null`; then echo $VER; else echo "v0.0.1"; fi)
+ifeq ($(OS),Windows_NT)
+	# choco install -y make git.install grep findutils gnuwin32-coreutils.install
+	FIND := "C:\ProgramData\chocolatey\lib\findutils\tools\install\bin\find.exe"
+	TOUCH := "C:\Program Files (x86)\GnuWin32\bin\touch.exe"
+	MKDIR := "C:\Program Files (x86)\GnuWin32\bin\mkdir.exe"
+	RM := "C:\Program Files (x86)\GnuWin32\bin\rm.exe"
+	MAKE := "C:\ProgramData\chocolatey\lib\make.exe"
+	GREP := "C:\ProgramData\chocolatey\bin\grep.exe"
+	GIT := "C:\Program Files\Git\bin\git.exe"
+else
+	FIND := find
+	TOUCH := touch
+	MKDIR := mkdir
+	MAKE := make
+	GREP := grep
+	GIT := git
+endif
+
+ifeq ($(VERSION_TAG),)
+	GIT_VERSION := $(shell $(GIT) describe --match "v[0-9.]*" --tags 2>/dev/null)
+	ifeq ($(GIT_VERSION),)
+		VERSION_TAG := 0.0.1
+	else
+		VERSION_TAG := $(GIT_VERSION)
+	endif
+endif
 VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
 BUILDENV ?= CGO_ENABLED=0
@@ -15,7 +40,7 @@ all: $(PROGRAMS) $(UI_DEP)
 # current directory, which are in directories reported as being dependencies
 # of the given go source file.
 define go_deps
-$(shell find $$(go list -f '{{.Dir}}' -deps $(1) | grep "^$$PWD") -name '*.go' | grep -v '_test.go$$' | grep -v '_gen.go$$')
+$(shell $(FIND) $$(go list -f '{{.Dir}}' -deps $(1) | $(GREP) "^$$PWD") -name '*.go' | $(GREP) -v '_test.go$$' | $(GREP) -v '_gen.go$$')
 endef
 
 define PROGRAM_template
@@ -55,7 +80,7 @@ test:
 
 .PHONY: testloop
 testloop:
-	@i=1; while echo "-------------------------- $$i" && make test; do i=$$((i+1)); done
+	@i=1; while echo "-------------------------- $$i" && $(MAKE) test; do i=$$((i+1)); done
 
 .PHONY: test-root
 test-root: connectopus
@@ -65,7 +90,7 @@ test-root: connectopus
 test-coverage:
 	@go test -coverprofile cover.out ./...
 	@go tool cover -html=cover.out -o coverage.html
-	@rm -f cover.out
+	@$(RM) -f cover.out
 	@echo See coverage.html for details
 
 .PHONY: cap-net-admin
@@ -84,26 +109,32 @@ version:
 update-ui-version:
 	@if [ "$$(cat ui/package.json | jq .version)" != "\"$(VERSION)\"" ]; then cd ui && npm version $(VERSION) --allow-same-version; fi
 
-.PHONY: ui
-ui: update-ui-version $(UI_DEP)
+ifeq ($(OS),Windows_NT)
+	UPDATE_UI_DEP := ""
+else
+	UPDATE_UI_DEP := "update-ui-version"
+endif
 
-$(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(shell find ui/src -type f)
-	@cd ui && make ui
+.PHONY: ui
+ui: $(UPDATE_UI_DEP) $(UI_DEP)
+
+$(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(shell $(FIND) ui/src -type f)
+	@cd ui && $(MAKE) ui
 
 .PHONY: ui-dev
 ui-dev:
 	@cd ui && npm run dev
 
 bin: $(PROGRAM_DEPS_connectopus) $(EXTRA_DEPS_connectopus)
-	@mkdir -p bin
-	@touch bin
+	@$(MKDIR) -p bin
+	@$(TOUCH) bin
 
 .PHONY: clean
 clean:
-	@rm -fv $(PROGRAMS) $(BINFILES) coverage.html
-	@find . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir make clean --no-print-directory \;
+	@$(RM) -fv $(PROGRAMS) $(BINFILES) coverage.html
+	@$(FIND) . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir $(MAKE) clean --no-print-directory \;
 
 .PHONY: distclean
 distclean: clean
-	@find . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir make distclean --no-print-directory \;
+	@$(FIND) . -name Makefile -and -not -path ./Makefile -and -not -path './ui/node_modules/*' -execdir $(MAKE) distclean --no-print-directory \;
 
