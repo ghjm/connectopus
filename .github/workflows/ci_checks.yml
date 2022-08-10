@@ -198,6 +198,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Chocolatey install
+        uses: crazy-max/ghaction-chocolatey@v2
+        with:
+          args: install -y make git.install grep findutils jq gnuwin32-coreutils.install
+        if: matrix.os == 'windows-latest'
+
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -223,8 +229,8 @@ jobs:
       - name: Install Node modules
         run: cd ui && npm ci --legacy-peer-deps
 
-      - name: Build the UI
-        run: make ui
+      - name: Run the build
+        run: make
 
       - name: Run tests
         run: go test ./... -count=1
