@@ -14,7 +14,7 @@ import (
 
 func TestDirect(t *testing.T) {
 	goleak.VerifyNone(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var pc1, pc2 *OOBPacketConn
 	ip1 := func(msg *proto.OOBMessage) error {
@@ -79,7 +79,7 @@ func TestDirect(t *testing.T) {
 
 func TestOOB(t *testing.T) {
 	goleak.VerifyNone(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	n1, err := New(ctx, proto.ParseIP("FD00::1"), "test1", WithMTU(1400))
 	if err != nil {
