@@ -1,12 +1,16 @@
 ifeq ($(OS),Windows_NT)
-	# choco install -y make git.install grep findutils gnuwin32-coreutils.install
-	FIND := "C:\ProgramData\chocolatey\lib\findutils\tools\install\bin\find.exe"
+	# choco install -y make git.install grep findutils jq gnuwin32-coreutils.install
+	FIND := C:\ProgramData\chocolatey\lib\findutils\tools\install\bin\find.exe
 	TOUCH := "C:\Program Files (x86)\GnuWin32\bin\touch.exe"
 	MKDIR := "C:\Program Files (x86)\GnuWin32\bin\mkdir.exe"
 	RM := "C:\Program Files (x86)\GnuWin32\bin\rm.exe"
-	MAKE := "C:\ProgramData\chocolatey\lib\make.exe"
-	GREP := "C:\ProgramData\chocolatey\bin\grep.exe"
+	MAKE := C:\ProgramData\chocolatey\bin\make.exe
+	GREP := C:\ProgramData\chocolatey\bin\grep.exe
 	GIT := "C:\Program Files\Git\bin\git.exe"
+	JQ := C:\ProgramData\chocolatey\lib\jq\tools\jq.exe
+	CURDIR := $(shell "C:\Program Files (x86)\GnuWin32\bin\pwd.exe")
+	CURDIR_ESCAPED := $(subst \,\\,$(CURDIR))
+	STDERR_REDIR := 2>NUL
 else
 	FIND := find
 	TOUCH := touch
@@ -14,10 +18,15 @@ else
 	MAKE := make
 	GREP := grep
 	GIT := git
+	BASH := bash
+	JQ := jq
+	CURDIR := $(shell pwd)
+	CURDIR_ESCAPED := $(CURDIR)
+	STDERR_REDIR := 2>/dev/null
 endif
 
 ifeq ($(VERSION_TAG),)
-	GIT_VERSION := $(shell $(GIT) describe --match "v[0-9.]*" --tags 2>/dev/null)
+	GIT_VERSION := $(shell $(GIT) describe --match "v[0-9.]*" --tags $(STDERR_REDIR))
 	ifeq ($(GIT_VERSION),)
 		VERSION_TAG := 0.0.1
 	else
@@ -26,7 +35,11 @@ ifeq ($(VERSION_TAG),)
 endif
 VERSION ?= $(VERSION_TAG:v%=%)
 LDFLAGS := -ldflags "-X 'github.com/ghjm/connectopus/internal/version.version=$(VERSION)'"
-BUILDENV ?= CGO_ENABLED=0
+ifeq ($(OS),Windows_NT)
+	BUILDENV :=
+else
+	BUILDENV ?= CGO_ENABLED=0
+endif
 
 PROGRAMS := connectopus
 PLATFORMS := linux:amd64: linux:arm64: windows:amd64:.exe windows:arm64:.exe darwin:amd64: darwin:arm64:
@@ -40,7 +53,7 @@ all: $(PROGRAMS) $(UI_DEP)
 # current directory, which are in directories reported as being dependencies
 # of the given go source file.
 define go_deps
-$(shell $(FIND) $$(go list -f '{{.Dir}}' -deps $(1) | $(GREP) "^$$PWD") -name '*.go' | $(GREP) -v '_test.go$$' | $(GREP) -v '_gen.go$$')
+$(shell $(FIND) $(shell go list -f '{{.Dir}}' -deps $(1) | $(GREP) "^$(CURDIR_ESCAPED)") -name '*.go' | $(GREP) -v '_test.go$$' | $(GREP) -v '_gen.go$$')
 endef
 
 define PROGRAM_template
