@@ -131,18 +131,21 @@ func TestOOB(t *testing.T) {
 	recvChan := make(chan struct{})
 
 	// Test OOBPacketConn
+	oobPacketConnCtx, oobPacketConnCancel := context.WithCancel(ctx)
+	defer oobPacketConnCancel()
+
 	for _, ns := range [][]proto.Netopus{{n1, n2}, {n2, n1}} {
 		nLocal := ns[0]
 		nRemote := ns[1]
 
 		// Test OOBPacketConn
 		var pcSender net.PacketConn
-		pcSender, err = nLocal.NewOOBPacketConn(ctx, 0)
+		pcSender, err = nLocal.NewOOBPacketConn(oobPacketConnCtx, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 		var pcReceiver net.PacketConn
-		pcReceiver, err = nRemote.NewOOBPacketConn(ctx, 1234)
+		pcReceiver, err = nRemote.NewOOBPacketConn(oobPacketConnCtx, 1234)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,14 +168,26 @@ func TestOOB(t *testing.T) {
 			recvChan <- struct{}{}
 		}()
 		go func() {
-			n, err := pcSender.WriteTo(message, pcReceiver.LocalAddr())
-			if err != nil {
-				t.Errorf(err.Error())
-				return
-			}
-			if n != len(message) {
-				t.Errorf("whole message not sent")
-				return
+			for {
+				n, err := pcSender.WriteTo(message, pcReceiver.LocalAddr())
+				if oobPacketConnCtx.Err() != nil {
+					return
+				}
+				if err != nil {
+					t.Errorf(err.Error())
+					return
+				}
+				if n != len(message) {
+					t.Errorf("whole message not sent")
+					return
+				}
+				t := time.NewTimer(100 * time.Millisecond)
+				select {
+				case <-oobPacketConnCtx.Done():
+					t.Stop()
+					return
+				case <-t.C:
+				}
 			}
 		}()
 	}
@@ -180,13 +195,14 @@ func TestOOB(t *testing.T) {
 	completed := 0
 	for completed < 2 {
 		select {
-		case <-ctx.Done():
-			t.Errorf(ctx.Err().Error())
+		case <-oobPacketConnCtx.Done():
+			t.Errorf(oobPacketConnCtx.Err().Error())
 			return
 		case <-recvChan:
 			completed++
 		}
 	}
+	oobPacketConnCancel()
 
 	// Test OOBConn
 	longMessage := []byte(strings.Repeat("Hello, world!\n", 1000))
