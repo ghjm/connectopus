@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
-	github.com/mattn/go-isatty v0.0.14
+	github.com/mattn/go-isatty v0.0.16
 	github.com/miekg/dns v1.1.50
 	github.com/pion/dtls/v2 v2.1.5
 	github.com/sirupsen/logrus v1.9.0
@@ -25,7 +25,7 @@ require (
 	go.uber.org/goleak v1.1.12
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
+	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20220430045309-0ada71a2f9ec
 	lukechampine.com/uint128 v1.2.0
