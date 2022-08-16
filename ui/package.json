@@ -53,7 +53,7 @@
   "dependencies": {
     "@patternfly/react-code-editor": "^4.65.1",
     "@patternfly/react-core": "^4.221.3",
-    "@patternfly/react-icons": "^4.72.3",
+    "@patternfly/react-icons": "^4.82.8",
     "@patternfly/react-styles": "^4.74.1",
     "@patternfly/react-table": "^4.93.1",
     "buffer": "^6.0.3",
