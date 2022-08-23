@@ -2,8 +2,8 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121 h1:r3qt8PCHnfjOv9PN3H+XXKmDA1dfFMIN1AislhlA/ps=
 github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121/go.mod h1:Ock8XgA7pvULhIaHGAk/cDnRfNrF9Jey81nPcc403iU=
 github.com/99designs/gqlgen v0.17.10/go.mod h1:tjgUrZGpynt+w38zmgTn5QGgd3EUhkHa4VRcX6/AyGo=
-github.com/99designs/gqlgen v0.17.14 h1:5c3TYN3Hbe54CevGzQOiuMhlpjSpmNhy65ZqIZhtQ+E=
-github.com/99designs/gqlgen v0.17.14/go.mod h1:IXeS/mdPf7JPkmqvbRKjCAV+CLxMKe6vXw6yD9vamB8=
+github.com/99designs/gqlgen v0.17.15 h1:5YgNFd46NhO/VltM4ENc6m26mj8GJxQg2ZKOy5s83tA=
+github.com/99designs/gqlgen v0.17.15/go.mod h1:IXeS/mdPf7JPkmqvbRKjCAV+CLxMKe6vXw6yD9vamB8=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/toml v1.1.0/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
 github.com/Yamashou/gqlgenc v0.0.9 h1:I195wFMIDlQJpJvj+BNir9btRtid4YL51rPlWRCgKAA=
