@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121
-	github.com/99designs/gqlgen v0.17.15
+	github.com/99designs/gqlgen v0.17.16
 	github.com/Yamashou/gqlgenc v0.0.9
 	github.com/chzyer/readline v1.5.1
 	github.com/golang-jwt/jwt/v4 v4.4.2
@@ -19,7 +19,7 @@ require (
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.5.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
-	github.com/vektah/gqlparser/v2 v2.4.8
+	github.com/vektah/gqlparser/v2 v2.5.0
 	github.com/vishvananda/netlink v1.1.0
 	github.com/xtaci/kcp-go v5.4.20+incompatible
 	go.uber.org/goleak v1.1.12
