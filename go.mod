@@ -22,7 +22,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.0
 	github.com/vishvananda/netlink v1.1.0
 	github.com/xtaci/kcp-go v5.4.20+incompatible
-	go.uber.org/goleak v1.1.12
+	go.uber.org/goleak v1.2.0
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
