@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121
 	github.com/99designs/gqlgen v0.17.19
-	github.com/Yamashou/gqlgenc v0.11.0
+	github.com/Yamashou/gqlgenc v0.11.1
 	github.com/chzyer/readline v1.5.1
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -25,7 +25,7 @@ require (
 	go.uber.org/goleak v1.2.0
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
-	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
+	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20220430045309-0ada71a2f9ec
 	lukechampine.com/uint128 v1.2.0
