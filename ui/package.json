@@ -22,7 +22,7 @@
     "css-minimizer-webpack-plugin": "^4.1.0",
     "dotenv-webpack": "^8.0.1",
     "esbuild-loader": "^2.20.0",
-    "eslint": "^8.23.1",
+    "eslint": "^8.24.0",
     "eslint-plugin-react": "^7.31.8",
     "eslint-plugin-react-hooks": "^4.5.0",
     "file-loader": "^6.2.0",
