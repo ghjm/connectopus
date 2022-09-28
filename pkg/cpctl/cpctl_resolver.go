@@ -1,6 +1,7 @@
 package cpctl
 
 import (
+	"bytes"
 	"context"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/links/netns"
@@ -98,12 +99,15 @@ func (r *Resolver) Mutation() MutationResolver {
 
 func (r *Resolver) Config(_ context.Context) (*ConfigResult, error) {
 	cfg := r.GetConfig()
-	yamlCfg, err := yaml.Marshal(cfg)
+	var yamlCfg bytes.Buffer
+	yamlEncoder := yaml.NewEncoder(&yamlCfg)
+	yamlEncoder.SetIndent(2)
+	err := yamlEncoder.Encode(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &ConfigResult{
-		Yaml: string(yamlCfg),
+		Yaml: yamlCfg.String(),
 	}, nil
 }
 
