@@ -26,6 +26,13 @@ func GetUISanitizer(handler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func isIdentifierChar(c rune) bool {
+	return c == '_' || c == '-' ||
+		(c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9')
+}
+
 func GetUIHandler() http.Handler {
 	subFiles, _ := fs.Sub(uiFiles, "embed/dist")
 	subServer := http.FileServer(http.FS(subFiles))
@@ -53,6 +60,12 @@ func GetUIHandler() http.Handler {
 					pageSel = "unauthorized"
 				}
 			}
+			for _, c := range pageSel {
+				if !isIdentifierChar(c) {
+					pageSel = "unauthorized"
+					break
+				}
+			}
 			dataValues := r.Header.Values("page_extra")
 			if pageSel != "" {
 				dataValues = append(dataValues, fmt.Sprintf("page_select=%s", pageSel))
@@ -64,6 +77,18 @@ func GetUIHandler() http.Handler {
 				for _, v := range dataValues {
 					splitV := strings.SplitN(v, "=", 2)
 					if len(splitV) != 2 {
+						continue
+					}
+					checkOK := true
+					for _, s := range []string{splitV[0], splitV[1]} {
+						for _, c := range s {
+							if !isIdentifierChar(c) {
+								checkOK = false
+								break
+							}
+						}
+					}
+					if !checkOK {
 						continue
 					}
 					replaceText += fmt.Sprintf("\"%s\": \"%s\", ", splitV[0], splitV[1])
