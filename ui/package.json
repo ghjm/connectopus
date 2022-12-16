@@ -18,7 +18,7 @@
     "@typescript-eslint/parser": "^5.46.1",
     "ajv": "^8.11.2",
     "copy-webpack-plugin": "^11.0.0",
-    "css-loader": "^6.7.2",
+    "css-loader": "^6.7.3",
     "css-minimizer-webpack-plugin": "^4.2.2",
     "dotenv-webpack": "^8.0.1",
     "esbuild-loader": "^2.20.0",
