@@ -40,7 +40,7 @@ nodes:
         address: FD00::3:3
         services:
           echo:
-            command: nc -6 -e /bin/cat -k -l 7
+            command: ncat -6 -e /bin/cat -k -l 7
     backends:
       b1:
         type: dtls-dialer
