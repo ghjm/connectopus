@@ -5,12 +5,12 @@ import (
 	"context"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/netstack"
+	"github.com/ghjm/connectopus/pkg/x/accept_loop"
 	"github.com/google/shlex"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"os/exec"
-	"time"
 )
 
 func runCommand(ctx context.Context, conn net.Conn, args []string) error {
@@ -60,36 +60,6 @@ func runCommand(ctx context.Context, conn net.Conn, args []string) error {
 	return nil
 }
 
-func acceptLoop(ctx context.Context, li net.Listener, args []string) error {
-	var tempDelay time.Duration
-	for {
-		conn, err := li.Accept()
-		if ctx.Err() != nil {
-			return nil
-		}
-		if err != nil {
-			log.Warnf("accept error: %s; retrying in %v", err, tempDelay)
-			if tempDelay == 0 {
-				tempDelay = 5 * time.Millisecond
-			} else {
-				tempDelay *= 2
-			}
-			if max := 1 * time.Second; tempDelay > max {
-				tempDelay = max
-			}
-			time.Sleep(tempDelay)
-			continue
-		}
-		tempDelay = 0
-		go func() {
-			err = runCommand(ctx, conn, args)
-			if err != nil {
-				log.Warnf("service command error: %s", err)
-			}
-		}()
-	}
-}
-
 func RunService(ctx context.Context, n netstack.UserStack, service config.Service) (net.Addr, error) {
 	cmd := service.Command
 	args, err := shlex.Split(cmd)
@@ -106,10 +76,12 @@ func RunService(ctx context.Context, n netstack.UserStack, service config.Servic
 		_ = li.Close()
 	}()
 	go func() {
-		err := acceptLoop(ctx, li, args)
-		if err != nil {
-			log.Errorf("accept error: %s", err)
-		}
+		accept_loop.AcceptLoop(ctx, li, func(ctx context.Context, conn net.Conn) {
+			err := runCommand(ctx, conn, args)
+			if err != nil {
+				log.Warnf("service command error: %s", err)
+			}
+		})
 	}()
 	return li.Addr(), nil
 }
