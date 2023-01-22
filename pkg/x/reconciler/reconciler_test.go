@@ -16,7 +16,7 @@ type Config struct {
 
 var exp *expector.Expector[string]
 
-func (c Config) ParentEqual(item ConfigItem) bool {
+func (c Config) ShallowEqual(item ConfigItem) bool {
 	ci, ok := item.(Config)
 	if !ok {
 		return false

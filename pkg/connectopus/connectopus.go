@@ -197,7 +197,7 @@ type NodeCfg struct {
 	datadir  string
 }
 
-func (nc NodeCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (nc NodeCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(NodeCfg)
 	if !ok {
 		return false
@@ -297,7 +297,7 @@ func (nc NodeCfg) Type() string {
 
 type CpctlCfg config.Cpctl
 
-func (c CpctlCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (c CpctlCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(CpctlCfg)
 	if !ok {
 		return false
@@ -402,7 +402,7 @@ func (c CpctlCfg) Type() string {
 
 type DnsCfg config.Dns
 
-func (d DnsCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (d DnsCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(DnsCfg)
 	if !ok {
 		return false
@@ -463,7 +463,7 @@ func (d DnsCfg) Type() string {
 
 type BackendCfg config.Params
 
-func (b BackendCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (b BackendCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(BackendCfg)
 	if !ok {
 		return false
@@ -500,7 +500,7 @@ func (b BackendCfg) Type() string {
 
 type ServiceCfg config.Service
 
-func (s ServiceCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (s ServiceCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(ServiceCfg)
 	if !ok {
 		return false
@@ -531,7 +531,7 @@ func (s ServiceCfg) Type() string {
 
 type TunDevCfg config.TunDev
 
-func (t TunDevCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (t TunDevCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(TunDevCfg)
 	if !ok {
 		return false
@@ -579,7 +579,7 @@ type namespaceInstance struct {
 	ns *netns.Link
 }
 
-func (nc NamespaceCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (nc NamespaceCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(NamespaceCfg)
 	if !ok {
 		return false
@@ -636,7 +636,7 @@ type NamespaceServiceCfg struct {
 	command string
 }
 
-func (nsc NamespaceServiceCfg) ParentEqual(item reconciler.ConfigItem) bool {
+func (nsc NamespaceServiceCfg) ShallowEqual(item reconciler.ConfigItem) bool {
 	ci, ok := item.(NamespaceServiceCfg)
 	if !ok {
 		return false

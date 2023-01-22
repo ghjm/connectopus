@@ -10,7 +10,7 @@ import (
 )
 
 type ConfigItem interface {
-	ParentEqual(ConfigItem) bool
+	ShallowEqual(ConfigItem) bool
 	Start(context.Context, *RunningItem, func()) (any, error)
 	Children() map[string]ConfigItem
 	Type() string
@@ -77,7 +77,7 @@ func (ri *RunningItem) waitForStop() {
 func (ri *RunningItem) Reconcile(ci ConfigItem) {
 	oldConfig := ri.config
 	ri.config = ci
-	if !ci.ParentEqual(oldConfig) {
+	if !ci.ShallowEqual(oldConfig) {
 		if ri.ctx != nil {
 			ri.cancel()
 			ri.waitForStop()
