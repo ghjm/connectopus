@@ -33,6 +33,9 @@ type Router interface {
 
 	// Nodes returns a copy of the nodes and connections known to the router
 	Nodes() proto.RoutingNodes
+
+	// Costs returns the cost to reach all known nodes, given the current policy
+	Costs() proto.RoutingCosts
 }
 
 // Implements Router
@@ -41,10 +44,14 @@ type router struct {
 	myAddr        proto.IP
 	nodes         syncro.Map[proto.IP, proto.RoutingConns]
 	policy        syncro.Map[proto.Subnet, proto.IP]
+	costs         syncro.Map[proto.IP, float32]
 	updateWait    time.Duration
 	tr            timerunner.TimeRunner
 	updatesBroker broker.Broker[proto.RoutingPolicy]
 }
+
+// Ensure router implements Router
+var _ Router = (*router)(nil)
 
 // New returns a new router.  UpdateWait specifies the maximum time after an UpdateNode that a recalculation should occur.
 func New(ctx context.Context, myAddr proto.IP, updateWait time.Duration) Router {
@@ -167,20 +174,32 @@ func (r *router) recalculate() {
 		}
 		changed := false
 		r.policy.WorkWith(func(policy *map[proto.Subnet]proto.IP) {
-			if len(*policy) != len(newPolicy) {
-				changed = true
-			} else {
-				for k, v := range *policy {
-					nv, ok := newPolicy[k]
-					if !ok || nv != v {
-						changed = true
-						break
+			r.costs.WorkWith(func(costs *map[proto.IP]float32) {
+				if len(*policy) != len(newPolicy) || len(*costs) != len(cost) {
+					changed = true
+				} else {
+					for k, v := range *policy {
+						nv, ok := newPolicy[k]
+						if !ok || nv != v {
+							changed = true
+							break
+						}
+					}
+					if !changed {
+						for k, v := range *costs {
+							nv, ok := cost[k]
+							if !ok || nv != v {
+								changed = true
+								break
+							}
+						}
 					}
 				}
-			}
-			if changed {
-				*policy = newPolicy
-			}
+				if changed {
+					*policy = newPolicy
+					*costs = cost
+				}
+			})
 		})
 		r.updatesBroker.Publish(newPolicy)
 	})
@@ -227,4 +246,14 @@ func (r *router) Nodes() proto.RoutingNodes {
 		}
 	})
 	return nodesCopy
+}
+
+func (r *router) Costs() proto.RoutingCosts {
+	costsCopy := make(proto.RoutingCosts)
+	r.costs.WorkWithReadOnly(func(costs map[proto.IP]float32) {
+		for k, v := range costs {
+			costsCopy[k] = v
+		}
+	})
+	return costsCopy
 }

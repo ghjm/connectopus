@@ -26,6 +26,7 @@ type Node struct {
 	Address    proto.IP             `yaml:"address"`
 	Backends   map[string]Params    `yaml:"backends,omitempty"`
 	Services   map[string]Service   `yaml:"services,omitempty"`
+	Proxies    map[string]Proxy     `yaml:"proxies,omitempty"`
 	TunDevs    map[string]TunDev    `yaml:"tun_devs,omitempty"`
 	Namespaces map[string]Namespace `yaml:"namespaces,omitempty"`
 	Cpctl      Cpctl                `yaml:"cpctl,omitempty"`
@@ -35,6 +36,12 @@ type Node struct {
 type Service struct {
 	Port    int    `yaml:"port"`
 	Command string `yaml:"command"`
+}
+
+type Proxy struct {
+	Label   string `yaml:"label"`
+	Kind    string `yaml:"kind"`
+	Address string `yaml:"address"`
 }
 
 type TunDev struct {
@@ -127,4 +134,13 @@ func (c *Config) Save(filename string) error {
 		return err
 	}
 	return os.WriteFile(filename, data, 0600)
+}
+
+func ParseConfig(rawConfig []byte) (*Config, error) {
+	cfg := Config{}
+	err := cfg.Unmarshal(rawConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing config: %w", err)
+	}
+	return &cfg, nil
 }

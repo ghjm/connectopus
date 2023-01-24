@@ -45,6 +45,9 @@ type netopus struct {
 	newConfigFunc  func([]byte, []byte)
 }
 
+// Ensure netopus implements Netopus
+var _ proto.Netopus = (*netopus)(nil)
+
 const (
 	connectionStateInit byte = iota
 	connectionStateConnecting
@@ -934,6 +937,12 @@ func (n *netopus) Status() *proto.Status {
 			s.RouterNodes[k.String()] = r
 		}
 	}
+	s.RouterCosts = make(map[string]float32)
+	{
+		for k, v := range n.router.Costs() {
+			s.RouterCosts[k.String()] = v
+		}
+	}
 	s.Sessions = make(map[string]proto.SessionStatus)
 	n.sessionInfo.WorkWithReadOnly(func(si sessInfo) {
 		for k, v := range si {
@@ -1058,6 +1067,11 @@ func (n *netopus) LookupIP(ip proto.IP) string {
 
 func (n *netopus) Addr() proto.IP {
 	return n.addr
+}
+
+func (n *netopus) GetConfig() []byte {
+	c := n.configInfo.Get()
+	return c.configData
 }
 
 func (n *netopus) UpdateConfig(cfg []byte, sig []byte, version time.Time) {

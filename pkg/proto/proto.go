@@ -40,6 +40,9 @@ type RoutingConns map[Subnet]float32
 // RoutingPolicy is a routing table giving the next hop for a list of subnets
 type RoutingPolicy map[Subnet]IP
 
+// RoutingCosts is a table of known nodes (even indirect ones) and the cost to get there from here
+type RoutingCosts map[IP]float32
+
 // RoutingUpdate is a message type carrying routing information
 type RoutingUpdate struct {
 	Origin          IP

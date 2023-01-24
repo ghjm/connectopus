@@ -13,6 +13,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/links/tun"
 	"github.com/ghjm/connectopus/pkg/netopus"
 	"github.com/ghjm/connectopus/pkg/proto"
+	"github.com/ghjm/connectopus/pkg/proxies"
 	"github.com/ghjm/connectopus/pkg/services"
 	"github.com/ghjm/connectopus/pkg/x/reconciler"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
@@ -282,6 +283,9 @@ func (nc NodeCfg) Children() map[string]reconciler.ConfigItem {
 	for k, v := range node.Services {
 		children[k] = ServiceCfg(v)
 	}
+	for k, v := range node.Proxies {
+		children[k] = ProxyCfg(v)
+	}
 	for k, v := range node.TunDevs {
 		children[k] = TunDevCfg(v)
 	}
@@ -527,6 +531,37 @@ func (s ServiceCfg) Children() map[string]reconciler.ConfigItem {
 
 func (s ServiceCfg) Type() string {
 	return "service"
+}
+
+type ProxyCfg config.Proxy
+
+func (s ProxyCfg) ShallowEqual(item reconciler.ConfigItem) bool {
+	ci, ok := item.(ProxyCfg)
+	if !ok {
+		return false
+	}
+	return reflect.DeepEqual(ci, s)
+}
+
+func (s ProxyCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done func()) (any, error) {
+	parentInst := ri.Parent().Instance().(*nodeInstance)
+	err := proxies.RunProxy(ctx, parentInst.n, config.Proxy(s))
+	if err != nil {
+		return nil, fmt.Errorf("error initializing proxy: %w", err)
+	}
+	go func() {
+		<-ctx.Done()
+		done()
+	}()
+	return nil, nil
+}
+
+func (s ProxyCfg) Children() map[string]reconciler.ConfigItem {
+	return nil
+}
+
+func (s ProxyCfg) Type() string {
+	return "proxy"
 }
 
 type TunDevCfg config.TunDev

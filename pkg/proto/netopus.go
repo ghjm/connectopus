@@ -16,6 +16,7 @@ type Netopus interface {
 	ExternalRouter
 	OOBConnector
 	NameService
+	ConfigGetter
 	ConfigUpdater
 	Status() *Status
 	MTU() uint16
@@ -46,6 +47,11 @@ type NameService interface {
 	AddExternalName(string, IP)
 	// DelExternalName deletes a previous added external name.
 	DelExternalName(string)
+}
+
+// ConfigGetter is a service that can retrieve configuration
+type ConfigGetter interface {
+	GetConfig() []byte
 }
 
 // ConfigUpdater is a service that can update configurations
@@ -80,6 +86,7 @@ type Status struct {
 	NameToAddr  map[string]string
 	AddrToName  map[string]string
 	RouterNodes map[string]map[string]float32
+	RouterCosts map[string]float32
 	Sessions    map[string]SessionStatus
 }
 
