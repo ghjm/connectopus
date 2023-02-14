@@ -16,7 +16,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -293,7 +292,7 @@ func RunShim(fd int, tunif string, mtu uint16, addr string, domain string, dnsSe
 
 	// Create resolv.conf
 	var rf *os.File
-	rf, err = ioutil.TempFile("", "connectopus-resolv-*.conf")
+	rf, err = os.CreateTemp("", "connectopus-resolv-*.conf")
 	if err != nil {
 		return fmt.Errorf("error creating resolv.conf temp file: %w", err)
 	}
@@ -317,12 +316,12 @@ func RunShim(fd int, tunif string, mtu uint16, addr string, domain string, dnsSe
 
 	// Create nsswitch.conf
 	var origNsf []byte
-	origNsf, err = ioutil.ReadFile("/etc/nsswitch.conf")
+	origNsf, err = os.ReadFile("/etc/nsswitch.conf")
 	if err != nil {
 		return fmt.Errorf("error reading nsswitch.conf: %w", err)
 	}
 	var nsf *os.File
-	nsf, err = ioutil.TempFile("", "connectopus-nsswitch-*.conf")
+	nsf, err = os.CreateTemp("", "connectopus-nsswitch-*.conf")
 	if err != nil {
 		return fmt.Errorf("error creating nsswitch.conf temp file: %w", err)
 	}

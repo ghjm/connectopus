@@ -7,7 +7,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
@@ -20,7 +19,7 @@ type SSHAgent struct {
 }
 
 func getSSHAgentFromFile(keyFile string) (*SSHAgent, error) {
-	keyPEM, err := ioutil.ReadFile(keyFile)
+	keyPEM, err := os.ReadFile(keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading key file: %w", err)
 	}

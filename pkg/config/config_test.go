@@ -2,7 +2,6 @@ package config
 
 import (
 	"github.com/ghjm/connectopus/pkg/proto"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -73,7 +72,7 @@ var correctConfig = Config{
 }
 
 func TestConfig(t *testing.T) {
-	configFile, err := ioutil.TempFile("", "configtest")
+	configFile, err := os.CreateTemp("", "configtest")
 	if err != nil {
 		t.Fatalf("error creating tempfile: %s", err)
 	}
