@@ -14,7 +14,6 @@ import (
 	"go.uber.org/goleak"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -22,7 +21,7 @@ import (
 
 func TestCpctl(t *testing.T) {
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
-	f, err := ioutil.TempFile("", "temp_cpctl_*.sock")
+	f, err := os.CreateTemp("", "temp_cpctl_*.sock")
 	if err != nil {
 		t.Fatal(err)
 	}

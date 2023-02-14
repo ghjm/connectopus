@@ -1,13 +1,12 @@
 package file_cleaner
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 )
 
 func TestFileCleaner(t *testing.T) {
-	temp1, err := ioutil.TempFile("", "file_cleaner_test")
+	temp1, err := os.CreateTemp("", "file_cleaner_test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,7 +16,7 @@ func TestFileCleaner(t *testing.T) {
 	}
 	DeleteOnExit(temp1.Name())
 	var temp2 *os.File
-	temp2, err = ioutil.TempFile("", "file_cleaner_test")
+	temp2, err = os.CreateTemp("", "file_cleaner_test")
 	if err != nil {
 		t.Fatal(err)
 	}

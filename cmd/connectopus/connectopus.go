@@ -24,7 +24,6 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/exp/slices"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -155,7 +154,7 @@ var initCmd = &cobra.Command{
 				},
 			}
 		} else {
-			data, err := ioutil.ReadFile(configFilename)
+			data, err := os.ReadFile(configFilename)
 			if err != nil {
 				return fmt.Errorf("error reading config file: %w", err)
 			}
@@ -203,11 +202,11 @@ var initCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error signing config data: %w", err)
 		}
-		err = ioutil.WriteFile(path.Join(dataDir, "config.yml"), newCfgData, 0600)
+		err = os.WriteFile(path.Join(dataDir, "config.yml"), newCfgData, 0600)
 		if err != nil {
 			return fmt.Errorf("error writing config file: %w", err)
 		}
-		err = ioutil.WriteFile(path.Join(dataDir, "config.sig"), sig, 0600)
+		err = os.WriteFile(path.Join(dataDir, "config.sig"), sig, 0600)
 		if err != nil {
 			return fmt.Errorf("error writing config signature: %w", err)
 		}
@@ -354,7 +353,7 @@ var getConfigCmd = &cobra.Command{
 		if configFilename == "" {
 			fmt.Printf(config.Config.Yaml)
 		} else {
-			err = ioutil.WriteFile(configFilename, []byte(config.Config.Yaml), 0600)
+			err = os.WriteFile(configFilename, []byte(config.Config.Yaml), 0600)
 			if err != nil {
 				return err
 			}
@@ -441,7 +440,7 @@ var editConfigCmd = &cobra.Command{
 			return fmt.Errorf("error getting current config: %w", err)
 		}
 		var tmpFile *os.File
-		tmpFile, err = ioutil.TempFile("", "connectopus-config-*.yml")
+		tmpFile, err = os.CreateTemp("", "connectopus-config-*.yml")
 		if err != nil {
 			return fmt.Errorf("error creating temp file: %w", err)
 		}
@@ -470,7 +469,7 @@ var editConfigCmd = &cobra.Command{
 			return fmt.Errorf("error running editor: %w", err)
 		}
 		var newYaml []byte
-		newYaml, err = ioutil.ReadFile(tmpFile.Name())
+		newYaml, err = os.ReadFile(tmpFile.Name())
 		if err != nil {
 			return fmt.Errorf("error reading temp file: %w", err)
 		}

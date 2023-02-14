@@ -20,8 +20,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 	"os/exec"
 	"path"
 	"reflect"
@@ -89,13 +89,13 @@ func ParseAndCheckConfig(cfgData, signature []byte, authKeys []proto.Marshalable
 type Node reconciler.RunningItem
 
 func LoadConfig(datadir string) (*config.Config, error) {
-	data, err := ioutil.ReadFile(path.Join(datadir, "config.yml"))
+	data, err := os.ReadFile(path.Join(datadir, "config.yml"))
 	if err != nil {
 		return nil, fmt.Errorf("error loading config file: %w", err)
 	}
 
 	var sig []byte
-	sig, err = ioutil.ReadFile(path.Join(datadir, "config.sig"))
+	sig, err = os.ReadFile(path.Join(datadir, "config.sig"))
 	if err != nil {
 		return nil, fmt.Errorf("error reading signature file: %w", err)
 	}
@@ -166,11 +166,11 @@ func (ni *nodeInstance) NewConfig(config []byte, signature []byte) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path.Join(ni.datadir, "config.yml"), config, 0600)
+	err = os.WriteFile(path.Join(ni.datadir, "config.yml"), config, 0600)
 	if err != nil {
 		return fmt.Errorf("error writing config.yml: %w", err)
 	}
-	err = ioutil.WriteFile(path.Join(ni.datadir, "config.sig"), signature, 0600)
+	err = os.WriteFile(path.Join(ni.datadir, "config.sig"), signature, 0600)
 	if err != nil {
 		return fmt.Errorf("error writing config.sig: %w", err)
 	}
@@ -236,12 +236,12 @@ func (nc NodeCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done fu
 		ri:       ri,
 		datadir:  nc.datadir,
 	}
-	cfgData, err := ioutil.ReadFile(path.Join(nc.datadir, "config.yml"))
+	cfgData, err := os.ReadFile(path.Join(nc.datadir, "config.yml"))
 	if err != nil {
 		return nil, fmt.Errorf("error loading config.yml: %w", err)
 	}
 	var sigData []byte
-	sigData, err = ioutil.ReadFile(path.Join(nc.datadir, "config.sig"))
+	sigData, err = os.ReadFile(path.Join(nc.datadir, "config.sig"))
 	if err != nil {
 		return nil, fmt.Errorf("error loading config.sig: %w", err)
 	}

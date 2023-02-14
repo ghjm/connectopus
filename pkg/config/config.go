@@ -5,7 +5,6 @@ import (
 	"github.com/ghjm/connectopus/pkg/proto"
 	"gopkg.in/yaml.v3"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -92,8 +91,8 @@ func FindDataDirs(identity string) ([]string, error) {
 		}
 		return []string{dirName}, nil
 	}
-	var files []fs.FileInfo
-	files, err = ioutil.ReadDir(basePath)
+	var files []fs.DirEntry
+	files, err = os.ReadDir(basePath)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +114,7 @@ func (c *Config) Marshal() ([]byte, error) {
 }
 
 func (c *Config) Load(filename string) error {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
@@ -127,5 +126,5 @@ func (c *Config) Save(filename string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filename, data, 0600)
+	return os.WriteFile(filename, data, 0600)
 }

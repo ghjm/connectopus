@@ -10,7 +10,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 	"io"
-	"io/ioutil"
 	"net"
 	"testing"
 	"time"
@@ -201,7 +200,7 @@ func testNetstack(t *testing.T, stackBuilder NewStackFunc) {
 	if err != nil {
 		t.Fatalf("dial TCP error: %s", err)
 	}
-	b, err := ioutil.ReadAll(c)
+	b, err := io.ReadAll(c)
 	if err != nil {
 		t.Fatalf("read TCP error: %s", err)
 	}
