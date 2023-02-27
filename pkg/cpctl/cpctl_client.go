@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Yamashou/gqlgenc/clientv2"
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
@@ -167,7 +168,7 @@ func NewSocketClient(socketFile string, socketNode string, authToken string, pro
 		Jar:       jar,
 		Timeout:   10 * time.Second,
 	}
-	return NewClient(client, clientURL), nil
+	return NewClient(client, clientURL, &clientv2.Options{}), nil
 }
 
 // NewTokenAndSocketClient generates a token and then uses it to create a new socket client
