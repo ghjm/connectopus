@@ -28,7 +28,7 @@ require (
 	golang.org/x/sys v0.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20220430045309-0ada71a2f9ec
-	lukechampine.com/uint128 v1.2.0
+	lukechampine.com/uint128 v1.3.0
 )
 
 require (
