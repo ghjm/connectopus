@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
-	github.com/mattn/go-isatty v0.0.17
+	github.com/mattn/go-isatty v0.0.18
 	github.com/miekg/dns v1.1.52
 	github.com/pion/dtls/v2 v2.2.6
 	github.com/sirupsen/logrus v1.9.0
