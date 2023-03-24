@@ -21,7 +21,7 @@ type ConfigUpdateResult struct {
 }
 
 type NetnsFilter struct {
-	Name *string `json:"name"`
+	Name *string `json:"name,omitempty"`
 }
 
 type NetnsResult struct {
