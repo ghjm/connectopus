@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121
 	github.com/99designs/gqlgen v0.17.27
-	github.com/Yamashou/gqlgenc v0.12.0
+	github.com/Yamashou/gqlgenc v0.13.4
 	github.com/chzyer/readline v1.5.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
