@@ -4,8 +4,8 @@ github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121/go.mod h1:Ock8XgA7pvU
 github.com/99designs/gqlgen v0.17.27 h1:XPsaZiWY1lL2qqVYtBt37GzkyX7bBiVvda7k1buC/Ao=
 github.com/99designs/gqlgen v0.17.27/go.mod h1:i4rEatMrzzu6RXaHydq1nmEPZkb3bKQsnxNRHS4DQB4=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/Yamashou/gqlgenc v0.12.0 h1:HoKs8HH0UK58TZ/XA/J4tUeI/zLFu5nLnENxTsLV23M=
-github.com/Yamashou/gqlgenc v0.12.0/go.mod h1:+z+FRCtGrNmgTxweAUiCodOmQJLTCNtnRNAqhewf1Q8=
+github.com/Yamashou/gqlgenc v0.13.5 h1:aBv3D6pgY8ZXr6ArYHMtTkggui8eQVgjhgDaGnNbkxk=
+github.com/Yamashou/gqlgenc v0.13.5/go.mod h1:+z+FRCtGrNmgTxweAUiCodOmQJLTCNtnRNAqhewf1Q8=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/agnivade/levenshtein v1.1.1 h1:QY8M92nrzkmr798gCo3kmMyqXFzdQVpxLlGPRBij0P8=
 github.com/agnivade/levenshtein v1.1.1/go.mod h1:veldBMzWxcCG2ZvUTKD2kJNRdCk5hVbJomOvKkmgYbo=
