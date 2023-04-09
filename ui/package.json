@@ -67,7 +67,6 @@
     "react-dom": "^18.2.0",
     "react-github-btn": "^1.4.0",
     "react-page-visibility": "^7.0.0",
-    "react-router-last-location": "^2.0.1",
     "universal-cookie": "^4.0.4",
     "urql": "^4.0.0",
     "webcola": "^3.4.0"

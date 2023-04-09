@@ -8,10 +8,12 @@ import { Unauthorized } from '@app/Unauthorized/Unauthorized';
 import { NoAgent } from '@app/Unconfigured/NoAgent';
 import { NoNode } from '@app/Unconfigured/NoNode';
 import { MultiNode } from '@app/Unconfigured/MultiNode';
-import { Client, createClient, Provider } from 'urql';
+import { Client, createClient, Provider, cacheExchange, fetchExchange } from 'urql';
 
 const App: React.FunctionComponent = () => {
-  const [client] = React.useState<Client>(createClient({ url: '/localquery' }));
+  const [client] = React.useState<Client>(
+    createClient({ url: '/localquery', exchanges: [cacheExchange, fetchExchange] })
+  );
   const serverData = window['__SERVER_DATA__'];
   if (serverData !== undefined) {
     const pageSel = serverData['page_select'];

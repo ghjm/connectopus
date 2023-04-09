@@ -1,15 +1,12 @@
 import * as React from 'react';
 import { Route, RouteComponentProps, Switch } from 'react-router-dom';
-import { accessibleRouteChangeHandler } from '@app/utils/utils';
 import { Network } from '@app/Network/Network';
 import { GraphQL } from '@app/GraphQL/GraphQL';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
-import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
 import { Status } from '@app/Status/Status';
 import { Config } from '@app/Config/Config';
 
-let routeFocusTimer: number;
 export interface IAppRoute {
   label?: string; // Excluding the label will exclude the route from the nav sidebar in NoAgent
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -63,23 +60,7 @@ const routes: AppRouteConfig[] = [
   },
 ];
 
-// a custom hook for sending focus to the primary content container
-// after a view has loaded so that subsequent press of tab key
-// sends focus directly to relevant content
-const useA11yRouteChange = (isAsync: boolean) => {
-  const lastNavigation = useLastLocation();
-  React.useEffect(() => {
-    if (!isAsync && lastNavigation !== null) {
-      routeFocusTimer = accessibleRouteChangeHandler();
-    }
-    return () => {
-      window.clearTimeout(routeFocusTimer);
-    };
-  }, [isAsync, lastNavigation]);
-};
-
-const RouteWithTitleUpdates = ({ component: Component, isAsync = false, title, ...rest }: IAppRoute) => {
-  useA11yRouteChange(isAsync);
+const RouteWithTitleUpdates = ({ component: Component, title, ...rest }: IAppRoute) => {
   useDocumentTitle(title);
 
   function routeWithTitle(routeProps: RouteComponentProps) {
@@ -101,21 +82,19 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
 
 const AppRoutes = (): React.ReactElement => {
   return (
-    <LastLocationProvider>
-      <Switch>
-        {flattenedRoutes.map(({ path, exact, component, title, isAsync }, idx) => (
-          <RouteWithTitleUpdates
-            path={path}
-            exact={exact}
-            component={component}
-            key={idx}
-            title={title}
-            isAsync={isAsync}
-          />
-        ))}
-        <PageNotFound title="404 Page Not Found" />
-      </Switch>
-    </LastLocationProvider>
+    <Switch>
+      {flattenedRoutes.map(({ path, exact, component, title, isAsync }, idx) => (
+        <RouteWithTitleUpdates
+          path={path}
+          exact={exact}
+          component={component}
+          key={idx}
+          title={title}
+          isAsync={isAsync}
+        />
+      ))}
+      <PageNotFound title="404 Page Not Found" />
+    </Switch>
   );
 };
 

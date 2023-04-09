@@ -19,7 +19,7 @@ import {
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
 import logo from '@app/images/connectopus.png';
 import nodeLogo from '@app/images/node.png';
-import { Client, createClient, Provider, useQuery } from 'urql';
+import { Client, createClient, Provider, useQuery, cacheExchange, fetchExchange } from 'urql';
 import { createContext, useEffect } from 'react';
 import GitHubButton from 'react-github-btn';
 
@@ -300,15 +300,17 @@ const getInitialMyNode = (): string => {
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   const [activeNode, setActiveNode] = React.useState(getInitialActiveNode());
   const [myNode, setMyNode] = React.useState(getInitialMyNode());
-  const [client, setClient] = React.useState<Client>(createClient({ url: urlFromActiveNode(myNode, activeNode) }));
-  React.useEffect(() => {
-    setClient(createClient({ url: urlFromActiveNode(myNode, activeNode) }));
-  }, [myNode, activeNode]);
-  const [topClient, setTopClient] = React.useState<Client>(
-    createClient({ url: urlFromActiveNode(myNode, activeNode) })
+  const [client, setClient] = React.useState<Client>(
+    createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] })
   );
   React.useEffect(() => {
-    setTopClient(createClient({ url: '/query' }));
+    setClient(createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] }));
+  }, [myNode, activeNode]);
+  const [topClient, setTopClient] = React.useState<Client>(
+    createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] })
+  );
+  React.useEffect(() => {
+    setTopClient(createClient({ url: '/query', exchanges: [cacheExchange, fetchExchange] }));
   }, []);
 
   return (
