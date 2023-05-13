@@ -3636,18 +3636,20 @@ func (ec *executionContext) unmarshalInputConfigUpdateInput(ctx context.Context,
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("yaml"))
-			it.Yaml, err = ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
+			it.Yaml = data
 		case "signature":
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("signature"))
-			it.Signature, err = ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
+			it.Signature = data
 		}
 	}
 
@@ -3672,10 +3674,11 @@ func (ec *executionContext) unmarshalInputNetnsFilter(ctx context.Context, obj i
 			var err error
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-			it.Name, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
+			it.Name = data
 		}
 	}
 
