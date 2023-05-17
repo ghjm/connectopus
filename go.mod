@@ -15,7 +15,7 @@ require (
 	github.com/mattn/go-isatty v0.0.18
 	github.com/miekg/dns v1.1.54
 	github.com/pion/dtls/v2 v2.2.6
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.2
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.7.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
