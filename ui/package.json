@@ -36,7 +36,7 @@
     "react-router-dom": "^5.3.4",
     "regenerator-runtime": "^0.13.11",
     "rimraf": "^5.0.1",
-    "style-loader": "^3.3.2",
+    "style-loader": "^3.3.3",
     "svg-url-loader": "^8.0.0",
     "terser-webpack-plugin": "^5.3.9",
     "ts-loader": "^9.4.2",
