@@ -42,7 +42,7 @@
     "ts-loader": "^9.4.3",
     "tsconfig-paths-webpack-plugin": "^4.0.1",
     "tslib": "^2.5.2",
-    "typescript": "^5.0.4",
+    "typescript": "^5.1.6",
     "url-loader": "^4.1.1",
     "webpack": "^5.86.0",
     "webpack-bundle-analyzer": "^4.8.0",
