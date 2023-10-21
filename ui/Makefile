@@ -1,11 +1,7 @@
 UI_DEP := ../internal/ui_embed/embed/dist/main.bundle.js
 NPM_DEP := node_modules/.package_lock.json
 
-ifeq ($(OS),Windows_NT)
-UI_SRC := $(shell "C:\Windows\System32\cmd.exe" /c "dir /b /s src")
-else
 UI_SRC := $(shell find src -type f)
-endif
 $(UI_DEP): $(NPM_DEP) *.js $(UI_SRC)
 	@npm version --allow-same-version $(VERSION)
 	@npm run build

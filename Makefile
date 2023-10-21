@@ -29,15 +29,9 @@ all: $(PROGRAMS) $(UI_DEP)
 # go_deps finds all of the non-test/non-generated .go files under the
 # current directory, which are in directories reported as being dependencies
 # of the given go source file.
-ifeq ($(OS),Windows_NT)
-define go_deps
-$(shell "C:\Windows\System32\cmd.exe" /c "dir /b /s *.go")
-endef
-else
 define go_deps
 $(shell find $(shell go list -f '{{.Dir}}' -deps $(1) | grep "^$$PWD") -name '*.go' | grep -v '_test.go$$' | grep -v '_gen.go$$')
 endef
-endif
 
 define PROGRAM_template
 $(foreach e,$(4),$(2)$(1)$(3): export $(e))
@@ -115,11 +109,7 @@ endif
 .PHONY: ui
 ui: $(UPDATE_UI_DEP) $(UI_DEP)
 
-ifeq ($(OS),Windows_NT)
-UI_SRC := $(shell "C:\Windows\System32\cmd.exe" /c "dir /b /s ui\src")
-else
 UI_SRC := $(shell find ui/src -type f)
-endif
 $(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(UI_SRC)
 	@cd ui && make ui
 

@@ -48,10 +48,10 @@ func init() {
 		RunExitFuncs()
 		if s == syscall.SIGINT {
 			os.Exit(130)
-		} else if s == syscall.SIGTERM {
-			os.Exit(143)
-		} else {
-			os.Exit(255)
 		}
+		if s == syscall.SIGTERM {
+			os.Exit(143)
+		}
+		os.Exit(255)
 	}()
 }
