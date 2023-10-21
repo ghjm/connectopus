@@ -73,14 +73,14 @@ func NewStackFdbased(ctx context.Context, addr net.IP, mtu uint16) (NetStack, er
 		tcpip.ProtocolAddress{
 			Protocol: ipv6.ProtocolNumber,
 			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(addr),
+				Address:   tcpip.AddrFromSlice(addr),
 				PrefixLen: 128,
 			},
 		},
 		stack.AddressProperties{},
 	)
 	localNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(addr),
+		Address:   tcpip.AddrFromSlice(addr),
 		PrefixLen: len(addr) * 8,
 	}
 	ns.stack.AddRoute(tcpip.Route{
@@ -88,7 +88,7 @@ func NewStackFdbased(ctx context.Context, addr net.IP, mtu uint16) (NetStack, er
 		NIC:         1,
 	})
 	defaultNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(addr),
+		Address:   tcpip.AddrFromSlice(addr),
 		PrefixLen: 0,
 	}
 	ns.stack.AddRoute(tcpip.Route{
@@ -99,9 +99,7 @@ func NewStackFdbased(ctx context.Context, addr net.IP, mtu uint16) (NetStack, er
 	// Clean up after termination
 	go func() {
 		<-ctx.Done()
-		ns.endpoint.Attach(nil)
-		ns.stack.Close()
-		ns.endpoint.Wait()
+		ns.stack.Destroy()
 		_ = syscall.Close(ns.fds[0])
 		_ = syscall.Close(ns.fds[1])
 	}()
@@ -146,7 +144,7 @@ func (ns *netStackFdbased) DialTCP(addr net.IP, port uint16) (net.Conn, error) {
 		ns.stack,
 		tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(addr),
+			Addr: tcpip.AddrFromSlice(addr),
 			Port: port,
 		},
 		ipv6.ProtocolNumber)
@@ -157,7 +155,7 @@ func (ns *netStackFdbased) DialContextTCP(ctx context.Context, addr net.IP, port
 		ns.stack,
 		tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(addr),
+			Addr: tcpip.AddrFromSlice(addr),
 			Port: port,
 		},
 		ipv6.ProtocolNumber)
@@ -168,7 +166,7 @@ func (ns *netStackFdbased) ListenTCP(port uint16) (net.Listener, error) {
 		ns.stack,
 		tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(ns.addr),
+			Addr: tcpip.AddrFromSlice(ns.addr),
 			Port: port,
 		},
 		ipv6.ProtocolNumber)
@@ -179,7 +177,7 @@ func (ns *netStackFdbased) DialUDP(lport uint16, raddr net.IP, rport uint16) (UD
 	if lport != 0 {
 		lfaddr = &tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(ns.addr),
+			Addr: tcpip.AddrFromSlice(ns.addr),
 			Port: lport,
 		}
 	}
@@ -187,7 +185,7 @@ func (ns *netStackFdbased) DialUDP(lport uint16, raddr net.IP, rport uint16) (UD
 	if raddr != nil {
 		rfaddr = &tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(raddr),
+			Addr: tcpip.AddrFromSlice(raddr),
 			Port: rport,
 		}
 	}
