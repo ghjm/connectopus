@@ -14,7 +14,7 @@ require (
 	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
 	github.com/mattn/go-isatty v0.0.20
 	github.com/miekg/dns v1.1.54
-	github.com/pion/dtls/v2 v2.2.6
+	github.com/pion/dtls/v2 v2.2.7
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.7.0
@@ -42,8 +42,7 @@ require (
 	github.com/klauspost/reedsolomon v1.10.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pion/logging v0.2.2 // indirect
-	github.com/pion/transport/v2 v2.0.2 // indirect
-	github.com/pion/udp/v2 v2.0.1 // indirect
+	github.com/pion/transport/v2 v2.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
