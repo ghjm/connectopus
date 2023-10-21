@@ -2,12 +2,11 @@ package netstack
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/x/broker"
+	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
-	"gvisor.dev/gvisor/pkg/tcpip/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
@@ -15,7 +14,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/transport/icmp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
-	"io"
 	"net"
 	"sync"
 )
@@ -57,14 +55,14 @@ func NewStackChannel(ctx context.Context, addr net.IP, mtu uint16) (NetStack, er
 		tcpip.ProtocolAddress{
 			Protocol: ipv6.ProtocolNumber,
 			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(addr),
+				Address:   tcpip.AddrFromSlice(addr),
 				PrefixLen: 128,
 			},
 		},
 		stack.AddressProperties{},
 	)
 	localNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(addr),
+		Address:   tcpip.AddrFromSlice(addr),
 		PrefixLen: len(addr) * 8,
 	}
 	ns.stack.AddRoute(tcpip.Route{
@@ -72,7 +70,7 @@ func NewStackChannel(ctx context.Context, addr net.IP, mtu uint16) (NetStack, er
 		NIC:         1,
 	})
 	defaultNet := tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(addr),
+		Address:   tcpip.AddrFromSlice(addr),
 		PrefixLen: 0,
 	}
 	ns.stack.AddRoute(tcpip.Route{
@@ -108,38 +106,16 @@ func (ns *netStackChannel) packetPublisher(ctx context.Context) {
 		if op == nil {
 			continue
 		}
-		totalSize := 0
-		for _, v := range op.Views() {
-			totalSize += v.Size()
-		}
-		packet := make([]byte, totalSize)
-		var err error
-		curPos := 0
-		for _, v := range op.Views() {
-			var n int
-			r := v.Reader()
-			n, err = r.Read(packet[curPos:])
-			if err == nil && n != v.Size() {
-				err = fmt.Errorf("expected %d bytes but read %d", v.Size(), n)
-			}
-			if err != nil && !errors.Is(err, io.EOF) {
-				break
-			}
-			curPos += v.Size()
-		}
+		buf := op.ToBuffer()
+		packet := (&buf).Flatten()
 		op.DecRef()
-		if err != nil && !errors.Is(err, io.EOF) {
-			continue
-		}
 		ns.packetBroker.Publish(packet)
 	}
 }
 
 func (ns *netStackChannel) SendPacket(packet []byte) error {
-	buf := buffer.NewView(len(packet))
-	copy(buf[:], packet)
 	pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
-		Data: buf.ToVectorisedView(),
+		Payload: buffer.MakeWithView(buffer.NewViewWithData(packet)),
 	})
 	ns.endpointLock.RLock()
 	defer ns.endpointLock.RUnlock()
@@ -160,7 +136,7 @@ func (ns *netStackChannel) DialTCP(addr net.IP, port uint16) (net.Conn, error) {
 		ns.stack,
 		tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(addr),
+			Addr: tcpip.AddrFromSlice(addr),
 			Port: port,
 		},
 		ipv6.ProtocolNumber)
@@ -171,7 +147,7 @@ func (ns *netStackChannel) DialContextTCP(ctx context.Context, addr net.IP, port
 		ns.stack,
 		tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(addr),
+			Addr: tcpip.AddrFromSlice(addr),
 			Port: port,
 		},
 		ipv6.ProtocolNumber)
@@ -182,7 +158,7 @@ func (ns *netStackChannel) ListenTCP(port uint16) (net.Listener, error) {
 		ns.stack,
 		tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(ns.addr),
+			Addr: tcpip.AddrFromSlice(ns.addr),
 			Port: port,
 		},
 		ipv6.ProtocolNumber)
@@ -193,7 +169,7 @@ func (ns *netStackChannel) DialUDP(lport uint16, raddr net.IP, rport uint16) (UD
 	if lport != 0 {
 		lfaddr = &tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(ns.addr),
+			Addr: tcpip.AddrFromSlice(ns.addr),
 			Port: lport,
 		}
 	}
@@ -201,7 +177,7 @@ func (ns *netStackChannel) DialUDP(lport uint16, raddr net.IP, rport uint16) (UD
 	if raddr != nil {
 		rfaddr = &tcpip.FullAddress{
 			NIC:  1,
-			Addr: tcpip.Address(raddr),
+			Addr: tcpip.AddrFromSlice(raddr),
 			Port: rport,
 		}
 	}

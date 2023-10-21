@@ -7,6 +7,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/x/syncro"
 	"go.uber.org/goleak"
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/checksum"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 	"io"
@@ -38,8 +39,8 @@ func testNetstackSubscribe(t *testing.T, stackBuilder NewStackFunc) {
 				return
 			case packet := <-subCh:
 				ip := header.IPv6(packet)
-				if ip.SourceAddress() != tcpip.Address(localIP) ||
-					ip.DestinationAddress() != tcpip.Address(remoteIP) ||
+				if ip.SourceAddress() != tcpip.AddrFromSlice(localIP) ||
+					ip.DestinationAddress() != tcpip.AddrFromSlice(remoteIP) ||
 					!ip.IsValid(len(packet)) {
 					t.Errorf("incorrect IP header received")
 				}
@@ -132,8 +133,8 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 		PayloadLength:     uint16(header.UDPMinimumSize + len(testStr)),
 		TransportProtocol: udp.ProtocolNumber,
 		HopLimit:          30,
-		SrcAddr:           tcpip.Address(remoteIP),
-		DstAddr:           tcpip.Address(localIP),
+		SrcAddr:           tcpip.AddrFromSlice(remoteIP),
+		DstAddr:           tcpip.AddrFromSlice(localIP),
 	})
 	u := header.UDP(packet[header.IPv6MinimumSize:])
 	u.Encode(&header.UDPFields{
@@ -142,7 +143,7 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 		Length:  uint16(header.UDPMinimumSize + len(testStr)),
 	})
 	xsum := header.PseudoHeaderChecksum(udp.ProtocolNumber, ip.SourceAddress(), ip.DestinationAddress(), uint16(len(u)))
-	xsum = header.Checksum([]byte(testStr), xsum)
+	xsum = checksum.Checksum([]byte(testStr), xsum)
 	u.SetChecksum(^u.CalculateChecksum(xsum))
 
 	err = ns.SendPacket(packet)

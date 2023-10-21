@@ -568,14 +568,20 @@ var statusCmd = &cobra.Command{
 		}
 		if status.Status.Sessions != nil {
 			fmt.Printf("  Sessions:\n")
-			slices.SortFunc(status.Status.Sessions, func(a, b *cpctl.GetStatus_Status_Sessions) bool {
+			slices.SortFunc(status.Status.Sessions, func(a, b *cpctl.GetStatus_Status_Sessions) int {
 				if b == nil {
-					return false
+					return -1
 				}
 				if a == nil {
-					return true
+					return 1
 				}
-				return a.Addr < b.Addr
+				if a.Addr < b.Addr {
+					return 1
+				}
+				if a.Addr > b.Addr {
+					return -1
+				}
+				return 0
 			})
 			for _, sess := range status.Status.Sessions {
 				if sess != nil {
@@ -590,29 +596,41 @@ var statusCmd = &cobra.Command{
 		}
 		if status.Status.Nodes != nil {
 			fmt.Printf("  Network Map:\n")
-			slices.SortFunc(status.Status.Nodes, func(a, b *cpctl.GetStatus_Status_Nodes) bool {
+			slices.SortFunc(status.Status.Nodes, func(a, b *cpctl.GetStatus_Status_Nodes) int {
 				switch {
 				case b == nil:
-					return false
+					return -1
 				case a == nil:
-					return true
+					return 1
 				case a.Name == "" && b.Name != "":
-					return false
+					return -1
 				case a.Name != "" && b.Name == "":
-					return true
+					return 1
 				}
-				return a.Addr < b.Addr
+				if a.Addr < b.Addr {
+					return 1
+				}
+				if a.Addr > b.Addr {
+					return -1
+				}
+				return 0
 			})
 			for _, node := range status.Status.Nodes {
 				if node != nil {
-					slices.SortFunc(node.Conns, func(a, b *cpctl.GetStatus_Status_Nodes_Conns) bool {
+					slices.SortFunc(node.Conns, func(a, b *cpctl.GetStatus_Status_Nodes_Conns) int {
 						switch {
 						case b == nil:
-							return false
+							return -1
 						case a == nil:
-							return true
+							return 1
 						}
-						return a.Subnet < b.Subnet
+						if a.Subnet < b.Subnet {
+							return 1
+						}
+						if a.Subnet > b.Subnet {
+							return -1
+						}
+						return 0
 					})
 					peerList := make([]string, 0)
 					for _, p := range node.Conns {

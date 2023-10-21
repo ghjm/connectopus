@@ -16,8 +16,8 @@ func TestType(t *testing.T) {
 		PayloadLength:     0,
 		TransportProtocol: 0,
 		HopLimit:          0,
-		SrcAddr:           tcpip.Address(net.IPv6loopback),
-		DstAddr:           tcpip.Address(net.IPv6loopback),
+		SrcAddr:           tcpip.AddrFromSlice(net.IPv6loopback),
+		DstAddr:           tcpip.AddrFromSlice(net.IPv6loopback),
 		ExtensionHeaders:  nil,
 	})
 	if Msg(b).Type() != MsgTypeData {

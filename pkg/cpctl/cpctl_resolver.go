@@ -72,13 +72,25 @@ func (r *Resolver) Status(_ context.Context) (*Status, error) {
 				Cost:   float64(cost),
 			})
 		}
-		slices.SortFunc(rn.Conns, func(a, b *StatusNodeConn) bool {
-			return a.Subnet < b.Subnet
+		slices.SortFunc(rn.Conns, func(a, b *StatusNodeConn) int {
+			if a.Subnet < b.Subnet {
+				return -1
+			}
+			if a.Subnet > b.Subnet {
+				return 1
+			}
+			return 0
 		})
 		stat.Nodes = append(stat.Nodes, rn)
 	}
-	slices.SortFunc(stat.Nodes, func(a, b *StatusNode) bool {
-		return a.Addr < b.Addr
+	slices.SortFunc(stat.Nodes, func(a, b *StatusNode) int {
+		if a.Addr < b.Addr {
+			return -1
+		}
+		if a.Addr > b.Addr {
+			return 1
+		}
+		return 0
 	})
 	for sessAddr, sessStatus := range ns.Sessions {
 		stat.Sessions = append(stat.Sessions, &StatusSession{
@@ -87,8 +99,14 @@ func (r *Resolver) Status(_ context.Context) (*Status, error) {
 			ConnStart: sessStatus.ConnStart.Format(time.RFC3339),
 		})
 	}
-	slices.SortFunc(stat.Sessions, func(a, b *StatusSession) bool {
-		return a.Addr < b.Addr
+	slices.SortFunc(stat.Sessions, func(a, b *StatusSession) int {
+		if a.Addr < b.Addr {
+			return -1
+		}
+		if a.Addr > b.Addr {
+			return 1
+		}
+		return 0
 	})
 	return stat, nil
 }

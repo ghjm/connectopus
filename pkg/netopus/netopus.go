@@ -629,15 +629,13 @@ func (n *netopus) sendICMPv6Error(origPacket header.IPv6, icmpType header.ICMPv6
 		PayloadLength:     uint16(header.ICMPv6MinimumSize + extraSize),
 		TransportProtocol: header.ICMPv6ProtocolNumber,
 		HopLimit:          30,
-		SrcAddr:           tcpip.Address(n.addr),
+		SrcAddr:           tcpip.AddrFromSlice([]byte(n.addr)),
 		DstAddr:           origPacket.SourceAddress(),
 	})
 	replyICMP := header.ICMPv6(replyPkt.Payload())
 	replyICMP.SetType(icmpType)
 	replyICMP.SetCode(icmpCode)
 	copy(replyICMP[header.ICMPv6MinimumSize:], origPacket[:extraSize])
-	cs := header.Checksumer{}
-	cs.Add(replyICMP.Payload())
 	replyICMP.SetChecksum(header.ICMPv6Checksum(header.ICMPv6ChecksumParams{
 		Header: replyICMP,
 		Src:    replyPkt.SourceAddress(),
@@ -652,8 +650,9 @@ func (n *netopus) SendPacket(packet []byte) error {
 		return fmt.Errorf("malformed packet: too small")
 	}
 	ipv6Pkt := header.IPv6(packet)
-	dest := proto.IP(ipv6Pkt.DestinationAddress())
-	if header.IsV6MulticastAddress(tcpip.Address(dest)) {
+	da := ipv6Pkt.DestinationAddress()
+	dest := proto.IP((&da).AsSlice())
+	if header.IsV6MulticastAddress(da) {
 		return nil
 	}
 
