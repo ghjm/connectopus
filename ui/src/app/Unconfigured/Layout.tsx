@@ -1,15 +1,6 @@
 import * as React from 'react';
-import {
-	Page,
-	Flex,
-	FlexItem,
-	Grid,
-	GridItem,
-	Alert
-} from '@patternfly/react-core';
-import {
-	PageHeader
-} from '@patternfly/react-core/deprecated';
+import { Page, Flex, FlexItem, Grid, GridItem, Alert } from '@patternfly/react-core';
+import { PageHeader } from '@patternfly/react-core/deprecated';
 import logo from '@app/images/connectopus.png';
 
 const Layout: React.FunctionComponent<{ title: string; children: React.ReactNode }> = (props) => (

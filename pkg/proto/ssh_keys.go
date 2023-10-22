@@ -12,6 +12,7 @@ type MarshalablePublicKey struct {
 }
 
 // String returns the SSH authorized_keys formatted string of the public key.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (mpk *MarshalablePublicKey) String() string {
 	str := string(ssh.MarshalAuthorizedKey(mpk))
@@ -45,12 +46,14 @@ func parseAuthorizedKey(data string, mpk *MarshalablePublicKey) error {
 }
 
 // MarshalJSON marshals an SSH public key to JSON.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (mpk MarshalablePublicKey) MarshalJSON() ([]byte, error) {
 	return json.Marshal(mpk.String())
 }
 
 // UnmarshalJSON unmarshals an SSH public key from JSON.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (mpk *MarshalablePublicKey) UnmarshalJSON(data []byte) error {
 	var str string
@@ -62,12 +65,14 @@ func (mpk *MarshalablePublicKey) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML marshals an SSH public key to YAML.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (mpk MarshalablePublicKey) MarshalYAML() (interface{}, error) {
 	return mpk.String(), nil
 }
 
 // UnmarshalYAML unmarshals an SSH public key from YAML.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (mpk *MarshalablePublicKey) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var str string

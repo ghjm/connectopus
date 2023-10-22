@@ -13,6 +13,7 @@ import (
 //go:generate go run routegen/routegen.go
 
 // UI embedded files
+//
 //go:embed embed
 var uiFiles embed.FS
 

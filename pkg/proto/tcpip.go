@@ -82,6 +82,7 @@ func RandomSubnet(ip IP, keepBits uint, prefixBits uint) Subnet {
 }
 
 // String returns the human-readable string representation of this address.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (a IP) String() string {
 	return net.IP(a).String()
@@ -89,24 +90,28 @@ func (a IP) String() string {
 
 // DebugString returns a representation to show in debuggers.  Gor compatibility with GoLand this function must
 // be able to be statically evaluated, so it cannot call other functions.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (a IP) DebugString() string {
 	return fmt.Sprintf("IP %x", string(a))
 }
 
 // Equal returns true if the two IPs are equivalent, including IPv6 address equivalencies to IPv4.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (a IP) Equal(b IP) bool {
 	return net.IP(a).Equal(net.IP(b))
 }
 
 // MarshalJSON marshals an IP address to JSON.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (a IP) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a.String())
 }
 
 // UnmarshalJSON unmarshals an IP address from JSON.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (a *IP) UnmarshalJSON(data []byte) error {
 	var s string
@@ -123,6 +128,7 @@ func (a *IP) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML marshals an IP address to YAML.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (a IP) MarshalYAML() (interface{}, error) {
 	if a == "" {
@@ -132,6 +138,7 @@ func (a IP) MarshalYAML() (interface{}, error) {
 }
 
 // UnmarshalYAML unmarshals an IP address from YAML.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (a *IP) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
@@ -158,6 +165,7 @@ func (m Mask) String() string {
 
 // DebugString returns a representation to show in debuggers.  Gor compatibility with GoLand this function must
 // be able to be statically evaluated, so it cannot call other functions.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (m Mask) DebugString() string {
 	return fmt.Sprintf("Mask %x", string(m))
@@ -191,6 +199,7 @@ func NewHostOnlySubnet(a IP) Subnet {
 }
 
 // String returns the human-readable string representation of this subnet.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) String() string {
 	if len(s) == 0 {
@@ -204,12 +213,14 @@ func (s Subnet) String() string {
 
 // DebugString returns a representation to show in debuggers.  Gor compatibility with GoLand this function must
 // be able to be statically evaluated, so it cannot call other functions.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) DebugString() string {
 	return fmt.Sprintf("Subnet %x", string(s))
 }
 
 // IP returns the IP address (network ID) of the subnet
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) IP() IP {
 	if len(s) != 2*net.IPv4len && len(s) != 2*net.IPv6len {
@@ -219,6 +230,7 @@ func (s Subnet) IP() IP {
 }
 
 // Mask returns the netmask of the subnet
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) Mask() Mask {
 	if len(s) != 2*net.IPv4len && len(s) != 2*net.IPv6len {
@@ -228,6 +240,7 @@ func (s Subnet) Mask() Mask {
 }
 
 // AsIPNet returns the subnet as a *net.IPNet
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) AsIPNet() *net.IPNet {
 	return &net.IPNet{
@@ -237,24 +250,28 @@ func (s Subnet) AsIPNet() *net.IPNet {
 }
 
 // Contains returns true if the IP is contained within the subnet
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) Contains(a IP) bool {
 	return s.AsIPNet().Contains(net.IP(a))
 }
 
 // Prefix returns the prefix length of the subnet's netmask
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) Prefix() int {
 	return s.Mask().Prefix()
 }
 
 // MarshalJSON marshals an IP subnet to JSON.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
 // UnmarshalJSON unmarshals an IP subnet from JSON.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s *Subnet) UnmarshalJSON(data []byte) error {
 	var str string
@@ -272,6 +289,7 @@ func (s *Subnet) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML marshals an IP subnet to YAML.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s Subnet) MarshalYAML() (interface{}, error) {
 	if s == "" {
@@ -281,6 +299,7 @@ func (s Subnet) MarshalYAML() (interface{}, error) {
 }
 
 // UnmarshalYAML unmarshals a subnet from YAML.
+//
 //goland:noinspection GoMixedReceiverTypes
 func (s *Subnet) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var str string

@@ -1,23 +1,19 @@
 import * as React from 'react';
 import { NavLink, useLocation, useHistory } from 'react-router-dom';
 import {
-	Nav,
-	NavList,
-	NavItem,
-	NavExpandable,
-	Page,
-	PageSidebar,
-	SkipToContent,
-	Flex,
-	Label,
-	FlexItem, PageSidebarBody
+  Nav,
+  NavList,
+  NavItem,
+  NavExpandable,
+  Page,
+  PageSidebar,
+  SkipToContent,
+  Flex,
+  Label,
+  FlexItem,
+  PageSidebarBody,
 } from '@patternfly/react-core';
-import {
-	ContextSelector,
-	ContextSelectorItem,
-	PageHeader,
-	PageHeaderTools
-} from '@patternfly/react-core/deprecated';
+import { ContextSelector, ContextSelectorItem, PageHeader, PageHeaderTools } from '@patternfly/react-core/deprecated';
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
 import logo from '@app/images/connectopus.png';
 import nodeLogo from '@app/images/node.png';
@@ -253,11 +249,11 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
     </Flex>
   );
 
-  const Sidebar = <PageSidebar theme="dark" isSidebarOpen={isMobileView ? isNavOpenMobile : isNavOpen} >
-<PageSidebarBody>
-{Navigation}
-</PageSidebarBody>
-</PageSidebar>;
+  const Sidebar = (
+    <PageSidebar theme="dark" isSidebarOpen={isMobileView ? isNavOpenMobile : isNavOpen}>
+      <PageSidebarBody>{Navigation}</PageSidebarBody>
+    </PageSidebar>
+  );
 
   const pageId = 'primary-app-container';
 
