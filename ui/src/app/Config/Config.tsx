@@ -48,12 +48,14 @@ const Config: React.FunctionComponent = () => {
         isReadOnly={true}
         language={Language.yaml}
         width="100%"
-        height="100%"
+        height="sizeToFit"
         options={{
           automaticLayout: true,
-          renderIndentGuides: false,
           renderWhitespace: 'none',
           tabSize: 4,
+          scrollbar: {
+            alwaysConsumeMouseWheel: false,
+          },
         }}
       />
     </React.Fragment>

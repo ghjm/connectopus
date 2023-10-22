@@ -31,5 +31,5 @@ clean:
 	@rm -rfv ../internal/ui_embed/embed/dist/*
 
 .PHONY: distclean
-distclean:
+distclean: clean
 	@rm -rfv node_modules

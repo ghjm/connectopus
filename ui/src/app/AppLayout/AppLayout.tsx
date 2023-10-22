@@ -102,11 +102,11 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
     return <img src={logo} onClick={handleClick} alt="Connectopus Logo" />;
   }
 
-  const onToggle = (event: unknown, isOpen: boolean) => {
+  const onToggle = (_: unknown, isOpen: boolean) => {
     setIsContextSelectorOpen(isOpen);
   };
 
-  const onSearchInputChange = (value: string) => {
+  const onSearchInputChange = (_: unknown, value: string) => {
     setSearchValue(value);
   };
 
@@ -114,7 +114,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
     setSearchText(searchValue);
   };
 
-  const onSelect = (event: unknown, value: React.ReactNode) => {
+  const onSelect = (_: unknown, value: React.ReactNode) => {
     if (value !== undefined && value !== null) {
       const newNode = value.toString();
       setActiveNode(newNode);
