@@ -1,21 +1,23 @@
 import * as React from 'react';
 import { NavLink, useLocation, useHistory } from 'react-router-dom';
 import {
-  Nav,
-  NavList,
-  NavItem,
-  NavExpandable,
-  Page,
-  PageHeader,
-  PageSidebar,
-  SkipToContent,
-  PageHeaderTools,
-  ContextSelector,
-  ContextSelectorItem,
-  Flex,
-  Label,
-  FlexItem,
+	Nav,
+	NavList,
+	NavItem,
+	NavExpandable,
+	Page,
+	PageSidebar,
+	SkipToContent,
+	Flex,
+	Label,
+	FlexItem, PageSidebarBody
 } from '@patternfly/react-core';
+import {
+	ContextSelector,
+	ContextSelectorItem,
+	PageHeader,
+	PageHeaderTools
+} from '@patternfly/react-core/deprecated';
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
 import logo from '@app/images/connectopus.png';
 import nodeLogo from '@app/images/node.png';
@@ -251,7 +253,11 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
     </Flex>
   );
 
-  const Sidebar = <PageSidebar theme="dark" nav={Navigation} isNavOpen={isMobileView ? isNavOpenMobile : isNavOpen} />;
+  const Sidebar = <PageSidebar theme="dark" isSidebarOpen={isMobileView ? isNavOpenMobile : isNavOpen} >
+<PageSidebarBody>
+{Navigation}
+</PageSidebarBody>
+</PageSidebar>;
 
   const pageId = 'primary-app-container';
 
@@ -272,7 +278,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
       mainContainerId={pageId}
       header={Header}
       sidebar={Sidebar}
-      onPageResize={onPageResize}
+      onPageResize={(_event, props: { mobileView: boolean; windowSize: number }) => onPageResize(props)}
       skipToContent={PageSkipToContent}
       style={{ height: '100%', width: '100%' }}
     >
