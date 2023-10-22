@@ -90,7 +90,11 @@ cap-net-admin: connectopus
 
 .PHONY: ctun
 ctun: connectopus
-	@sudo ./connectopus setup-tunnel --config test.yml --id foo
+	@if ! ./connectopus setup-tunnel --config test.yml --id foo --check >& /dev/null; then echo Creating ctun device using sudo; sudo ./connectopus setup-tunnel --config test.yml --id foo; fi
+
+.PHONY: demo
+demo: connectopus ctun
+	@./demo.sh
 
 .PHONY: version
 version:

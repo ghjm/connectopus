@@ -727,11 +727,32 @@ var netnsShimCmd = &cobra.Command{
 // Setup-tunnel command
 var uid int
 var gid int
+var check bool
 var setupTunnelCmd = &cobra.Command{
 	Use:   "setup-tunnel",
 	Short: "Pre-create tunnel interface(s) for a node - usually run with sudo",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		config := &config.Config{}
+		err := config.Load(configFilename)
+		if err != nil {
+			return fmt.Errorf("error reading config file: %w", err)
+		}
+		node, ok := config.Nodes[identity]
+		if !ok {
+			return fmt.Errorf("no such node in config file")
+		}
+		mtu := netopus.LeastMTU(node, 1500)
+		if check {
+			for name, tunDev := range node.TunDevs {
+				_, err := tun.SetupLink(tunDev.DeviceName, net.IP(tunDev.Address), config.Global.Subnet.AsIPNet(),
+					mtu, tun.WithCheck())
+				if err != nil {
+					return fmt.Errorf("check failed for %s: %w", name, err)
+				}
+			}
+			return nil
+		}
 		if uid == -1 {
 			uidStr := os.Getenv("SUDO_UID")
 			if uidStr != "" {
@@ -756,16 +777,6 @@ var setupTunnelCmd = &cobra.Command{
 				uid = os.Getgid()
 			}
 		}
-		config := &config.Config{}
-		err := config.Load(configFilename)
-		if err != nil {
-			return fmt.Errorf("error reading config file: %w", err)
-		}
-		node, ok := config.Nodes[identity]
-		if !ok {
-			return fmt.Errorf("no such node in config file")
-		}
-		mtu := netopus.LeastMTU(node, 1500)
 		for name, tunDev := range node.TunDevs {
 			_, err := tun.SetupLink(tunDev.DeviceName, net.IP(tunDev.Address), config.Global.Subnet.AsIPNet(),
 				mtu, tun.WithUidGid(uint(uid), uint(gid)), tun.WithPersist())
@@ -906,6 +917,7 @@ func main() {
 	_ = setupTunnelCmd.MarkFlagRequired("id")
 	setupTunnelCmd.Flags().IntVar(&uid, "uid", -1, "User ID who will own the tunnel")
 	setupTunnelCmd.Flags().IntVar(&gid, "gid", -1, "Group ID who will own the tunnel")
+	setupTunnelCmd.Flags().BoolVar(&check, "check", false, "Only check the tunnel - do not create")
 
 	rootCmd.AddCommand(initCmd, nodeCmd, netnsShimCmd, statusCmd, getTokenCmd, verifyTokenCmd, uiCmd, configCmd)
 	if runtime.GOOS == "linux" {

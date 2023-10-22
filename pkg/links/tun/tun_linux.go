@@ -25,6 +25,7 @@ type linkOptInfo struct {
 	uid     uint
 	gid     uint
 	persist bool
+	check   bool
 }
 
 func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16, opts ...func(*linkOptInfo)) (*water.Interface, error) {
@@ -36,38 +37,44 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 	nl, err := netlink.LinkByName(deviceName)
 	nle := netlink.LinkNotFoundError{}
 	if errors.As(err, &nle) {
+		if linkOpts.check {
+			return nil, fmt.Errorf("tun device %s does not exist", deviceName)
+		}
 		persistTun = linkOpts.persist
 	} else if err != nil {
 		return nil, fmt.Errorf("error accessing tun device: %w", err)
 	}
-	waterCfg := water.Config{
-		DeviceType: water.TUN,
-		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name:    deviceName,
-			Persist: persistTun,
-		},
-	}
-	if linkOpts.setUser {
-		waterCfg.PlatformSpecificParams.Permissions = &water.DevicePermissions{
-			Owner: linkOpts.uid,
-			Group: linkOpts.gid,
-		}
-	}
 	var tunIf *water.Interface
-	tunIf, err = water.New(waterCfg)
-	if err != nil {
-		return nil, fmt.Errorf("error opening tunnel interface: %w", err)
-	}
 	success := false
-	defer func() {
-		if !success {
-			_ = tunIf.Close()
+	if !linkOpts.check {
+		waterCfg := water.Config{
+			DeviceType: water.TUN,
+			PlatformSpecificParams: water.PlatformSpecificParams{
+				Name:    deviceName,
+				Persist: persistTun,
+			},
 		}
-	}()
-	if nl == nil {
-		nl, err = netlink.LinkByName(deviceName)
+		if linkOpts.setUser {
+			waterCfg.PlatformSpecificParams.Permissions = &water.DevicePermissions{
+				Owner: linkOpts.uid,
+				Group: linkOpts.gid,
+			}
+		}
+		tunIf, err = water.New(waterCfg)
 		if err != nil {
-			return nil, fmt.Errorf("error accessing tun device: %w", err)
+			return nil, fmt.Errorf("error opening tunnel interface: %w", err)
+		}
+		defer func() {
+			if !success {
+				_ = tunIf.Close()
+			}
+		}()
+		// populate nl if we just created the link
+		if nl == nil {
+			nl, err = netlink.LinkByName(deviceName)
+			if err != nil {
+				return nil, fmt.Errorf("error accessing tun device: %w", err)
+			}
 		}
 	}
 	var addrs []netlink.Addr
@@ -84,6 +91,9 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 		}
 	}
 	if !found {
+		if linkOpts.check {
+			return nil, fmt.Errorf("tun device %s does not have address %s", deviceName, tunAddr.String())
+		}
 		err = netlink.AddrAdd(nl, &netlink.Addr{
 			IPNet: &net.IPNet{
 				IP:   tunAddr,
@@ -96,6 +106,9 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 	}
 
 	if nl.Attrs().MTU != int(mtu) {
+		if linkOpts.check {
+			return nil, fmt.Errorf("tun device %s has MTU %d but should be %d", deviceName, nl.Attrs().MTU, mtu)
+		}
 		err = netlink.LinkSetMTU(nl, int(mtu))
 		if err != nil {
 			return nil, fmt.Errorf("error setting tun interface MTU to %d: %w", mtu, err)
@@ -103,6 +116,9 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 	}
 
 	if nl.Attrs().Flags&net.FlagUp == 0 {
+		if linkOpts.check {
+			return nil, fmt.Errorf("tun device %s is down", deviceName)
+		}
 		err = netlink.LinkSetUp(nl)
 		if err != nil {
 			return nil, fmt.Errorf("error activating tun device: %w", err)
@@ -123,6 +139,9 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 		}
 	}
 	if !found {
+		if linkOpts.check {
+			return nil, fmt.Errorf("tun device %s does not have a route to %s", deviceName, subnet.String())
+		}
 		route := netlink.Route{
 			LinkIndex: nl.Attrs().Index,
 			Scope:     netlink.SCOPE_UNIVERSE,
@@ -150,6 +169,12 @@ func WithUidGid(uid uint, gid uint) func(info *linkOptInfo) {
 func WithPersist() func(info *linkOptInfo) {
 	return func(o *linkOptInfo) {
 		o.persist = true
+	}
+}
+
+func WithCheck() func(info *linkOptInfo) {
+	return func(o *linkOptInfo) {
+		o.check = true
 	}
 }
 

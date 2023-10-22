@@ -30,6 +30,10 @@ func WithPersist() func() {
 	return nil
 }
 
+func WithCheck() func() {
+	return nil
+}
+
 func (l *Link) SendPacket(packet []byte) error {
 	return fmt.Errorf("not implemented")
 }
