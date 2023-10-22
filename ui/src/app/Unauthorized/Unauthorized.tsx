@@ -1,18 +1,20 @@
 import * as React from 'react';
 import {
-  PageHeader,
-  Page,
-  Alert,
-  TextArea,
-  Text,
-  Flex,
-  FlexItem,
-  TextContent,
-  TextVariants,
-  Button,
-  Grid,
-  GridItem,
+	Page,
+	Alert,
+	TextArea,
+	Text,
+	Flex,
+	FlexItem,
+	TextContent,
+	TextVariants,
+	Button,
+	Grid,
+	GridItem
 } from '@patternfly/react-core';
+import {
+	PageHeader
+} from '@patternfly/react-core/deprecated';
 import logo from '@app/images/connectopus.png';
 import { useState } from 'react';
 import Cookies from 'universal-cookie';
@@ -58,7 +60,7 @@ const Unauthorized: React.FunctionComponent = () => {
                   </TextContent>
                 </FlexItem>
                 <FlexItem style={{ ['paddingTop' as string]: '0.5rem' }}>
-                  <TextArea value={value} type="text" onChange={setValue} aria-label="token input field" />
+                  <TextArea value={value} type="text" onChange={(_event, val) => setValue(val)} aria-label="token input field" />
                 </FlexItem>
                 <FlexItem
                   style={{ ['paddingTop' as string]: '0.5rem', ['paddingBottom' as string]: '2rem' }}

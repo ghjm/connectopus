@@ -51,11 +51,11 @@
     "webpack-merge": "^5.9.0"
   },
   "dependencies": {
-    "@patternfly/react-code-editor": "^4.82.115",
-    "@patternfly/react-core": "^4.276.6",
-    "@patternfly/react-icons": "^4.92.10",
-    "@patternfly/react-styles": "^4.91.10",
-    "@patternfly/react-table": "^4.113.0",
+    "@patternfly/react-code-editor": "^5.1.1",
+    "@patternfly/react-core": "^5.1.1",
+    "@patternfly/react-icons": "^5.1.1",
+    "@patternfly/react-styles": "^5.1.1",
+    "@patternfly/react-table": "^5.1.1",
     "buffer": "^6.0.3",
     "cytoscape": "^3.25.0",
     "cytoscape-cola": "^2.5.1",

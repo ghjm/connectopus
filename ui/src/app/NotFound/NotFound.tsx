@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ExclamationTriangleIcon } from '@patternfly/react-icons';
-import { PageSection, Title, Button, EmptyState, EmptyStateIcon, EmptyStateBody } from '@patternfly/react-core';
+import { PageSection, Button, EmptyState, EmptyStateIcon, EmptyStateBody, EmptyStateHeader, EmptyStateFooter } from '@patternfly/react-core';
 import { useHistory } from 'react-router-dom';
 
 const NotFound: React.FunctionComponent = () => {
@@ -15,13 +15,10 @@ const NotFound: React.FunctionComponent = () => {
   return (
     <PageSection>
       <EmptyState variant="full">
-        <EmptyStateIcon icon={ExclamationTriangleIcon} />
-        <Title headingLevel="h1" size="lg">
-          404 Page not found
-        </Title>
-        <EmptyStateBody>We didn&apos;t find a page that matches the address you navigated to.</EmptyStateBody>
+        <EmptyStateHeader titleText="404 Page not found" icon={<EmptyStateIcon icon={ExclamationTriangleIcon} />} headingLevel="h1" />
+        <EmptyStateBody>We didn&apos;t find a page that matches the address you navigated to.</EmptyStateBody><EmptyStateFooter>
         <GoHomeBtn />
-      </EmptyState>
+      </EmptyStateFooter></EmptyState>
     </PageSection>
   );
 };

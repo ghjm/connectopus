@@ -9,7 +9,7 @@ import {
   DescriptionListDescription,
   DescriptionListGroup,
 } from '@patternfly/react-core';
-import { TableComposable, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
+import { Table /* data-codemods */, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { usePageVisibility } from 'react-page-visibility';
 import { useQuery } from 'urql';
 import { useEffect, useRef, useState } from 'react';
@@ -83,7 +83,7 @@ const Status: React.FunctionComponent = () => {
       <Card>
         <CardTitle>Connected Sessions</CardTitle>
         <CardBody>
-          <TableComposable variant={'compact'}>
+          <Table variant={'compact'}>
             <Thead>
               <Tr>
                 <Th>Address</Th>
@@ -98,13 +98,13 @@ const Status: React.FunctionComponent = () => {
                 </Tr>
               ))}
             </Tbody>
-          </TableComposable>
+          </Table>
         </CardBody>
       </Card>
       <Card>
         <CardTitle>Known Nodes</CardTitle>
         <CardBody>
-          <TableComposable variant={'compact'}>
+          <Table variant={'compact'}>
             <Thead>
               <Tr>
                 <Th>Name</Th>
@@ -118,7 +118,7 @@ const Status: React.FunctionComponent = () => {
                   <Td>{sess['name']}</Td>
                   <Td>{sess['addr']}</Td>
                   <Td>
-                    <TableComposable variant={'compact'}>
+                    <Table variant={'compact'}>
                       <Thead>
                         <Tr>
                           <Th>Subnet</Th>
@@ -133,12 +133,12 @@ const Status: React.FunctionComponent = () => {
                           </Tr>
                         ))}
                       </Tbody>
-                    </TableComposable>
+                    </Table>
                   </Td>
                 </Tr>
               ))}
             </Tbody>
-          </TableComposable>
+          </Table>
         </CardBody>
       </Card>
     </React.Fragment>
