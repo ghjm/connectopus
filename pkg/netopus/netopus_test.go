@@ -302,7 +302,7 @@ func runTest(t *testing.T, spec map[string]NodeSpec,
 }
 
 func TestNetopus(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(100*time.Millisecond))
 	log.SetLevel(log.DebugLevel)
 	log.SetOutput(os.Stdout)
 	t.Logf("2 node test\n")

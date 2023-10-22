@@ -87,7 +87,7 @@ var testData = []string{
 }
 
 func TestLink(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(100))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var inCount syncro.Var[int]

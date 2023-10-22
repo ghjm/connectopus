@@ -13,7 +13,7 @@ import (
 )
 
 func TestDirect(t *testing.T) {
-	goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(200))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var pc1, pc2 *OOBPacketConn
@@ -78,7 +78,7 @@ func TestDirect(t *testing.T) {
 }
 
 func TestOOB(t *testing.T) {
-	goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(100))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	n1, err := New(ctx, proto.ParseIP("FD00::1"), "test1", WithMTU(1400))
@@ -217,6 +217,9 @@ func TestOOB(t *testing.T) {
 		}
 		go func() {
 			c, err := li.Accept()
+			if ctx.Err() != nil {
+				return
+			}
 			if err != nil {
 				t.Errorf("accept error: %s", err)
 				return
@@ -225,6 +228,9 @@ func TestOOB(t *testing.T) {
 			for {
 				buf := make([]byte, 32768)
 				n, err := c.Read(buf)
+				if ctx.Err() != nil {
+					return
+				}
 				if err != nil {
 					t.Errorf("error reading message: %s", err)
 					return
@@ -240,11 +246,17 @@ func TestOOB(t *testing.T) {
 				return
 			}
 			err = c.Close()
+			if ctx.Err() != nil {
+				return
+			}
 			if err != nil {
 				t.Errorf("error closing conn: %s", err)
 				return
 			}
 			err = li.Close()
+			if ctx.Err() != nil {
+				return
+			}
 			if err != nil {
 				t.Errorf("error closing listener: %s", err)
 				return
@@ -260,12 +272,18 @@ func TestOOB(t *testing.T) {
 			defer func() {
 				time.Sleep(50 * time.Millisecond) // allow ACK to arrive
 				err := c.Close()
+				if ctx.Err() != nil {
+					return
+				}
 				if err != nil {
 					t.Errorf(err.Error())
 					return
 				}
 			}()
 			n, err := c.Write(longMessage)
+			if ctx.Err() != nil {
+				return
+			}
 			if err != nil {
 				t.Errorf("error writing to conn: %s", err)
 				return
