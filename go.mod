@@ -9,18 +9,18 @@ require (
 	github.com/chzyer/readline v1.5.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
 	github.com/mattn/go-isatty v0.0.20
-	github.com/miekg/dns v1.1.54
+	github.com/miekg/dns v1.1.56
 	github.com/pion/dtls/v2 v2.2.7
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.7.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 	github.com/vektah/gqlparser/v2 v2.5.10
-	github.com/vishvananda/netlink v1.1.1-0.20211118161826-650dca95af54
+	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/xtaci/kcp-go v5.4.20+incompatible
 	go.uber.org/goleak v1.2.2-0.20231021204103-f995fdb5a4f3
 	golang.org/x/crypto v0.14.0
