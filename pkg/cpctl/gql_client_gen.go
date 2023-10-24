@@ -269,6 +269,10 @@ func (c *Client) GetConfig(ctx context.Context, interceptors ...clientv2.Request
 
 	var res GetConfig
 	if err := c.Client.Post(ctx, "GetConfig", GetConfigDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
 		return nil, err
 	}
 
@@ -289,6 +293,10 @@ func (c *Client) SetConfig(ctx context.Context, input ConfigUpdateInput, interce
 
 	var res SetConfig
 	if err := c.Client.Post(ctx, "SetConfig", SetConfigDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
 		return nil, err
 	}
 
@@ -310,6 +318,10 @@ func (c *Client) GetNetns(ctx context.Context, name *string, interceptors ...cli
 
 	var res GetNetns
 	if err := c.Client.Post(ctx, "GetNetns", GetNetnsDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
 		return nil, err
 	}
 
@@ -348,6 +360,10 @@ func (c *Client) GetStatus(ctx context.Context, interceptors ...clientv2.Request
 
 	var res GetStatus
 	if err := c.Client.Post(ctx, "GetStatus", GetStatusDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
 		return nil, err
 	}
 
