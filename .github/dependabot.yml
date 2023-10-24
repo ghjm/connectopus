@@ -4,11 +4,25 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      gomod:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "*gql*"
   - package-ecosystem: "npm"
     directory: "/ui"
     schedule:
       interval: "daily"
+    groups:
+      npm:
+        patterns:
+          - "*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
