@@ -240,7 +240,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
         <Nav id="nav-primary-simple" theme="dark">
           <NavList id="nav-list-simple">
             {routes.map(
-              (route, idx) => route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx))
+              (route, idx) => route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx)),
             )}
           </NavList>
         </Nav>
@@ -303,13 +303,13 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   const [activeNode, setActiveNode] = React.useState(getInitialActiveNode());
   const [myNode, setMyNode] = React.useState(getInitialMyNode());
   const [client, setClient] = React.useState<Client>(
-    createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] })
+    createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] }),
   );
   React.useEffect(() => {
     setClient(createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] }));
   }, [myNode, activeNode]);
   const [topClient, setTopClient] = React.useState<Client>(
-    createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] })
+    createClient({ url: urlFromActiveNode(myNode, activeNode), exchanges: [cacheExchange, fetchExchange] }),
   );
   React.useEffect(() => {
     setTopClient(createClient({ url: '/query', exchanges: [cacheExchange, fetchExchange] }));
