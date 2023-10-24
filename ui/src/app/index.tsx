@@ -12,7 +12,7 @@ import { Client, createClient, Provider, cacheExchange, fetchExchange } from 'ur
 
 const App: React.FunctionComponent = () => {
   const [client] = React.useState<Client>(
-    createClient({ url: '/localquery', exchanges: [cacheExchange, fetchExchange] })
+    createClient({ url: '/localquery', exchanges: [cacheExchange, fetchExchange] }),
   );
   const serverData = window['__SERVER_DATA__'];
   if (serverData !== undefined) {
