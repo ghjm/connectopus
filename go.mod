@@ -17,7 +17,7 @@ require (
 	github.com/pion/dtls/v2 v2.2.7
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 	github.com/vektah/gqlparser/v2 v2.5.10
 	github.com/vishvananda/netlink v1.2.1-beta.2
@@ -25,7 +25,7 @@ require (
 	go.uber.org/goleak v1.2.2-0.20231021204103-f995fdb5a4f3
 	golang.org/x/crypto v0.14.0
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
-	golang.org/x/sys v0.13.0
+	golang.org/x/sys v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1
 	lukechampine.com/uint128 v1.3.0
@@ -33,7 +33,7 @@ require (
 
 require (
 	github.com/agnivade/levenshtein v1.1.1 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.3 // indirect
