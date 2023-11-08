@@ -23,7 +23,7 @@ require (
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/xtaci/kcp-go v5.4.20+incompatible
 	go.uber.org/goleak v1.2.2-0.20231021204103-f995fdb5a4f3
-	golang.org/x/crypto v0.14.0
+	golang.org/x/crypto v0.15.0
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
 	golang.org/x/sys v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -57,7 +57,7 @@ require (
 	github.com/xtaci/lossyconn v0.0.0-20200209145036-adba10fffc37 // indirect
 	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
