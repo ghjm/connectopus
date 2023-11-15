@@ -13,8 +13,8 @@ require (
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/kbolino/pageant v0.0.0-20180919004629-179b60797d9f
 	github.com/mattn/go-isatty v0.0.20
-	github.com/miekg/dns v1.1.56
-	github.com/pion/dtls/v2 v2.2.7
+	github.com/miekg/dns v1.1.57
+	github.com/pion/dtls/v2 v2.2.8
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.8.0
