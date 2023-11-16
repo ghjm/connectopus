@@ -40,13 +40,13 @@
     "style-loader": "^3.3.3",
     "svg-url-loader": "^8.0.0",
     "terser-webpack-plugin": "^5.3.9",
-    "ts-loader": "^9.4.3",
+    "ts-loader": "^9.5.1",
     "tsconfig-paths-webpack-plugin": "^4.0.1",
     "tslib": "^2.5.2",
     "typescript": "^5.0.4",
     "url-loader": "^4.1.1",
     "webpack": "^5.86.0",
-    "webpack-bundle-analyzer": "^4.10.0",
+    "webpack-bundle-analyzer": "^4.10.1",
     "webpack-cli": "^5.1.1",
     "webpack-dev-server": "^4.15.0",
     "webpack-merge": "^5.9.0"
@@ -69,7 +69,7 @@
     "react-github-btn": "^1.4.0",
     "react-page-visibility": "^7.0.0",
     "universal-cookie": "^6.1.1",
-    "urql": "^4.0.2",
+    "urql": "^4.0.6",
     "webcola": "^3.4.0"
   }
 }
