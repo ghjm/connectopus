@@ -168,7 +168,7 @@ jobs:
 
       - name: Upload release artifacts
         if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.publish }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bin
           path: bin/*
@@ -255,7 +255,7 @@ jobs:
           ref: latest
 
       - name: Download release artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bin
           path: bin
@@ -295,7 +295,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download release artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bin
           path: bin
