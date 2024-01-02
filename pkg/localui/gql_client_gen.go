@@ -22,3 +22,5 @@ type Query struct {
 type Mutation struct {
 	SelectNode SelectNodeResult "json:\"selectNode\" graphql:\"selectNode\""
 }
+
+var DocumentOperationNames = map[string]string{}
