@@ -369,3 +369,10 @@ func (c *Client) GetStatus(ctx context.Context, interceptors ...clientv2.Request
 
 	return &res, nil
 }
+
+var DocumentOperationNames = map[string]string{
+	GetConfigDocument: "GetConfig",
+	SetConfigDocument: "SetConfig",
+	GetNetnsDocument:  "GetNetns",
+	GetStatusDocument: "GetStatus",
+}
