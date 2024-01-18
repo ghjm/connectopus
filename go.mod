@@ -19,7 +19,7 @@ require (
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.8.0
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
-	github.com/vektah/gqlparser/v2 v2.5.10
+	github.com/vektah/gqlparser/v2 v2.5.11
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/xtaci/kcp-go v5.4.20+incompatible
 	go.uber.org/goleak v1.2.2-0.20231021204103-f995fdb5a4f3
