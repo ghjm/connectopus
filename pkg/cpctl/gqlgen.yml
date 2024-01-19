@@ -9,8 +9,7 @@ model:
   filename: ./gql_models_gen.go
   package: cpctl
 
-#autobind:
-#  - github.com/ghjm/connectopus/pkg/cpctl
+omit_root_models: true
 
 models:
   ID:

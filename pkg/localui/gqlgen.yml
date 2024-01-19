@@ -9,8 +9,7 @@ model:
   filename: ./gql_models_gen.go
   package: localui
 
-#autobind:
-#  - github.com/ghjm/connectopus/pkg/localui
+omit_root_models: true
 
 models:
   ID:
