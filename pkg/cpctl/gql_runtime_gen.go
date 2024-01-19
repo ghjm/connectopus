@@ -3676,8 +3676,6 @@ func (ec *executionContext) unmarshalInputConfigUpdateInput(ctx context.Context,
 		}
 		switch k {
 		case "yaml":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("yaml"))
 			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
@@ -3685,8 +3683,6 @@ func (ec *executionContext) unmarshalInputConfigUpdateInput(ctx context.Context,
 			}
 			it.Yaml = data
 		case "signature":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("signature"))
 			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
@@ -3714,8 +3710,6 @@ func (ec *executionContext) unmarshalInputNetnsFilter(ctx context.Context, obj i
 		}
 		switch k {
 		case "name":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
