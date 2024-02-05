@@ -23,6 +23,7 @@ type Query struct {
 	Status Status         "json:\"status\" graphql:\"status\""
 	Config ConfigResult   "json:\"config\" graphql:\"config\""
 }
+
 type Mutation struct {
 	UpdateConfig ConfigUpdateResult "json:\"updateConfig\" graphql:\"updateConfig\""
 }

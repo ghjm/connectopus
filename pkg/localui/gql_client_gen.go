@@ -19,6 +19,7 @@ func NewClient(cli *http.Client, baseURL string, options *clientv2.Options, inte
 type Query struct {
 	AvailableNodes AvailableNodesResult "json:\"availableNodes\" graphql:\"availableNodes\""
 }
+
 type Mutation struct {
 	SelectNode SelectNodeResult "json:\"selectNode\" graphql:\"selectNode\""
 }
