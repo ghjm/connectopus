@@ -35,7 +35,6 @@ linters-settings:
       - name: indent-error-flow
       - name: empty-block
       - name: superfluous-else
-      - name: unused-parameter
       - name: unreachable-code
       - name: redefines-builtin-id
   stylecheck:
