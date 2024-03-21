@@ -9,7 +9,7 @@ import (
 	"github.com/ghjm/connectopus/pkg/config"
 	"github.com/ghjm/connectopus/pkg/links/netns"
 	"github.com/ghjm/connectopus/pkg/proto"
-	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
+	"github.com/ghjm/golib/pkg/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/goleak"
 	"golang.org/x/crypto/ssh"

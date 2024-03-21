@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/ghjm/connectopus/pkg/backends/channel_runner"
-	"github.com/ghjm/connectopus/pkg/x/makecert"
+	"github.com/ghjm/golib/pkg/makecert"
 	"go.uber.org/goleak"
 	"net"
 	"strconv"

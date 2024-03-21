@@ -13,7 +13,7 @@ import (
 )
 
 func TestDirect(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(200))
+	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var pc1, pc2 *OOBPacketConn
@@ -78,7 +78,7 @@ func TestDirect(t *testing.T) {
 }
 
 func TestOOB(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(100))
+	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	n1, err := New(ctx, proto.ParseIP("FD00::1"), "test1", WithMTU(1400))

@@ -4,8 +4,8 @@ package links
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/x/chanreader"
-	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/golib/pkg/chanreader"
+	"github.com/ghjm/golib/pkg/syncro"
 	"go.uber.org/goleak"
 	"io"
 	"testing"
@@ -87,7 +87,7 @@ var testData = []string{
 }
 
 func TestLink(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(100))
+	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var inCount syncro.Var[int]

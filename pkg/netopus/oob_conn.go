@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ghjm/connectopus/pkg/proto"
-	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/golib/pkg/syncro"
 	"github.com/xtaci/kcp-go"
 	"math/rand"
 	"net"

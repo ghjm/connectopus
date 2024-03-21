@@ -2,7 +2,7 @@ package channel_runner
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/golib/pkg/syncro"
 	"go.uber.org/goleak"
 	"os"
 	"testing"

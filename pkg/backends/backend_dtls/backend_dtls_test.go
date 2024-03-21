@@ -3,7 +3,7 @@ package backend_dtls
 import (
 	"context"
 	"github.com/ghjm/connectopus/pkg/backends/channel_runner"
-	"github.com/ghjm/connectopus/pkg/x/makecert"
+	"github.com/ghjm/golib/pkg/makecert"
 	"go.uber.org/goleak"
 	"net"
 	"strconv"
@@ -12,7 +12,7 @@ import (
 )
 
 func TestBackendDtlsPSK(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(100))
+	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -61,7 +61,7 @@ func TestBackendDtlsPSK(t *testing.T) {
 }
 
 func TestBackendDtlsCerts(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.MaxSleepInterval(50*time.Millisecond), goleak.MaxRetryAttempts(100))
+	defer goleak.VerifyNone(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		cancel()

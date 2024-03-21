@@ -2,7 +2,7 @@ package netns
 
 import (
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/golib/pkg/syncro"
 )
 
 type Registry struct {
