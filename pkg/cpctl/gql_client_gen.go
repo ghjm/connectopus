@@ -18,15 +18,6 @@ func NewClient(cli *http.Client, baseURL string, options *clientv2.Options, inte
 	return &Client{Client: clientv2.NewClient(cli, baseURL, options, interceptors...)}
 }
 
-type Query struct {
-	Netns  []*NetnsResult "json:\"netns\" graphql:\"netns\""
-	Status Status         "json:\"status\" graphql:\"status\""
-	Config ConfigResult   "json:\"config\" graphql:\"config\""
-}
-
-type Mutation struct {
-	UpdateConfig ConfigUpdateResult "json:\"updateConfig\" graphql:\"updateConfig\""
-}
 type GetConfig_Config struct {
 	Yaml      string "json:\"yaml\" graphql:\"yaml\""
 	Signature string "json:\"signature\" graphql:\"signature\""

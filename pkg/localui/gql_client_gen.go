@@ -16,12 +16,4 @@ func NewClient(cli *http.Client, baseURL string, options *clientv2.Options, inte
 	return &Client{Client: clientv2.NewClient(cli, baseURL, options, interceptors...)}
 }
 
-type Query struct {
-	AvailableNodes AvailableNodesResult "json:\"availableNodes\" graphql:\"availableNodes\""
-}
-
-type Mutation struct {
-	SelectNode SelectNodeResult "json:\"selectNode\" graphql:\"selectNode\""
-}
-
 var DocumentOperationNames = map[string]string{}
