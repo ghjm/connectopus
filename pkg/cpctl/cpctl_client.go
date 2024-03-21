@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/Yamashou/gqlgenc/clientv2"
 	"github.com/ghjm/connectopus/pkg/config"
-	"github.com/ghjm/connectopus/pkg/x/ssh_jwt"
+	"github.com/ghjm/golib/pkg/ssh_jwt"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/ssh/agent"
 	"net"

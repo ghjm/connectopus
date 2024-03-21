@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/x/chanreader"
+	"github.com/ghjm/golib/pkg/chanreader"
 	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 	"io"

@@ -5,8 +5,8 @@ package tun
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/x/checkroot"
-	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/golib/pkg/checkroot"
+	"github.com/ghjm/golib/pkg/syncro"
 	"go.uber.org/goleak"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"math/rand"

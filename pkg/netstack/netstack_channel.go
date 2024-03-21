@@ -3,7 +3,7 @@ package netstack
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/x/broker"
+	"github.com/ghjm/golib/pkg/broker"
 	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"

@@ -4,8 +4,8 @@ package links
 
 import (
 	"context"
-	"github.com/ghjm/connectopus/pkg/x/chanreader"
-	"github.com/ghjm/connectopus/pkg/x/syncro"
+	"github.com/ghjm/golib/pkg/chanreader"
+	"github.com/ghjm/golib/pkg/syncro"
 	"go.uber.org/goleak"
 	"io"
 	"testing"

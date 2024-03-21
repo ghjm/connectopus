@@ -5,7 +5,7 @@ package netns
 import (
 	"context"
 	"fmt"
-	"github.com/ghjm/connectopus/pkg/x/chanreader"
+	"github.com/ghjm/golib/pkg/chanreader"
 	"net"
 	"os/exec"
 )
