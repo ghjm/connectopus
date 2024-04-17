@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
 	github.com/mattn/go-isatty v0.0.20
-	github.com/miekg/dns v1.1.58
+	github.com/miekg/dns v1.1.59
 	github.com/pion/dtls/v2 v2.2.10
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
