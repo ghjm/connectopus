@@ -8,6 +8,7 @@
     "build": "webpack --config webpack.prod.js",
     "dev": "webpack serve --color --progress --config webpack.dev.js",
     "lint": "eslint ./src/ --max-warnings 0",
+    "check-fmt": "prettier --check './**/*.{tsx,ts,js}'",
     "format": "prettier --check --write './**/*.{tsx,ts,js}'",
     "type-check": "tsc --noEmit",
     "clean": "rimraf ../internal/ui_embed/embed/dist"

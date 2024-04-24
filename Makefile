@@ -55,15 +55,21 @@ bin: $(UI_DEP) $(BINFILES)
 gen:
 	@go generate ./...
 
+.PHONY: check-fmt
+check-fmt:
+	@echo Checking Go code formatting...
+	@if [[ $$(gofmt -l .) ]]; then echo Code formatting problems: run make fmt; exit 1; fi
+
 .PHONY: lint
-lint:
+lint: check-fmt
+	@echo Running golangci-lint...
 	@golangci-lint run --timeout 5m
-	@cd ui && npm run --silent lint
+	@cd ui && make lint
 
 .PHONY: fmt
 fmt:
 	@go fmt ./...
-	@cd ui && npm run --silent format
+	@cd ui && make fmt
 
 .PHONY: test
 test:

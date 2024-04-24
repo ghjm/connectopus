@@ -13,9 +13,13 @@ $(NPM_DEP): package.json package-lock.json
 .PHONY: ui
 ui: $(UI_DEP)
 
+.PHONY: check-fmt
+check-fmt:
+	@npm run --silent check-fmt
 
 .PHONY: lint
-lint:
+lint: check-fmt
+	@echo Running eslint...
 	@npm run --silent lint
 
 .PHONY: fmt
