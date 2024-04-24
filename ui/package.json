@@ -7,7 +7,7 @@
     "prebuild": "npm run clean",
     "build": "webpack --config webpack.prod.js",
     "dev": "webpack serve --color --progress --config webpack.dev.js",
-    "lint": "eslint --ext .tsx,.js ./src/ --max-warnings 0",
+    "lint": "eslint ./src/ --max-warnings 0",
     "format": "prettier --check --write './**/*.{tsx,ts,js}'",
     "type-check": "tsc --noEmit",
     "clean": "rimraf ../internal/ui_embed/embed/dist"
@@ -44,6 +44,7 @@
     "tsconfig-paths-webpack-plugin": "^4.0.1",
     "tslib": "^2.5.2",
     "typescript": "^5.4.5",
+    "typescript-eslint": "^7.7.1",
     "url-loader": "^4.1.1",
     "webpack": "^5.91.0",
     "webpack-bundle-analyzer": "^4.10.2",

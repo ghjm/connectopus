@@ -143,8 +143,8 @@ jobs:
       - name: Run JS linters
         run: |
           cd ui
-          npx prettier --check './**/*.{tsx,ts,js}' --loglevel warn
-          npx eslint --ext .tsx,.ts,.js ./src/ --max-warnings 0
+          npx prettier --check './**/*.{tsx,ts,js}' --log-level warn
+          npx eslint ./src/ --max-warnings 0
 
       - name: Check formatting
         run: gofmt -l .
