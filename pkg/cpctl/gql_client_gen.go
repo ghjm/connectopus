@@ -257,7 +257,7 @@ const GetConfigDocument = `query GetConfig {
 `
 
 func (c *Client) GetConfig(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetConfig, error) {
-	vars := map[string]interface{}{}
+	vars := map[string]any{}
 
 	var res GetConfig
 	if err := c.Client.Post(ctx, "GetConfig", GetConfigDocument, &res, vars, interceptors...); err != nil {
@@ -279,7 +279,7 @@ const SetConfigDocument = `mutation SetConfig ($input: ConfigUpdateInput!) {
 `
 
 func (c *Client) SetConfig(ctx context.Context, input ConfigUpdateInput, interceptors ...clientv2.RequestInterceptor) (*SetConfig, error) {
-	vars := map[string]interface{}{
+	vars := map[string]any{
 		"input": input,
 	}
 
@@ -304,7 +304,7 @@ const GetNetnsDocument = `query GetNetns ($name: String) {
 `
 
 func (c *Client) GetNetns(ctx context.Context, name *string, interceptors ...clientv2.RequestInterceptor) (*GetNetns, error) {
-	vars := map[string]interface{}{
+	vars := map[string]any{
 		"name": name,
 	}
 
@@ -348,7 +348,7 @@ const GetStatusDocument = `query GetStatus {
 `
 
 func (c *Client) GetStatus(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetStatus, error) {
-	vars := map[string]interface{}{}
+	vars := map[string]any{}
 
 	var res GetStatus
 	if err := c.Client.Post(ctx, "GetStatus", GetStatusDocument, &res, vars, interceptors...); err != nil {
