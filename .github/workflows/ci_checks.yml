@@ -134,6 +134,9 @@ jobs:
       - name: Build the UI
         run: make ui
 
+      - name: Check Go code formatting
+        run: make check-fmt
+
       - name: Run Go linters
         uses: golangci/golangci-lint-action@v4
         with:
@@ -143,11 +146,7 @@ jobs:
       - name: Run JS linters
         run: |
           cd ui
-          npx prettier --check './**/*.{tsx,ts,js}' --log-level warn
-          npx eslint ./src/ --max-warnings 0
-
-      - name: Check formatting
-        run: gofmt -l .
+          make lint
 
       - name: Check that generated code is up to date
         run: |
