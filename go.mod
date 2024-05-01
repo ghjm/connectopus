@@ -6,7 +6,7 @@ toolchain go1.21.6
 
 require (
 	github.com/99designs/gqlgen v0.17.45
-	github.com/Yamashou/gqlgenc v0.22.0
+	github.com/Yamashou/gqlgenc v0.23.1
 	github.com/ghjm/golib v0.0.0-20240321030641-5e17d3b69151
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
