@@ -26,7 +26,7 @@ require (
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
 	golang.org/x/sys v0.20.0
 	gopkg.in/yaml.v3 v3.0.1
-	gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1
+	gvisor.dev/gvisor v0.0.0-20231020174304-db3d49b921f9
 	lukechampine.com/uint128 v1.3.0
 )
 
@@ -47,7 +47,7 @@ require (
 	github.com/pion/transport/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/sosodev/duration v1.3.0 // indirect
+	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/templexxx/cpufeat v0.0.0-20180724012125-cef66df7f161 // indirect
