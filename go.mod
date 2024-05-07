@@ -26,7 +26,7 @@ require (
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
 	golang.org/x/sys v0.20.0
 	gopkg.in/yaml.v3 v3.0.1
-	gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1
+	gvisor.dev/gvisor v0.0.0-20231020174304-db3d49b921f9
 	lukechampine.com/uint128 v1.3.0
 )
 
