@@ -17,7 +17,7 @@ require (
 	github.com/pion/dtls/v2 v2.2.11
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	github.com/vektah/gqlparser/v2 v2.5.16
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/xtaci/kcp-go v5.4.20+incompatible
