@@ -51,7 +51,7 @@
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^5.1.1",
     "webpack-dev-server": "^5.0.4",
-    "webpack-merge": "^5.9.0"
+    "webpack-merge": "^6.0.1"
   },
   "dependencies": {
     "@patternfly/react-code-editor": "^5.3.3",
