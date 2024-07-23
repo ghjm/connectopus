@@ -44,7 +44,7 @@
     "ts-loader": "^9.5.1",
     "tsconfig-paths-webpack-plugin": "^4.0.1",
     "tslib": "^2.6.3",
-    "typescript": "^5.5.3",
+    "typescript": "^5.5.4",
     "typescript-eslint": "^7.17.0",
     "url-loader": "^4.1.1",
     "webpack": "^5.93.0",
