@@ -62,6 +62,7 @@ func runCommand(ctx context.Context, conn net.Conn, args []string) error {
 
 func acceptLoop(ctx context.Context, li net.Listener, args []string) error {
 	var tempDelay time.Duration
+	const maxDelay = 1 * time.Second
 	for {
 		conn, err := li.Accept()
 		if ctx.Err() != nil {
@@ -74,8 +75,8 @@ func acceptLoop(ctx context.Context, li net.Listener, args []string) error {
 			} else {
 				tempDelay *= 2
 			}
-			if max := 1 * time.Second; tempDelay > max {
-				tempDelay = max
+			if tempDelay > maxDelay {
+				tempDelay = maxDelay
 			}
 			time.Sleep(tempDelay)
 			continue
@@ -97,6 +98,7 @@ func RunService(ctx context.Context, n netstack.UserStack, service config.Servic
 		return nil, err
 	}
 	var li net.Listener
+	// #nosec G115
 	li, err = n.ListenTCP(uint16(service.Port))
 	if err != nil {
 		return nil, err

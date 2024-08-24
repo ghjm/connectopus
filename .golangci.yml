@@ -1,11 +1,8 @@
 run:
   timeout: 5m
 linters:
-  disable:
-    - structcheck # not Go 1.18 compatible
   enable:
     - errorlint
-    - exportloopref
     - gocritic
     - gosec
     - nosprintfhostport

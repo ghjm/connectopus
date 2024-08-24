@@ -130,6 +130,7 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 	copy(packet[header.IPv6MinimumSize+header.UDPMinimumSize:], testStr)
 	ip := header.IPv6(packet)
 	ip.Encode(&header.IPv6Fields{
+		// #nosec G115
 		PayloadLength:     uint16(header.UDPMinimumSize + len(testStr)),
 		TransportProtocol: udp.ProtocolNumber,
 		HopLimit:          30,
@@ -140,8 +141,10 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 	u.Encode(&header.UDPFields{
 		SrcPort: 1234,
 		DstPort: 1234,
-		Length:  uint16(header.UDPMinimumSize + len(testStr)),
+		// #nosec G115
+		Length: uint16(header.UDPMinimumSize + len(testStr)),
 	})
+	// #nosec G115
 	xsum := header.PseudoHeaderChecksum(udp.ProtocolNumber, ip.SourceAddress(), ip.DestinationAddress(), uint16(len(u)))
 	xsum = checksum.Checksum([]byte(testStr), xsum)
 	u.SetChecksum(^u.CalculateChecksum(xsum))

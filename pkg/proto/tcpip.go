@@ -78,6 +78,7 @@ func RandomSubnet(ip IP, keepBits uint, prefixBits uint) Subnet {
 	binary.BigEndian.PutUint64(ipBytes[8:], ipv.Lo)
 	binary.BigEndian.PutUint64(ipBytes[:8], ipv.Hi)
 
+	// #nosec G115
 	return NewSubnet(IP(ipBytes), CIDRMask(int(prefixBits), 128))
 }
 

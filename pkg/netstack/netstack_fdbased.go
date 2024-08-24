@@ -30,6 +30,7 @@ type netStackFdbased struct {
 }
 
 func (ns *netStackFdbased) MTU() uint16 {
+	// #nosec G115
 	return uint16(ns.endpoint.MTU())
 }
 

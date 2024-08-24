@@ -34,6 +34,7 @@ func TestBackendTCP(t *testing.T) {
 	}
 	d := Dialer{
 		DestAddr: net.ParseIP("127.0.0.1"),
+		// #nosec G115
 		DestPort: uint16(port),
 	}
 	err = d.Run(ctx, n2)
@@ -91,6 +92,7 @@ func TestBackendTLS(t *testing.T) {
 	}
 	d := Dialer{
 		DestAddr: net.ParseIP("127.0.0.1"),
+		// #nosec G115
 		DestPort: uint16(port),
 		TLS: &tls.Config{
 			Certificates: []tls.Certificate{cert.TLSCert},
