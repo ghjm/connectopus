@@ -351,7 +351,7 @@ var getConfigCmd = &cobra.Command{
 			return err
 		}
 		if configFilename == "" {
-			fmt.Printf(config.Config.Yaml)
+			fmt.Print(config.Config.Yaml)
 		} else {
 			err = os.WriteFile(configFilename, []byte(config.Config.Yaml), 0600)
 			if err != nil {

@@ -28,6 +28,7 @@ type netStackChannel struct {
 }
 
 func (ns *netStackChannel) MTU() uint16 {
+	// #nosec G115
 	return uint16(ns.endpoint.MTU())
 }
 

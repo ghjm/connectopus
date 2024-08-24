@@ -153,16 +153,16 @@ func TestOOB(t *testing.T) {
 			buf := make([]byte, 256)
 			n, addr, err := pcReceiver.ReadFrom(buf)
 			if err != nil {
-				t.Errorf(err.Error())
+				t.Error(err.Error())
 				return
 			}
 			if addr != pcSender.LocalAddr() {
-				t.Errorf("received message from wrong address")
+				t.Error("received message from wrong address")
 				return
 			}
 			buf = buf[:n]
 			if string(buf) != string(message) {
-				t.Errorf("incorrect message received")
+				t.Error("incorrect message received")
 				return
 			}
 			recvChan <- struct{}{}
@@ -174,11 +174,11 @@ func TestOOB(t *testing.T) {
 					return
 				}
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Error(err.Error())
 					return
 				}
 				if n != len(message) {
-					t.Errorf("whole message not sent")
+					t.Error("whole message not sent")
 					return
 				}
 				t := time.NewTimer(100 * time.Millisecond)
@@ -196,7 +196,7 @@ func TestOOB(t *testing.T) {
 	for completed < 2 {
 		select {
 		case <-oobPacketConnCtx.Done():
-			t.Errorf(oobPacketConnCtx.Err().Error())
+			t.Error(oobPacketConnCtx.Err().Error())
 			return
 		case <-recvChan:
 			completed++
@@ -266,7 +266,7 @@ func TestOOB(t *testing.T) {
 		go func() {
 			c, err := nRemote.DialOOB(ctx, proto.OOBAddr{Host: nLocal.(*netopus).addr, Port: 2345})
 			if err != nil {
-				t.Errorf(err.Error())
+				t.Error(err.Error())
 				return
 			}
 			defer func() {
@@ -276,7 +276,7 @@ func TestOOB(t *testing.T) {
 					return
 				}
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Error(err.Error())
 					return
 				}
 			}()
@@ -289,7 +289,7 @@ func TestOOB(t *testing.T) {
 				return
 			}
 			if n != len(longMessage) {
-				t.Errorf("whole message not sent")
+				t.Error("whole message not sent")
 				return
 			}
 		}()
@@ -299,7 +299,7 @@ func TestOOB(t *testing.T) {
 	for completed < 2 {
 		select {
 		case <-ctx.Done():
-			t.Errorf(ctx.Err().Error())
+			t.Error(ctx.Err().Error())
 			return
 		case <-recvChan:
 			completed++
