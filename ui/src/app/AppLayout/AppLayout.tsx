@@ -63,6 +63,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
   const [searchValue, setSearchValue] = React.useState('');
   const [result, reexecuteQuery] = useQuery({
     query: statusQuery,
+    variables: {},
   });
   useEffect(() => {
     if (result.fetching) return;
@@ -262,7 +263,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
       onClick={(event) => {
         event.preventDefault();
         const primaryContentContainer = document.getElementById(pageId);
-        primaryContentContainer && primaryContentContainer.focus();
+        if (primaryContentContainer) primaryContentContainer.focus();
       }}
       href={`#${pageId}`}
     >
