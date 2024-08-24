@@ -35,6 +35,7 @@ func (b *tcpBackend) WriteMessage(data []byte) error {
 		return nil
 	}
 	packet := make([]byte, 2, len(data)+2)
+	// #nosec G115
 	binary.BigEndian.PutUint16(packet, uint16(len(data)))
 	packet = append(packet, data...)
 	n, err := b.conn.Write(packet)

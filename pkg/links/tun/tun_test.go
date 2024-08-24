@@ -20,7 +20,7 @@ func checkPacket(pkt []byte, port int, message string) bool {
 	proto := ipkt.TransportProtocol()
 	if proto == header.UDPProtocolNumber {
 		udpPkt := header.UDP(ipkt.Payload())
-		if udpPkt.DestinationPort() == uint16(port) {
+		if int(udpPkt.DestinationPort()) == port {
 			payload := string(udpPkt.Payload())
 			if payload == message {
 				return true

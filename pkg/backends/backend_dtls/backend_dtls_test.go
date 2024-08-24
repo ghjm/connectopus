@@ -37,6 +37,7 @@ func TestBackendDtlsPSK(t *testing.T) {
 	}
 	d := Dialer{
 		DestAddr: net.ParseIP("127.0.0.1"),
+		// #nosec G115
 		DestPort: uint16(port),
 		PSK:      "test-psk",
 	}
@@ -100,7 +101,8 @@ func TestBackendDtlsCerts(t *testing.T) {
 		t.Fatalf("error converting port to integer: %s", err)
 	}
 	d := Dialer{
-		DestAddr:   net.ParseIP("127.0.0.1"),
+		DestAddr: net.ParseIP("127.0.0.1"),
+		// #nosec G115
 		DestPort:   uint16(port),
 		RootCAs:    ca.Pool,
 		ClientCert: &cert.TLSCert,

@@ -154,9 +154,9 @@ func New(ctx context.Context, addr proto.IP, name string, opts ...func(*npOpts))
 					routeLogMsg = fmt.Sprintf("%s: routing update: no routes", n.addr.String())
 				}
 				if routeLogMsg != lastRouteMsg {
-					log.Infof(routeLogMsg)
+					log.Info(routeLogMsg)
 				} else {
-					log.Debugf(routeLogMsg)
+					log.Debug(routeLogMsg)
 				}
 				lastRouteMsg = routeLogMsg
 				n.sessionInfo.WorkWithReadOnly(func(s sessInfo) {
@@ -626,6 +626,7 @@ func (n *netopus) sendICMPv6Error(origPacket header.IPv6, icmpType header.ICMPv6
 	}
 	replyPkt := header.IPv6(make([]byte, header.IPv6MinimumSize+header.ICMPv6MinimumSize+extraSize))
 	replyPkt.Encode(&header.IPv6Fields{
+		// #nosec G115
 		PayloadLength:     uint16(header.ICMPv6MinimumSize + extraSize),
 		TransportProtocol: header.ICMPv6ProtocolNumber,
 		HopLimit:          30,

@@ -29,6 +29,7 @@ func (p Params) GetPort(name string) (uint16, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error parsing %s: %w", name, err)
 	}
+	// #nosec G115
 	return uint16(val), nil
 }
 
@@ -58,6 +59,7 @@ func (p Params) GetHostPort(name string) (net.IP, uint16, error) {
 		}
 		ip = ips[0]
 	}
+	// #nosec G115
 	return ip, uint16(port), nil
 }
 
