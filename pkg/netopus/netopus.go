@@ -127,6 +127,7 @@ func New(ctx context.Context, addr proto.IP, name string, opts ...func(*npOpts))
 		stack:         stack,
 		router:        router.New(ctx, addr, 100*time.Millisecond),
 		sessionInfo:   syncro.NewVar(make(sessInfo)),
+		//nolint: gosec // UnixNano is always positive, therefore no overflow here
 		epoch:         uint64(time.Now().UnixNano()),
 		sequence:      syncro.Var[uint64]{},
 		knownNodeInfo: syncro.Map[proto.IP, nodeInfo]{},
