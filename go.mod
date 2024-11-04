@@ -8,7 +8,7 @@ require (
 	github.com/99designs/gqlgen v0.17.55
 	github.com/Yamashou/gqlgenc v0.25.4
 	github.com/ghjm/golib v0.0.0-20240321030641-5e17d3b69151
-	github.com/golang-jwt/jwt/v4 v4.5.0
+	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/jupp0r/go-priority-queue v0.0.0-20160601094913-ab1073853bde
