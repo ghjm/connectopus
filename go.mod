@@ -6,7 +6,7 @@ toolchain go1.22.6
 
 require (
 	github.com/99designs/gqlgen v0.17.55
-	github.com/Yamashou/gqlgenc v0.25.4
+	github.com/Yamashou/gqlgenc v0.27.4
 	github.com/ghjm/golib v0.0.0-20240321030641-5e17d3b69151
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -63,5 +63,4 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
