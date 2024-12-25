@@ -18,7 +18,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.8.1
-	github.com/vektah/gqlparser/v2 v2.5.20
+	github.com/vektah/gqlparser/v2 v2.5.21
 	github.com/vishvananda/netlink v1.3.0
 	github.com/xtaci/kcp-go v5.4.20+incompatible
 	go.uber.org/goleak v1.3.0
