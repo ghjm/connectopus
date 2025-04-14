@@ -1,8 +1,7 @@
 module github.com/ghjm/connectopus
 
 go 1.22.5
-
-toolchain go1.22.6
+toolchain go1.24.1
 
 require (
 	github.com/99designs/gqlgen v0.17.55
@@ -22,7 +21,7 @@ require (
 	github.com/vishvananda/netlink v1.3.0
 	github.com/xtaci/kcp-go v5.4.20+incompatible
 	go.uber.org/goleak v1.3.0
-	golang.org/x/crypto v0.33.0
+	golang.org/x/crypto v0.35.0
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
 	golang.org/x/sys v0.30.0
 	gopkg.in/yaml.v3 v3.0.1
