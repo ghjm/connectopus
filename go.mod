@@ -18,7 +18,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/spf13/cobra v1.9.1
-	github.com/vektah/gqlparser/v2 v2.5.21
+	github.com/vektah/gqlparser/v2 v2.5.26
 	github.com/vishvananda/netlink v1.3.0
 	github.com/xtaci/kcp-go v5.4.20+incompatible
 	go.uber.org/goleak v1.3.0
@@ -32,7 +32,7 @@ require (
 
 require (
 	github.com/42wim/sshsig v0.0.0-20211121163825-841cf5bbc121 // indirect
-	github.com/agnivade/levenshtein v1.2.0 // indirect
+	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/google/btree v1.1.2 // indirect
