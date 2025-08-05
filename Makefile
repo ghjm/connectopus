@@ -2,6 +2,7 @@ ifeq ($(OS),Windows_NT)
 	STDERR_REDIRECT := 2>NUL
 	EXE_SUFFIX := .exe
 else
+	SHELL := /bin/bash
 	STDERR_REDIRECT := 2>/dev/null
 	EXE_SUFFIX :=
 endif
