@@ -120,13 +120,13 @@ func New(ctx context.Context, addr proto.IP, name string, opts ...func(*npOpts))
 		return nil, err
 	}
 	n := &netopus{
-		ctx:           ctx,
-		addr:          addr,
-		name:          name,
-		mtu:           o.mtu,
-		stack:         stack,
-		router:        router.New(ctx, addr, 100*time.Millisecond),
-		sessionInfo:   syncro.NewVar(make(sessInfo)),
+		ctx:         ctx,
+		addr:        addr,
+		name:        name,
+		mtu:         o.mtu,
+		stack:       stack,
+		router:      router.New(ctx, addr, 100*time.Millisecond),
+		sessionInfo: syncro.NewVar(make(sessInfo)),
 		//nolint: gosec // UnixNano is always positive, therefore no overflow here
 		epoch:         uint64(time.Now().UnixNano()),
 		sequence:      syncro.Var[uint64]{},
