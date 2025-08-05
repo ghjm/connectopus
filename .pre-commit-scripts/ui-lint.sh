@@ -5,5 +5,6 @@ for f in "$@"; do
   files+="$uf "
 done
 cd ui
-npx prettier --check $files --loglevel warn
+npx prettier --check $files --log-level warn
 npx eslint $files --max-warnings 0
+npm run type-check

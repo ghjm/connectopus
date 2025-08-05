@@ -1,7 +1,5 @@
-const path = require('path');
 const { merge } = require('webpack-merge');
 const common = require('./webpack.common.js');
-const { stylePaths } = require('./stylePaths');
 const HOST = process.env.HOST || 'localhost';
 const PORT = process.env.PORT || '9000';
 
@@ -14,12 +12,24 @@ module.exports = merge(common('development'), {
     compress: true,
     historyApiFallback: true,
     open: true,
-    proxy: {
-      '/query': 'http://localhost:8123',
-      '/localquery': 'http://localhost:26663',
-      '/proxy': 'http://localhost:8123',
-      '/api': 'http://localhost:8123',
-    },
+    proxy: [
+      {
+        context: ['/query'],
+        target: 'http://localhost:8123',
+      },
+      {
+        context: ['/localquery'],
+        target: 'http://localhost:26663',
+      },
+      {
+        context: ['/proxy'],
+        target: 'http://localhost:8123',
+      },
+      {
+        context: ['/api'],
+        target: 'http://localhost:8123',
+      },
+    ],
   },
   module: {
     rules: [

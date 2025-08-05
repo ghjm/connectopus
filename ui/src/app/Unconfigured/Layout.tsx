@@ -1,10 +1,36 @@
 import * as React from 'react';
-import { Page, Flex, FlexItem, Grid, GridItem, Alert } from '@patternfly/react-core';
-import { PageHeader } from '@patternfly/react-core/deprecated';
+import {
+  Page,
+  Flex,
+  FlexItem,
+  Grid,
+  GridItem,
+  Alert,
+  Masthead,
+  MastheadBrand,
+  MastheadMain,
+  Brand,
+} from '@patternfly/react-core';
 import logo from '@app/images/connectopus.png';
 
 const Layout: React.FunctionComponent<{ title: string; children: React.ReactNode }> = (props) => (
-  <Page header={<PageHeader logo={<img src={logo} alt="Connectopus Logo" />} />}>
+  <Page
+    masthead={
+      <Masthead
+        style={
+          {
+            '--pf-v6-c-masthead--BackgroundColor': 'var(--pf-t--color--black)',
+          } as React.CSSProperties
+        }
+      >
+        <MastheadMain>
+          <MastheadBrand>
+            <Brand src={logo} alt="Connectopus Logo" />
+          </MastheadBrand>
+        </MastheadMain>
+      </Masthead>
+    }
+  >
     <Grid>
       <GridItem span={1} />
       <GridItem span={6}>

@@ -30,7 +30,7 @@ const MultiNode: React.FunctionComponent = () => {
   }
   const onClick = (itemID) => {
     setActiveItem(itemID);
-    executeMutation({ node: itemID }).then(() => {
+    void executeMutation({ node: itemID }).then(() => {
       window.location.reload();
     });
   };

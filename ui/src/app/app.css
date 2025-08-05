@@ -22,3 +22,10 @@ html, body, #root {
 .pf-c-code-editor, .pf-c-code-editor__main, .pf-c-code-editor__code {
   height: 100%;
 }
+
+/* Ensure the main content area supports full-height absolute positioning for GraphQL page */
+#primary-app-container {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}

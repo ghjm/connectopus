@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { NavLink, useLocation, useHistory } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Nav,
   NavList,
@@ -12,14 +12,25 @@ import {
   Label,
   FlexItem,
   PageSidebarBody,
+  Masthead,
+  MastheadBrand,
+  MastheadContent,
+  MastheadMain,
+  MastheadToggle,
+  PageToggleButton,
+  Toolbar,
+  ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
 } from '@patternfly/react-core';
-import { ContextSelector, ContextSelectorItem, PageHeader, PageHeaderTools } from '@patternfly/react-core/deprecated';
+import { Dropdown, DropdownItem, DropdownList, MenuToggle } from '@patternfly/react-core';
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
 import logo from '@app/images/connectopus.png';
 import nodeLogo from '@app/images/node.png';
 import { Client, createClient, Provider, useQuery, cacheExchange, fetchExchange } from 'urql';
 import { createContext, useEffect } from 'react';
 import GitHubButton from 'react-github-btn';
+import './AppLayout.css';
 
 interface IAppLayout {
   children: React.ReactNode;
@@ -54,13 +65,11 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
 }) => {
   const [myNode, setMyNode] = myNodeState;
   const [activeNode, setActiveNode] = activeNodeState;
-  const [isNavOpen, setIsNavOpen] = React.useState(true);
-  const [isMobileView, setIsMobileView] = React.useState(true);
-  const [isNavOpenMobile, setIsNavOpenMobile] = React.useState(false);
+
   const [contextSelectorSelected, setContextSelectorSelected] = React.useState(activeNode);
   const [isContextSelectorOpen, setIsContextSelectorOpen] = React.useState(false);
-  const [searchText, setSearchText] = React.useState('');
-  const [searchValue, setSearchValue] = React.useState('');
+  const searchText = '';
+
   const [result, reexecuteQuery] = useQuery({
     query: statusQuery,
     variables: {},
@@ -82,37 +91,16 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
     return () => clearTimeout(timerId);
   }, [result, reexecuteQuery, myNode, setMyNode]);
 
-  const onNavToggleMobile = () => {
-    setIsNavOpenMobile(!isNavOpenMobile);
-  };
-  const navMobileClose = () => {
-    setIsNavOpenMobile(false);
-  };
-  const onNavToggle = () => {
-    setIsNavOpen(!isNavOpen);
-  };
-  const onPageResize = (props: { mobileView: boolean; windowSize: number }) => {
-    setIsMobileView(props.mobileView);
-  };
-
   function LogoImg() {
-    const history = useHistory();
+    const navigate = useNavigate();
     function handleClick() {
-      history.push('/');
+      void navigate('/');
     }
     return <img src={logo} onClick={handleClick} alt="Connectopus Logo" />;
   }
 
-  const onToggle = (_: unknown, isOpen: boolean) => {
-    setIsContextSelectorOpen(isOpen);
-  };
-
-  const onSearchInputChange = (_: unknown, value: string) => {
-    setSearchValue(value);
-  };
-
-  const onSearchButtonClick = () => {
-    setSearchText(searchValue);
+  const onToggle = () => {
+    setIsContextSelectorOpen(!isContextSelectorOpen);
   };
 
   const onSelect = (_: unknown, value: React.ReactNode) => {
@@ -136,45 +124,83 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
         }
         return node.name.includes(searchText);
       })
-      .map((node) => <ContextSelectorItem key={node.name}>{`${node.name}`}</ContextSelectorItem>);
+      .map((node) => (
+        <DropdownItem key={node.name} value={node.name}>
+          {`${node.name}`}
+        </DropdownItem>
+      ));
   };
 
   const Selector = (
-    <ContextSelector
-      toggleText={contextSelectorSelected}
-      searchInputValue={searchValue}
+    <Dropdown
       isOpen={isContextSelectorOpen}
-      onToggle={onToggle}
       onSelect={onSelect}
-      onSearchInputChange={onSearchInputChange}
-      onSearchButtonClick={onSearchButtonClick}
+      onOpenChange={(isOpen: boolean) => setIsContextSelectorOpen(isOpen)}
+      toggle={(toggleRef: React.Ref<HTMLButtonElement>) => (
+        <MenuToggle ref={toggleRef} onClick={onToggle} isExpanded={isContextSelectorOpen}>
+          {contextSelectorSelected}
+        </MenuToggle>
+      )}
     >
-      {getContextSelectors()}
-    </ContextSelector>
+      <DropdownList>{getContextSelectors()}</DropdownList>
+    </Dropdown>
   );
 
   const Header = (
-    <PageHeader
-      logo={<LogoImg />}
-      showNavToggle
-      isNavOpen={isNavOpen}
-      onNavToggle={isMobileView ? onNavToggleMobile : onNavToggle}
-      headerTools={<PageHeaderTools>{Selector}</PageHeaderTools>}
-    />
+    <Masthead
+      display={{ default: 'inline' }}
+      style={
+        {
+          '--pf-v6-c-masthead--BackgroundColor': 'var(--pf-t--color--black)',
+          '--pf-v6-c-masthead--BorderColor': 'var(--pf-t--color--gray--80)',
+          '--pf-v6-c-page-toggle-button--Color': 'white !important',
+          '--pf-v6-c-page-toggle-button--hover--Color': '#f0f0f0 !important',
+          '--pf-v6-c-page-toggle-button--focus--Color': 'white !important',
+          '--pf-v6-c-page-toggle-button--active--Color': '#e0e0e0 !important',
+        } as React.CSSProperties
+      }
+    >
+      <MastheadMain>
+        <MastheadToggle>
+          <PageToggleButton
+            variant="plain"
+            aria-label="Global navigation"
+            style={
+              {
+                color: 'white !important',
+                '--pf-v6-c-button--Color': 'white !important',
+                '--pf-v6-c-button--hover--Color': 'white !important',
+                '--pf-v6-c-button--focus--Color': 'white !important',
+                '--pf-v6-c-button--active--Color': 'white !important',
+              } as React.CSSProperties
+            }
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ color: 'white' }}>
+              <path d="M1 3h14v2H1V3zm0 4h14v2H1V7zm0 4h14v2H1v-2z" />
+            </svg>
+          </PageToggleButton>
+        </MastheadToggle>
+        <MastheadBrand>
+          <LogoImg />
+        </MastheadBrand>
+      </MastheadMain>
+      <MastheadContent>
+        <Toolbar id="masthead-toolbar">
+          <ToolbarContent>
+            <ToolbarGroup align={{ default: 'alignEnd' }}>
+              <ToolbarItem>{Selector}</ToolbarItem>
+            </ToolbarGroup>
+          </ToolbarContent>
+        </Toolbar>
+      </MastheadContent>
+    </Masthead>
   );
 
   const location = useLocation();
 
   const renderNavItem = (route: IAppRoute, index: number) => (
-    <NavItem
-      key={`${route.label}-${index}`}
-      id={`${route.label}-${index}`}
-      isActive={route.path === location.pathname}
-      onClick={navMobileClose}
-    >
-      <NavLink exact={route.exact} to={route.path}>
-        {route.label}
-      </NavLink>
+    <NavItem key={`${route.label}-${index}`} id={`${route.label}-${index}`} isActive={route.path === location.pathname}>
+      <NavLink to={route.path}>{route.label}</NavLink>
     </NavItem>
   );
 
@@ -238,7 +264,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
   const Navigation = (
     <Flex direction={{ default: 'column' }} flexWrap={{ default: 'nowrap' }} height="100%">
       <FlexItem grow={{ default: 'grow' }} height="100%">
-        <Nav id="nav-primary-simple" theme="dark">
+        <Nav id="nav-primary-simple">
           <NavList id="nav-list-simple">
             {routes.map(
               (route, idx) => route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx)),
@@ -251,7 +277,7 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
   );
 
   const Sidebar = (
-    <PageSidebar theme="dark" isSidebarOpen={isMobileView ? isNavOpenMobile : isNavOpen}>
+    <PageSidebar>
       <PageSidebarBody>{Navigation}</PageSidebarBody>
     </PageSidebar>
   );
@@ -273,11 +299,12 @@ const AppLayoutContent: React.FunctionComponent<IAppContent> = ({
   return (
     <Page
       mainContainerId={pageId}
-      header={Header}
+      masthead={Header}
       sidebar={Sidebar}
-      onPageResize={(_event, props: { mobileView: boolean; windowSize: number }) => onPageResize(props)}
       skipToContent={PageSkipToContent}
-      style={{ height: '100%', width: '100%' }}
+      isContentFilled
+      isManagedSidebar={true}
+      style={{ height: '100vh', width: '100%' }}
     >
       <Provider value={mainClient}>{children}</Provider>
     </Page>

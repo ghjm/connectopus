@@ -1,0 +1,83 @@
+/* Custom styles for mobile navigation toggle button visibility */
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button {
+  color: white !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button:hover {
+  color: #f0f0f0 !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button:focus {
+  color: white !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button:active {
+  color: #e0e0e0 !important;
+}
+
+/* Alternative approach using button selectors */
+.pf-v6-c-masthead .pf-v6-c-button.pf-m-plain {
+  color: white !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-button.pf-m-plain:hover {
+  color: #f0f0f0 !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-button.pf-m-plain:focus {
+  color: white !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-button.pf-m-plain:active {
+  color: #e0e0e0 !important;
+}
+
+/* Target the SVG icon inside the toggle button */
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button svg {
+  fill: white !important;
+  color: white !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button:hover svg {
+  fill: #f0f0f0 !important;
+  color: #f0f0f0 !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button:focus svg {
+  fill: white !important;
+  color: white !important;
+}
+
+.pf-v6-c-masthead .pf-v6-c-masthead__toggle .pf-v6-c-page-toggle-button:active svg {
+  fill: #e0e0e0 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Responsive logo sizing to keep masthead on single line */
+.pf-v6-c-masthead__brand img {
+  max-height: 40px !important;
+  width: auto !important;
+}
+
+/* Make logo smaller on very small screens */
+@media (max-width: 480px) {
+  .pf-v6-c-masthead__brand img {
+    max-height: 32px !important;
+  }
+}
+
+/* Extra small screens - make logo even smaller */
+@media (max-width: 360px) {
+  .pf-v6-c-masthead__brand img {
+    max-height: 28px !important;
+  }
+}
+
+/* Ensure masthead content doesn't wrap */
+.pf-v6-c-masthead__main {
+  flex-wrap: nowrap !important;
+}
+
+.pf-v6-c-masthead__content {
+  flex-wrap: nowrap !important;
+}

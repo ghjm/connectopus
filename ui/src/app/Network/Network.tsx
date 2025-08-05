@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Skeleton } from '@patternfly/react-core';
+import { Skeleton, PageSection } from '@patternfly/react-core';
 import { usePageVisibility } from 'react-page-visibility';
 import { useQuery } from 'urql';
 import { useEffect, useRef, useState } from 'react';
@@ -31,7 +31,7 @@ interface ICytoscapeComponent {
 }
 
 interface ICytoscapeRendered {
-  element: JSX.Element;
+  element: React.ReactElement;
   key: number;
 }
 
@@ -65,7 +65,7 @@ const cytoscapeComponent = (props: ICytoscapeComponent): ICytoscapeRendered => {
           },
         }}
         autoFit={true}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', minHeight: 'calc(100vh - 120px)' }}
         stylesheet={[
           {
             selector: 'node',
@@ -219,23 +219,49 @@ const Network: React.FunctionComponent = () => {
 
   if (isPageLoading) {
     return (
-      <React.Fragment>
+      <PageSection isFilled>
         <br />
         <Skeleton />
         <br />
         <Skeleton />
         <br />
         <Skeleton />
-      </React.Fragment>
+      </PageSection>
     );
   }
   if (result.error) {
-    return <p>{JSON.stringify(result.error)}</p>;
+    return (
+      <PageSection isFilled>
+        <p>{JSON.stringify(result.error)}</p>
+      </PageSection>
+    );
   }
   if (renderedGraph === undefined) {
-    return <React.Fragment></React.Fragment>;
+    return <PageSection isFilled></PageSection>;
   }
-  return renderedGraph.element;
+  return (
+    <PageSection
+      isFilled
+      padding={{ default: 'noPadding' }}
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 'calc(100vh - 120px)', // Account for masthead and any padding
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          flex: 1,
+          minHeight: 'calc(100vh - 120px)', // Make the graph container taller
+        }}
+      >
+        {renderedGraph.element}
+      </div>
+    </PageSection>
+  );
 };
 
 export { Network };

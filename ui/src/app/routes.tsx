@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Route, RouteComponentProps, Switch } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { Network } from '@app/Network/Network';
 import { GraphQL } from '@app/GraphQL/GraphQL';
 import { NotFound } from '@app/NotFound/NotFound';
@@ -10,9 +10,8 @@ import { Config } from '@app/Config/Config';
 export interface IAppRoute {
   label?: string; // Excluding the label will exclude the route from the nav sidebar in NoAgent
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  component: React.ComponentType<RouteComponentProps<any>> | React.ComponentType<any>;
+  component: React.ComponentType<any>;
   /* eslint-enable @typescript-eslint/no-explicit-any */
-  exact?: boolean;
   path: string;
   title: string;
   isAsync?: boolean;
@@ -29,14 +28,12 @@ export type AppRouteConfig = IAppRoute | IAppRouteGroup;
 const routes: AppRouteConfig[] = [
   {
     component: Network,
-    exact: true,
     label: 'Network',
     path: '/',
     title: 'Connectopus | Network',
   },
   {
     component: Status,
-    exact: true,
     isAsync: true,
     label: 'Status',
     path: '/Status',
@@ -44,7 +41,6 @@ const routes: AppRouteConfig[] = [
   },
   {
     component: Config,
-    exact: true,
     isAsync: true,
     label: 'Config',
     path: '/Config',
@@ -52,7 +48,6 @@ const routes: AppRouteConfig[] = [
   },
   {
     component: GraphQL,
-    exact: true,
     isAsync: true,
     label: 'GraphQL API',
     path: '/GraphQL',
@@ -62,17 +57,12 @@ const routes: AppRouteConfig[] = [
 
 const RouteWithTitleUpdates = ({ component: Component, title, ...rest }: IAppRoute) => {
   useDocumentTitle(title);
-
-  function routeWithTitle(routeProps: RouteComponentProps) {
-    return <Component {...rest} {...routeProps} />;
-  }
-
-  return <Route render={routeWithTitle} {...rest} />;
+  return <Component {...rest} />;
 };
 
 const PageNotFound = ({ title }: { title: string }) => {
   useDocumentTitle(title);
-  return <Route component={NotFound} />;
+  return <NotFound />;
 };
 
 const flattenedRoutes: IAppRoute[] = routes.reduce(
@@ -82,19 +72,16 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
 
 const AppRoutes = (): React.ReactElement => {
   return (
-    <Switch>
-      {flattenedRoutes.map(({ path, exact, component, title, isAsync }, idx) => (
-        <RouteWithTitleUpdates
-          path={path}
-          exact={exact}
-          component={component}
+    <Routes>
+      {flattenedRoutes.map(({ path, component, title, isAsync }, idx) => (
+        <Route
           key={idx}
-          title={title}
-          isAsync={isAsync}
+          path={path}
+          element={<RouteWithTitleUpdates component={component} path={path} title={title} isAsync={isAsync} />}
         />
       ))}
-      <PageNotFound title="404 Page Not Found" />
-    </Switch>
+      <Route path="*" element={<PageNotFound title="404 Page Not Found" />} />
+    </Routes>
   );
 };
 

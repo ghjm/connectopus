@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Skeleton } from '@patternfly/react-core';
+import { Skeleton, PageSection } from '@patternfly/react-core';
 import { usePageVisibility } from 'react-page-visibility';
 import { useQuery } from 'urql';
 import { useEffect, useRef, useState } from 'react';
@@ -30,18 +30,23 @@ const Config: React.FunctionComponent = () => {
   }
   if (isPageLoading)
     return (
-      <React.Fragment>
+      <PageSection isFilled>
         <br />
         <Skeleton />
         <br />
         <Skeleton />
         <br />
         <Skeleton />
-      </React.Fragment>
+      </PageSection>
     );
-  if (result.error) return <p>{JSON.stringify(result.error)}</p>;
+  if (result.error)
+    return (
+      <PageSection isFilled>
+        <p>{JSON.stringify(result.error)}</p>
+      </PageSection>
+    );
   return (
-    <React.Fragment>
+    <PageSection isFilled padding={{ default: 'noPadding' }}>
       <CodeEditor
         code={result.data['config']['yaml']}
         isLineNumbersVisible={true}
@@ -58,7 +63,7 @@ const Config: React.FunctionComponent = () => {
           },
         }}
       />
-    </React.Fragment>
+    </PageSection>
   );
 };
 

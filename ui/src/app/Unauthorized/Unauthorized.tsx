@@ -3,16 +3,17 @@ import {
   Page,
   Alert,
   TextArea,
-  Text,
+  Content,
   Flex,
   FlexItem,
-  TextContent,
-  TextVariants,
   Button,
   Grid,
   GridItem,
+  Masthead,
+  MastheadBrand,
+  MastheadMain,
+  Brand,
 } from '@patternfly/react-core';
-import { PageHeader } from '@patternfly/react-core/deprecated';
 import logo from '@app/images/connectopus.png';
 import { useState } from 'react';
 import Cookies from 'universal-cookie';
@@ -25,7 +26,23 @@ const Unauthorized: React.FunctionComponent = () => {
     window.location.reload();
   };
   return (
-    <Page header={<PageHeader logo={<img src={logo} alt="Connectopus Logo" />} />}>
+    <Page
+      masthead={
+        <Masthead
+          style={
+            {
+              '--pf-v6-c-masthead--BackgroundColor': 'var(--pf-t--color--black)',
+            } as React.CSSProperties
+          }
+        >
+          <MastheadMain>
+            <MastheadBrand>
+              <Brand src={logo} alt="Connectopus Logo" />
+            </MastheadBrand>
+          </MastheadMain>
+        </Masthead>
+      }
+    >
       <Grid>
         <GridItem span={3}></GridItem>
         <GridItem span={6}>
@@ -46,16 +63,16 @@ const Unauthorized: React.FunctionComponent = () => {
                   />
                 </FlexItem>
                 <FlexItem style={{ ['paddingTop' as string]: '3rem' }}>
-                  <TextContent>
-                    <Text component={TextVariants.h2}>Please enter an authorization token.</Text>
-                  </TextContent>
+                  <Content>
+                    <Content component="h2">Please enter an authorization token.</Content>
+                  </Content>
                 </FlexItem>
                 <FlexItem style={{ ['paddingTop' as string]: '0.5rem' }}>
-                  <TextContent>
-                    <Text component={TextVariants.h4}>
+                  <Content>
+                    <Content component="h4">
                       You can generate an authorization token using <i>connectopus get-token</i> from the command line.
-                    </Text>
-                  </TextContent>
+                    </Content>
+                  </Content>
                 </FlexItem>
                 <FlexItem style={{ ['paddingTop' as string]: '0.5rem' }}>
                   <TextArea
