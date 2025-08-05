@@ -21,11 +21,11 @@ jobs:
         run: gh pr merge --auto --rebase "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{secrets.GHJM_TOKEN_FOR_DEPENDABOT}}
 
       - name: Approve Dependabot PRs
         run: gh pr review $PR_URL --approve -b "Auto-approval of Dependabot PRs"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{secrets.GHJM_TOKEN_FOR_DEPENDABOT}}
 
