@@ -51,6 +51,9 @@ $(foreach a,$(PLATFORMS),$(eval $(call PLATFORM_template,$(word 1,$(subst :, ,$(
 .PHONY: bin
 bin: $(UI_DEP) $(BINFILES)
 
+.PHONY: generate
+generate: gen
+
 .PHONY: gen
 gen:
 	@go generate ./...

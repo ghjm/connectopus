@@ -4,7 +4,6 @@ package cpctl
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/Yamashou/gqlgenc/clientv2"
@@ -14,26 +13,26 @@ type Client struct {
 	Client *clientv2.Client
 }
 
-func NewClient(cli *http.Client, baseURL string, options *clientv2.Options, interceptors ...clientv2.RequestInterceptor) *Client {
+func NewClient(cli clientv2.HttpClient, baseURL string, options *clientv2.Options, interceptors ...clientv2.RequestInterceptor) *Client {
 	return &Client{Client: clientv2.NewClient(cli, baseURL, options, interceptors...)}
 }
 
 type GetConfig_Config struct {
-	Yaml      string "json:\"yaml\" graphql:\"yaml\""
 	Signature string "json:\"signature\" graphql:\"signature\""
+	Yaml      string "json:\"yaml\" graphql:\"yaml\""
 }
 
-func (t *GetConfig_Config) GetYaml() string {
-	if t == nil {
-		t = &GetConfig_Config{}
-	}
-	return t.Yaml
-}
 func (t *GetConfig_Config) GetSignature() string {
 	if t == nil {
 		t = &GetConfig_Config{}
 	}
 	return t.Signature
+}
+func (t *GetConfig_Config) GetYaml() string {
+	if t == nil {
+		t = &GetConfig_Config{}
+	}
+	return t.Yaml
 }
 
 type SetConfig_UpdateConfig struct {
@@ -66,24 +65,12 @@ func (t *GetNetns_Netns) GetPid() int {
 }
 
 type GetStatus_Status_Global struct {
-	Domain            string    "json:\"domain\" graphql:\"domain\""
-	Subnet            string    "json:\"subnet\" graphql:\"subnet\""
 	AuthorizedKeys    []string  "json:\"authorized_keys\" graphql:\"authorized_keys\""
 	ConfigLastUpdated time.Time "json:\"config_last_updated\" graphql:\"config_last_updated\""
+	Domain            string    "json:\"domain\" graphql:\"domain\""
+	Subnet            string    "json:\"subnet\" graphql:\"subnet\""
 }
 
-func (t *GetStatus_Status_Global) GetDomain() string {
-	if t == nil {
-		t = &GetStatus_Status_Global{}
-	}
-	return t.Domain
-}
-func (t *GetStatus_Status_Global) GetSubnet() string {
-	if t == nil {
-		t = &GetStatus_Status_Global{}
-	}
-	return t.Subnet
-}
 func (t *GetStatus_Status_Global) GetAuthorizedKeys() []string {
 	if t == nil {
 		t = &GetStatus_Status_Global{}
@@ -96,37 +83,43 @@ func (t *GetStatus_Status_Global) GetConfigLastUpdated() *time.Time {
 	}
 	return &t.ConfigLastUpdated
 }
-
-type GetStatus_Status_Nodes_Conns struct {
-	Subnet string  "json:\"subnet\" graphql:\"subnet\""
-	Cost   float64 "json:\"cost\" graphql:\"cost\""
-}
-
-func (t *GetStatus_Status_Nodes_Conns) GetSubnet() string {
+func (t *GetStatus_Status_Global) GetDomain() string {
 	if t == nil {
-		t = &GetStatus_Status_Nodes_Conns{}
+		t = &GetStatus_Status_Global{}
+	}
+	return t.Domain
+}
+func (t *GetStatus_Status_Global) GetSubnet() string {
+	if t == nil {
+		t = &GetStatus_Status_Global{}
 	}
 	return t.Subnet
 }
+
+type GetStatus_Status_Nodes_Conns struct {
+	Cost   float64 "json:\"cost\" graphql:\"cost\""
+	Subnet string  "json:\"subnet\" graphql:\"subnet\""
+}
+
 func (t *GetStatus_Status_Nodes_Conns) GetCost() float64 {
 	if t == nil {
 		t = &GetStatus_Status_Nodes_Conns{}
 	}
 	return t.Cost
 }
+func (t *GetStatus_Status_Nodes_Conns) GetSubnet() string {
+	if t == nil {
+		t = &GetStatus_Status_Nodes_Conns{}
+	}
+	return t.Subnet
+}
 
 type GetStatus_Status_Nodes struct {
-	Name  string                          "json:\"name\" graphql:\"name\""
 	Addr  string                          "json:\"addr\" graphql:\"addr\""
 	Conns []*GetStatus_Status_Nodes_Conns "json:\"conns\" graphql:\"conns\""
+	Name  string                          "json:\"name\" graphql:\"name\""
 }
 
-func (t *GetStatus_Status_Nodes) GetName() string {
-	if t == nil {
-		t = &GetStatus_Status_Nodes{}
-	}
-	return t.Name
-}
 func (t *GetStatus_Status_Nodes) GetAddr() string {
 	if t == nil {
 		t = &GetStatus_Status_Nodes{}
@@ -139,11 +132,17 @@ func (t *GetStatus_Status_Nodes) GetConns() []*GetStatus_Status_Nodes_Conns {
 	}
 	return t.Conns
 }
+func (t *GetStatus_Status_Nodes) GetName() string {
+	if t == nil {
+		t = &GetStatus_Status_Nodes{}
+	}
+	return t.Name
+}
 
 type GetStatus_Status_Sessions struct {
 	Addr      string "json:\"addr\" graphql:\"addr\""
-	Connected bool   "json:\"connected\" graphql:\"connected\""
 	ConnStart string "json:\"conn_start\" graphql:\"conn_start\""
+	Connected bool   "json:\"connected\" graphql:\"connected\""
 }
 
 func (t *GetStatus_Status_Sessions) GetAddr() string {
@@ -152,33 +151,27 @@ func (t *GetStatus_Status_Sessions) GetAddr() string {
 	}
 	return t.Addr
 }
-func (t *GetStatus_Status_Sessions) GetConnected() bool {
-	if t == nil {
-		t = &GetStatus_Status_Sessions{}
-	}
-	return t.Connected
-}
 func (t *GetStatus_Status_Sessions) GetConnStart() string {
 	if t == nil {
 		t = &GetStatus_Status_Sessions{}
 	}
 	return t.ConnStart
 }
+func (t *GetStatus_Status_Sessions) GetConnected() bool {
+	if t == nil {
+		t = &GetStatus_Status_Sessions{}
+	}
+	return t.Connected
+}
 
 type GetStatus_Status struct {
-	Name     string                       "json:\"name\" graphql:\"name\""
 	Addr     string                       "json:\"addr\" graphql:\"addr\""
 	Global   GetStatus_Status_Global      "json:\"global\" graphql:\"global\""
+	Name     string                       "json:\"name\" graphql:\"name\""
 	Nodes    []*GetStatus_Status_Nodes    "json:\"nodes\" graphql:\"nodes\""
 	Sessions []*GetStatus_Status_Sessions "json:\"sessions\" graphql:\"sessions\""
 }
 
-func (t *GetStatus_Status) GetName() string {
-	if t == nil {
-		t = &GetStatus_Status{}
-	}
-	return t.Name
-}
 func (t *GetStatus_Status) GetAddr() string {
 	if t == nil {
 		t = &GetStatus_Status{}
@@ -190,6 +183,12 @@ func (t *GetStatus_Status) GetGlobal() *GetStatus_Status_Global {
 		t = &GetStatus_Status{}
 	}
 	return &t.Global
+}
+func (t *GetStatus_Status) GetName() string {
+	if t == nil {
+		t = &GetStatus_Status{}
+	}
+	return t.Name
 }
 func (t *GetStatus_Status) GetNodes() []*GetStatus_Status_Nodes {
 	if t == nil {
