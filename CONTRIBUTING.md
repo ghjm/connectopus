@@ -11,38 +11,14 @@ The first time you open a pull request, the CLA Assistant at https://cla-assista
 
 #### Development Environment
 
-* My development environment is Fedora (36 as of this writing).  Ubuntu should also be fine.  If you want to develop on Windows or MacOS you'll be breaking new ground.
+* My development environment is Fedora.  Ubuntu should also be fine.  CI builds are done on Windows and MacOS.
 * I use the JetBrains GoLand IDE, but nothing in the project should be tied to it.
-* Go version 1.18 or better and Node v16 or better are required.  The project makes considerable use of Go generics, so versions before 1.18 definitely won't work.
 * The project is set up with pre-commit hooks to run local checks when you create a commit.  To use this, install [pre-commit](https://pre-commit.com/) and then run `pre-commit install` from the root of the repo.
-* There is also a [direnv](https://direnv.net/) `.envrc` file, with a reference to `.envrc.local` for your local settings.  You can use this, for example, to put Go 1.18 in your path if it isn't your system default.
+* There is also a [direnv](https://direnv.net/) `.envrc` file, with a reference to `.envrc.local` for your local settings.
 
 #### Building From Source
 
-* Install needed distro packages
-    * Fedora:
-      ```
-      sudo dnf -y install curl make findutils direnv util-linux-core nodejs gcc jq
-      ```
-    * Ubuntu:
-      ```
-      sudo apt install -y curl make gcc direnv sudo jq
-      curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-      sudo apt install -y nodejs
-      ```
-
-* Install Go 1.18 or better
-
-  Use `go version` to check your Go version.  If your distro doesn't include at least 1.18, you can install it locally using:
-  ```
-  mkdir $HOME/go-1.18.3 && \
-    curl -L https://go.dev/dl/go1.18.3.linux-amd64.tar.gz | \
-    tar xfvz - --strip-components=1 -C $HOME/go-1.18.3
-  ```
-  If you need to do this, consider also installing [direnv](https://direnv.net/) and creating an `.envrc.local` file containing something like:
-  ```
-  PATH_add $HOME/go-1.18.3/bin
-  ```
+* Make sure you have Go 1.24 or better, Node 22 or better, make, jq and find
 
 * Build the software
   ```
