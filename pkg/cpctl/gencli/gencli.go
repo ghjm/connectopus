@@ -26,7 +26,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	clientPlugin := clientgenv2.New(queryFilePaths, clientConfig, nil)
+	clientPlugin := clientgenv2.NewWithQueryDocument(queryFilePaths, clientConfig, nil)
 	err = api.Generate(cfg, api.AddPlugin(clientPlugin))
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%+v\n", err)
