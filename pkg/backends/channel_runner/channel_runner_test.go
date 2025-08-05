@@ -95,10 +95,7 @@ func TestChannelRunner(t *testing.T) {
 	go c.RunProtocol(ctx, 1.0, b)
 
 	startTime := time.Now()
-	for {
-		if (gotRead.Get() && b.gotWrite.Get()) || time.Since(startTime) > 5*time.Second {
-			break
-		}
+	for (!gotRead.Get() || !b.gotWrite.Get()) && time.Since(startTime) <= 5*time.Second {
 		time.Sleep(100 * time.Millisecond)
 	}
 	if !gotRead.Get() {
