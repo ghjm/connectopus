@@ -8,6 +8,9 @@ import {
   DescriptionListTerm,
   DescriptionListDescription,
   DescriptionListGroup,
+  PageSection,
+  Stack,
+  StackItem,
 } from '@patternfly/react-core';
 import { Table /* data-codemods */, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 import { usePageVisibility } from 'react-page-visibility';
@@ -53,95 +56,108 @@ const Status: React.FunctionComponent = () => {
   }
   if (isPageLoading)
     return (
-      <React.Fragment>
+      <PageSection>
         <br />
         <Skeleton />
         <br />
         <Skeleton />
         <br />
         <Skeleton />
-      </React.Fragment>
+      </PageSection>
     );
-  if (result.error) return <p>{JSON.stringify(result.error)}</p>;
+  if (result.error)
+    return (
+      <PageSection>
+        <p>{JSON.stringify(result.error)}</p>
+      </PageSection>
+    );
   return (
-    <React.Fragment>
-      <Card>
-        <CardTitle>Node</CardTitle>
-        <CardBody>
-          <DescriptionList columnModifier={{ default: '2Col' }}>
-            <DescriptionListGroup>
-              <DescriptionListTerm>Name</DescriptionListTerm>
-              <DescriptionListDescription>{result.data['status']['name']}</DescriptionListDescription>
-            </DescriptionListGroup>
-            <DescriptionListGroup>
-              <DescriptionListTerm>Address</DescriptionListTerm>
-              <DescriptionListDescription>{result.data['status']['addr']}</DescriptionListDescription>
-            </DescriptionListGroup>
-          </DescriptionList>
-        </CardBody>
-      </Card>
-      <Card>
-        <CardTitle>Connected Sessions</CardTitle>
-        <CardBody>
-          <Table variant={'compact'}>
-            <Thead>
-              <Tr>
-                <Th>Address</Th>
-                <Th>Connected Since</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {result.data['status']['sessions'].map((sess) => (
-                <Tr key={sess['addr']}>
-                  <Td>{sess['addr']}</Td>
-                  <Td>{sess['connected'] ? sess['conn_start'] : 'not connected'}</Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        </CardBody>
-      </Card>
-      <Card>
-        <CardTitle>Known Nodes</CardTitle>
-        <CardBody>
-          <Table variant={'compact'}>
-            <Thead>
-              <Tr>
-                <Th>Name</Th>
-                <Th>Address</Th>
-                <Th>Connections</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {result.data['status']['nodes'].map((sess) => (
-                <Tr key={sess['node']}>
-                  <Td>{sess['name']}</Td>
-                  <Td>{sess['addr']}</Td>
-                  <Td>
-                    <Table variant={'compact'}>
-                      <Thead>
-                        <Tr>
-                          <Th>Subnet</Th>
-                          <Th>Cost</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {sess['conns'].map((conn) => (
-                          <Tr key={conn['subnet']}>
-                            <Td>{conn['subnet']}</Td>
-                            <Td>{conn['cost']}</Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        </CardBody>
-      </Card>
-    </React.Fragment>
+    <PageSection>
+      <Stack hasGutter>
+        <StackItem>
+          <Card>
+            <CardTitle>Node</CardTitle>
+            <CardBody>
+              <DescriptionList columnModifier={{ default: '2Col' }}>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Name</DescriptionListTerm>
+                  <DescriptionListDescription>{result.data['status']['name']}</DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Address</DescriptionListTerm>
+                  <DescriptionListDescription>{result.data['status']['addr']}</DescriptionListDescription>
+                </DescriptionListGroup>
+              </DescriptionList>
+            </CardBody>
+          </Card>
+        </StackItem>
+        <StackItem>
+          <Card>
+            <CardTitle>Connected Sessions</CardTitle>
+            <CardBody>
+              <Table variant={'compact'}>
+                <Thead>
+                  <Tr>
+                    <Th>Address</Th>
+                    <Th>Connected Since</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {result.data['status']['sessions'].map((sess) => (
+                    <Tr key={sess['addr']}>
+                      <Td>{sess['addr']}</Td>
+                      <Td>{sess['connected'] ? sess['conn_start'] : 'not connected'}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </CardBody>
+          </Card>
+        </StackItem>
+        <StackItem>
+          <Card>
+            <CardTitle>Known Nodes</CardTitle>
+            <CardBody>
+              <Table variant={'compact'}>
+                <Thead>
+                  <Tr>
+                    <Th>Name</Th>
+                    <Th>Address</Th>
+                    <Th>Connections</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {result.data['status']['nodes'].map((sess) => (
+                    <Tr key={sess['node']}>
+                      <Td>{sess['name']}</Td>
+                      <Td>{sess['addr']}</Td>
+                      <Td>
+                        <Table variant={'compact'}>
+                          <Thead>
+                            <Tr>
+                              <Th>Subnet</Th>
+                              <Th>Cost</Th>
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {sess['conns'].map((conn) => (
+                              <Tr key={conn['subnet']}>
+                                <Td>{conn['subnet']}</Td>
+                                <Td>{conn['cost']}</Td>
+                              </Tr>
+                            ))}
+                          </Tbody>
+                        </Table>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </CardBody>
+          </Card>
+        </StackItem>
+      </Stack>
+    </PageSection>
   );
 };
 
