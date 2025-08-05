@@ -256,7 +256,7 @@ func (nc NodeCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done fu
 	if err != nil {
 		return nil, err
 	}
-	inst.n.UpdateConfig(cfgData, sigData, nc.Config.Global.LastUpdated)
+	inst.n.UpdateConfig(cfgData, sigData, nc.Global.LastUpdated)
 	go func() {
 		<-ctx.Done()
 		time.Sleep(time.Second)
@@ -266,7 +266,7 @@ func (nc NodeCfg) Start(ctx context.Context, ri *reconciler.RunningItem, done fu
 }
 
 func (nc NodeCfg) Children() map[string]reconciler.ConfigItem {
-	node, ok := nc.Config.Nodes[nc.identity]
+	node, ok := nc.Nodes[nc.identity]
 	if !ok {
 		return nil
 	}

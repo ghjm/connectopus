@@ -55,7 +55,7 @@ func SetupLink(deviceName string, tunAddr net.IP, subnet *net.IPNet, mtu uint16,
 			},
 		}
 		if linkOpts.setUser {
-			waterCfg.PlatformSpecificParams.Permissions = &water.DevicePermissions{
+			waterCfg.Permissions = &water.DevicePermissions{
 				Owner: linkOpts.uid,
 				Group: linkOpts.gid,
 			}

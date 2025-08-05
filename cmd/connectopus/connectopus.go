@@ -44,7 +44,7 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if !(isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())) {
+		if !isatty.IsTerminal(os.Stdout.Fd()) && !isatty.IsCygwinTerminal(os.Stdout.Fd()) {
 			err := uiCmd.RunE(cmd, args)
 			if errors.Is(err, syscall.EADDRINUSE) {
 				// Another instance of the UI server is running, so try opening a browser to it.
@@ -95,7 +95,7 @@ var initCmd = &cobra.Command{
 			PublicKey: keys[0],
 			Comment:   keys[0].Comment,
 		}
-		fmt.Printf("Using SSH key %s [...] %s\n", key.PublicKey.Type(), key.Comment)
+		fmt.Printf("Using SSH key %s [...] %s\n", key.Type(), key.Comment)
 
 		var newCfg config.Config
 		if configFilename == "" {
@@ -794,7 +794,7 @@ func abbreviateKey(keyStr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s [...] %s", key.PublicKey.Type(), key.Comment), nil
+	return fmt.Sprintf("%s [...] %s", key.Type(), key.Comment), nil
 }
 
 func formatNode(addr string, nodeNames map[string]string) string {

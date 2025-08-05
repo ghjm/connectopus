@@ -61,10 +61,7 @@ func testNetstackSubscribe(t *testing.T, stackBuilder NewStackFunc) {
 		t.Fatalf("DialUDP error %s", err)
 	}
 	startTime := time.Now()
-	for {
-		if gotData.Get() || time.Since(startTime) > 5*time.Second {
-			break
-		}
+	for !gotData.Get() && time.Since(startTime) <= 5*time.Second {
 		err = udpConn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
 		if err != nil {
 			t.Fatalf("SetWriteDeadLine error %s", err)
@@ -155,10 +152,7 @@ func testNetstackInject(t *testing.T, stackBuilder NewStackFunc) {
 	}
 
 	startTime := time.Now()
-	for {
-		if gotData.Get() || time.Since(startTime) > 5*time.Second {
-			break
-		}
+	for !gotData.Get() && time.Since(startTime) <= 5*time.Second {
 		time.Sleep(100 * time.Millisecond)
 	}
 	if !gotData.Get() {
