@@ -7,6 +7,10 @@ const BG_IMAGES_DIRNAME = 'bgimages';
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 module.exports = () => {
   return {
+    cache: {
+      type: 'filesystem',
+      cacheDirectory: path.resolve(__dirname, 'node_modules/.cache/webpack'),
+    },
     module: {
       rules: [
         {
@@ -116,9 +120,10 @@ module.exports = () => {
       ],
     },
     output: {
-      filename: '[name].bundle.js',
+      filename: '[name].[contenthash].bundle.js',
       path: path.resolve(__dirname, '../internal/ui_embed/embed/dist'),
       publicPath: ASSET_PATH,
+      clean: true, // Clean output directory before each build
     },
     plugins: [
       new HtmlWebpackPlugin({
@@ -141,6 +146,19 @@ module.exports = () => {
       ],
       symlinks: false,
       cacheWithContext: false,
+    },
+    optimization: {
+      moduleIds: 'deterministic',
+      runtimeChunk: 'single',
+      splitChunks: {
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+        },
+      },
     },
     performance: {
       hints: false,

@@ -5,7 +5,15 @@ const PORT = process.env.PORT || '9000';
 
 module.exports = merge(common('development'), {
   mode: 'development',
-  devtool: 'eval-source-map',
+  devtool: 'eval-cheap-module-source-map', // Faster than eval-source-map
+  optimization: {
+    removeAvailableModules: false,
+    removeEmptyChunks: false,
+    splitChunks: false,
+  },
+  output: {
+    pathinfo: false, // Disable path info for faster builds
+  },
   devServer: {
     host: HOST,
     port: PORT,

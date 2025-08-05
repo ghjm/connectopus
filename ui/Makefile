@@ -1,4 +1,4 @@
-UI_DEP := ../internal/ui_embed/embed/dist/main.bundle.js
+UI_DEP := ../internal/ui_embed/embed/dist/index.html
 NPM_DEP := node_modules/.package_lock.json
 
 UI_SRC := $(shell find src -type f)
