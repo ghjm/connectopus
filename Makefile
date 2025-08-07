@@ -1,10 +1,14 @@
 ifeq ($(OS),Windows_NT)
 	STDERR_REDIRECT := 2>NUL
 	EXE_SUFFIX := .exe
+	FIND := bash.exe -c "find
+	FIND_SUFFIX := "
 else
 	SHELL := /bin/bash
 	STDERR_REDIRECT := 2>/dev/null
 	EXE_SUFFIX :=
+	FIND := find
+	FIND_SUFFIX :=
 endif
 
 ifeq ($(VERSION_TAG),)
@@ -31,7 +35,7 @@ all: $(PROGRAMS) $(UI_DEP)
 # current directory, which are in directories reported as being dependencies
 # of the given go source file.
 define go_deps
-$(shell find $(shell go list -f '{{.Dir}}' -deps $(1) | grep "^$$PWD") -name '*.go' | grep -v '_test.go$$' | grep -v '_gen.go$$')
+$(shell $(FIND) $(shell go list -f '{{.Dir}}' -deps $(1) | grep "^$$PWD") -name '*.go' ${FIND_SUFFIX} | grep -v '_test.go$$' | grep -v '_gen.go$$')
 endef
 
 define PROGRAM_template
@@ -123,7 +127,7 @@ endif
 .PHONY: ui
 ui: $(UPDATE_UI_DEP) $(UI_DEP)
 
-UI_SRC := $(shell find ui/src -type f)
+UI_SRC := $(shell $(FIND) ui/src -type f $(FIND_SUFFIX))
 $(UI_DEP): ui/package.json ui/package-lock.json ui/*.js $(UI_SRC)
 	@cd ui && make ui
 
