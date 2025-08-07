@@ -1,6 +1,6 @@
 module github.com/ghjm/connectopus
 
-go 1.23.0
+go 1.23.1
 
 toolchain go1.24.4
 
@@ -26,7 +26,7 @@ require (
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
 	golang.org/x/sys v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
-	gvisor.dev/gvisor v0.0.0-20231020174304-db3d49b921f9
+	gvisor.dev/gvisor v0.0.0-20250807194038-c9af560a03d9
 	lukechampine.com/uint128 v1.3.0
 )
 
@@ -62,6 +62,6 @@ require (
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
-	golang.org/x/time v0.3.0 // indirect
+	golang.org/x/time v0.7.0 // indirect
 	golang.org/x/tools v0.35.0 // indirect
 )
