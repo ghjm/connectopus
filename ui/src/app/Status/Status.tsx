@@ -13,9 +13,8 @@ import {
   StackItem,
 } from '@patternfly/react-core';
 import { Table /* data-codemods */, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
-import { usePageVisibility } from 'react-page-visibility';
 import { useQuery } from 'urql';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const statusQuery = `{
   status {
@@ -39,8 +38,6 @@ const statusQuery = `{
 
 const Status: React.FunctionComponent = () => {
   const [isPageLoading, setIsPageLoading] = useState(true);
-  const pageVisible = useRef(true);
-  pageVisible.current = usePageVisibility();
   const [result, reexecuteQuery] = useQuery({
     query: statusQuery,
   });

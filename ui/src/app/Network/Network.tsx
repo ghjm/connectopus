@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { Skeleton, PageSection } from '@patternfly/react-core';
-import { usePageVisibility } from 'react-page-visibility';
 import { useQuery } from 'urql';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Cytoscape from 'cytoscape';
 import CytoscapeComponent from 'react-cytoscapejs';
 import nodeImage from '@app/images/node.png';
@@ -121,8 +120,6 @@ const Network: React.FunctionComponent = () => {
   const [graphKey, setGraphKey] = useState(1);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [renderedGraph, setRenderedGraph] = useState<ICytoscapeRendered | undefined>(undefined);
-  const pageVisible = useRef(true);
-  pageVisible.current = usePageVisibility();
   const [result, reexecuteQuery] = useQuery({
     query: statusQuery,
   });
