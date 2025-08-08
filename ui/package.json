@@ -12,13 +12,11 @@
     "check-fmt": "prettier --check './**/*.{tsx,ts,js}'",
     "format": "prettier --check --write './**/*.{tsx,ts,js}'",
     "type-check": "tsc --noEmit",
-    "clean": "rimraf ../internal/ui_embed/embed/dist",
-    "postinstall": "patch-package"
+    "clean": "rimraf ../internal/ui_embed/embed/dist"
   },
   "devDependencies": {
     "@eslint/config-array": "^0.21.0",
     "@eslint/object-schema": "^2.1.6",
-    "@types/react-page-visibility": "^6.4.4",
     "@types/react-router-dom": "^5.3.3",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
@@ -35,7 +33,6 @@
     "html-webpack-plugin": "^5.6.0",
     "imagemin": "^9.0.0",
     "mini-css-extract-plugin": "^2.9.1",
-    "patch-package": "^8.1.0-canary.1",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
     "prop-types": "^15.8.1",
@@ -78,11 +75,10 @@
     "react-cytoscapejs": "^2.0.0",
     "react-dom": "^19.1.1",
     "react-github-btn": "^1.4.0",
-    "react-page-visibility": "^7.0.0",
     "send": "^1.2.0",
     "serve-static": "^2.2.0",
     "universal-cookie": "^8.0.1",
-    "urql": "^4.1.0",
+    "urql": "^4.2.2",
     "webcola": "^3.4.0"
   }
 }

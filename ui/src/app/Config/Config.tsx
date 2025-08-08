@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { Skeleton, PageSection } from '@patternfly/react-core';
-import { usePageVisibility } from 'react-page-visibility';
 import { useQuery } from 'urql';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CodeEditor, Language } from '@patternfly/react-code-editor';
 
 const configQuery = `{
@@ -13,8 +12,6 @@ const configQuery = `{
 
 const Config: React.FunctionComponent = () => {
   const [isPageLoading, setIsPageLoading] = useState(true);
-  const pageVisible = useRef(true);
-  pageVisible.current = usePageVisibility();
   const [result, reexecuteQuery] = useQuery({
     query: configQuery,
   });
