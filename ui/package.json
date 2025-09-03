@@ -18,8 +18,8 @@
     "@eslint/config-array": "^0.21.0",
     "@eslint/object-schema": "^2.1.6",
     "@types/react-router-dom": "^5.3.3",
-    "@typescript-eslint/eslint-plugin": "^8.40.0",
-    "@typescript-eslint/parser": "^8.40.0",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
     "ajv": "^8.17.1",
     "copy-webpack-plugin": "^13.0.1",
     "css-loader": "^7.1.2",
@@ -43,11 +43,11 @@
     "style-loader": "^4.0.0",
     "svg-url-loader": "^8.0.0",
     "terser-webpack-plugin": "^5.3.10",
-    "ts-loader": "^9.5.1",
+    "ts-loader": "^9.5.4",
     "tsconfig-paths-webpack-plugin": "^4.0.1",
     "tslib": "^2.7.0",
     "typescript": "^5.5.4",
-    "typescript-eslint": "^8.40.0",
+    "typescript-eslint": "^8.42.0",
     "url-loader": "^4.1.1",
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1",
@@ -78,7 +78,7 @@
     "send": "^1.2.0",
     "serve-static": "^2.2.0",
     "universal-cookie": "^8.0.1",
-    "urql": "^5.0.0",
+    "urql": "^5.0.1",
     "webcola": "^3.4.0"
   }
 }
