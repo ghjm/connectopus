@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.4
 
 require (
-	github.com/99designs/gqlgen v0.17.78
+	github.com/99designs/gqlgen v0.17.81
 	github.com/Yamashou/gqlgenc v0.33.0
 	github.com/ghjm/golib v0.0.0-20240321030641-5e17d3b69151
 	github.com/golang-jwt/jwt/v4 v4.5.2
