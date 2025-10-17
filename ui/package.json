@@ -15,7 +15,7 @@
     "clean": "rimraf ../internal/ui_embed/embed/dist"
   },
   "devDependencies": {
-    "@eslint/config-array": "^0.21.0",
+    "@eslint/config-array": "^0.21.1",
     "@eslint/object-schema": "^2.1.6",
     "@types/react-router-dom": "^5.3.3",
     "@typescript-eslint/eslint-plugin": "^8.46.1",
@@ -26,7 +26,7 @@
     "css-minimizer-webpack-plugin": "^7.0.0",
     "dotenv-webpack": "^8.1.0",
     "esbuild-loader": "^4.4.0",
-    "eslint": "^9.37.0",
+    "eslint": "^9.38.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.0",
     "file-loader": "^6.2.0",
@@ -55,11 +55,11 @@
     "webpack-merge": "^6.0.1"
   },
   "dependencies": {
-    "@patternfly/react-code-editor": "^6.3.1",
+    "@patternfly/react-code-editor": "^6.4.0",
     "@patternfly/react-core": "^6.3.0",
     "@patternfly/react-icons": "^6.3.0",
     "@patternfly/react-styles": "^6.3.0",
-    "@patternfly/react-table": "^6.3.1",
+    "@patternfly/react-table": "^6.4.0",
     "body-parser": "^2.2.0",
     "buffer": "^6.0.3",
     "compression": "^1.8.1",
