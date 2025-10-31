@@ -39,7 +39,7 @@
     "raw-loader": "^4.0.2",
     "react-router-dom": "^7.9.5",
     "regenerator-runtime": "^0.14.1",
-    "rimraf": "^6.0.1",
+    "rimraf": "^6.1.0",
     "style-loader": "^4.0.0",
     "svg-url-loader": "^8.0.0",
     "terser-webpack-plugin": "^5.3.10",
