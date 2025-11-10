@@ -24,7 +24,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
-	golang.org/x/sys v0.37.0
+	golang.org/x/sys v0.38.0
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20250807194038-c9af560a03d9
 	lukechampine.com/uint128 v1.3.0
