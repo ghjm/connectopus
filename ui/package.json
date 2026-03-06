@@ -60,7 +60,7 @@
     "@patternfly/react-icons": "^6.3.0",
     "@patternfly/react-styles": "^6.3.0",
     "@patternfly/react-table": "^6.4.0",
-    "body-parser": "^2.2.0",
+    "body-parser": "^2.2.1",
     "buffer": "^6.0.3",
     "compression": "^1.8.1",
     "cytoscape": "^3.33.1",
