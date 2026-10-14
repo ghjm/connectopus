@@ -62,7 +62,7 @@
     "@patternfly/react-table": "^6.4.0",
     "body-parser": "^2.2.0",
     "buffer": "^6.0.3",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cytoscape": "^3.33.1",
     "cytoscape-cola": "^2.5.1",
     "express": "^5.1.0",
